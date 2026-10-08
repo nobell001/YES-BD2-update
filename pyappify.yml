@@ -1,6 +1,8 @@
 name: "yes-bd2"
 uac: true
 icon: "icons/icon.png"
+# The app name in the launcher opens this page (Leo 10-08).
+website: "https://github.com/nobell001/YES-BD2"
 profiles:
   # One installer for everyone (Leo 2026-10-08): the China/Global split only
   # chose the update source, and every install now updates from GitHub.
