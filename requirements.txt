@@ -74,13 +74,10 @@ pyside6==6.9.1 ; sys_platform == 'win32'
     # via
     #   ok-bd2
     #   pyside6-fluent-widgets
-pyside6-addons==6.9.1 ; sys_platform == 'win32'
-    # via pyside6
 pyside6-essentials==6.9.1 ; sys_platform == 'win32'
     # via
     #   ok-script
     #   pyside6
-    #   pyside6-addons
 pyside6-fluent-widgets==1.11.2 ; sys_platform == 'win32'
     # via
     #   ok-bd2
@@ -107,7 +104,6 @@ shapely==2.1.2 ; sys_platform == 'win32'
 shiboken6==6.9.1 ; sys_platform == 'win32'
     # via
     #   pyside6
-    #   pyside6-addons
     #   pyside6-essentials
 six==1.17.0 ; sys_platform == 'win32'
     # via
