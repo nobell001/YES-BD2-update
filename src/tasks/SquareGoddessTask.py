@@ -1,0 +1,1021 @@
+import json
+import re
+from pathlib import Path
+from time import monotonic
+
+import cv2
+import numpy as np
+from ok.task.exceptions import FinishedException, TaskDisabledException
+from qfluentwidgets import FluentIcon
+
+from src.tasks.BaseBD2Task import BaseBD2Task, CartridgeSpecialPageResult
+from src.tasks.map_trade.models import MatchResult, TemplateSpec
+from src.utils import task_vision
+from src.utils.calibration import FHD_1080, HD_720
+from src.utils.cartridge_quick_switch import (
+    CHARACTER_CATEGORY_LABEL,
+    EVENT_CATEGORY_LABEL,
+    FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS,
+    GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO,
+    LIFE_GAMEPLAY_CATEGORY_HIGHLIGHT_REGION,
+    LIFE_GAMEPLAY_CATEGORY_LABEL,
+    LIFE_GAMEPLAY_CATEGORY_OCR_ROI,
+    LIFE_GAMEPLAY_CATEGORY_POINT,
+    QUICK_SWITCH_SEARCH_REGIONS,
+    SHOPKEEPER_CATEGORY_LABEL,
+    category_highlight_ratio,
+)
+from src.utils.field_followers import FOLLOWERS_ABSENT
+from src.utils.goddess_navigation import (
+    NEW_DAILY_ICON,
+    NavigationObservation,
+    is_goddess_completion,
+    scan_navigation,
+)
+from src.utils.home_confirmation import (
+    HOME_DIMMED_P95_THRESHOLD_DEFAULT,
+    HOME_GACHA_OCR_REFERENCE_ROI,
+    HOME_LEFT_COLUMN_OCR_REFERENCE_ROI,
+    HOME_LEFT_COLUMN_REQUIRED_HITS,
+    home_confirmation_passes,
+    home_gacha_ocr_with_fallback,
+    home_left_column_hits,
+    home_left_column_brightness,
+)
+from src.utils.image_utils import (
+    reference_roi_frame,
+    stabilize_template_match,
+)
+from src.utils.ocr_utils import normalize_ocr_text
+
+REFERENCE_WIDTH = FHD_1080.width
+REFERENCE_HEIGHT = FHD_1080.height
+HD720_REFERENCE_WIDTH = HD_720.width
+HD720_REFERENCE_HEIGHT = HD_720.height
+SQUARE_CARTRIDGE_SLOT_POINT = (331 / REFERENCE_WIDTH, 970 / REFERENCE_HEIGHT)
+# Swallowed quick-switch clicks: up to this many category / slot clicks.
+SQUARE_CLICK_VERIFY_ATTEMPTS = 3
+SQUARE_HOME_POINT = (1797 / REFERENCE_WIDTH, 63 / REFERENCE_HEIGHT)
+GODDESS_NAVIGATION_CLICKED = "navigation_clicked"
+GODDESS_NAVIGATION_RETRIES = 2
+GODDESS_ALREADY_COMPLETE = "already_complete"
+QUICK_SWITCH_PAGE_PATTERNS = (
+    SHOPKEEPER_CATEGORY_LABEL,
+    CHARACTER_CATEGORY_LABEL,
+    LIFE_GAMEPLAY_CATEGORY_LABEL,
+    EVENT_CATEGORY_LABEL,
+)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+TEMPLATE_DIR = PROJECT_ROOT / "recognition-assets" / "template-assets"
+
+
+class SquareGoddessTask(BaseBD2Task):
+    recover_home_on_failure = True
+    start_from_home = True
+    status_keys = [
+        "启用",
+        "状态",
+        "当前阶段",
+        "主页抽抽乐 OCR 尝试",
+        "主页亮度p95",
+        "主页抽抽乐 OCR",
+        "广场主页点击次数",
+        "快速切换按钮",
+        "卡带选择页 OCR",
+        "卡带选择页 OCR 命中",
+        "生活玩法游戏卡带 OCR",
+        "生活玩法类别高亮",
+        "梦幻广场",
+        "跟随角色按钮",
+        "女神像许愿 OCR",
+        "广场每日导航",
+        "广场导航文本 OCR",
+        "女神像许愿结果",
+        "匹配错误",
+        "Log",
+        "Warning",
+        "Error",
+    ]
+
+    status_key_labels = {
+        "梦幻广场": "梦幻广场模板",
+        "广场每日导航": "每日导航模板",
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = "广场女神像"
+        self.description = (
+            "从快速切换页的生活玩法游戏卡带2号位进入梦幻广场并完成女神像许愿。"
+        )
+        self.icon = FluentIcon.GAME
+        self.group_name = "日常/周常"
+        self.group_icon = FluentIcon.CALENDAR
+        self.visible = True
+        self._templates: dict[str, tuple[np.ndarray, np.ndarray | None]] = {}
+        self._missing_template_names: set[str] = set()
+        self._match_error_names: set[str] = set()
+        self._match_pause_until = 0.0
+        self.default_config.update(
+            {
+                "启用": True,
+                "主页压暗阈值": HOME_DIMMED_P95_THRESHOLD_DEFAULT,
+                "主页确认等待秒数": 10.0,
+                "快速卡带等待秒数": 10.0,
+                "快速切换按钮阈值": 0.88,
+                "卡带选择页确认等待秒数": 10.0,
+                "玩法类别高亮确认秒数": 3.0,
+                "玩法类别高亮像素比例": GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO,
+                "广场 OCR 阈值": 0.2,
+                "广场入场等待秒数": 30.0,
+                "广场感叹号等待秒数": 3.0,
+                "祈祷完成后感叹号等待秒数": 5.0,
+                "女神像导航入口等待秒数": 8.0,
+                "女神像导航最长等待秒数": 90.0,
+                "女神像完成确认等待秒数": 8.0,
+                "女神像许愿最多点击次数": 3,
+                "广场返回主页等待秒数": 15.0,
+                "广场返回主页最多点击次数": 3,
+                "广场返回主页重试间隔秒数": 2.0,
+                "梦幻广场阈值": 0.78,
+                "广场每日导航阈值": 0.76,
+            }
+        )
+        self.config_description.update(
+            {
+                "广场 OCR 阈值": "广场入场流程 OCR 使用的最低可信度。",
+                "主页压暗阈值": "主页左列灰度 p99 低于该值视为被公告压暗（0-255）。",
+                "快速切换按钮阈值": "识别 QuickSwitchPlayIco.png 快速切换按钮的模板匹配阈值。",
+                "玩法类别高亮像素比例": (
+                    "生活玩法游戏卡带标签确认为高亮状态所需的最低亮色像素占比。"
+                ),
+                "广场入场等待秒数": "点击广场卡带后等待梦幻广场场景出现的最长时间。",
+                "广场感叹号等待秒数": "进入广场后等待并点击感叹号小任务的最长时间。",
+                "祈祷完成后感叹号等待秒数": (
+                    "确认祈祷完成或今日已完成后，再次等待并点击感叹号小任务的最长时间。"
+                ),
+                "女神像导航最长等待秒数": "点击每日导航后，等待角色靠近女神像的最长时间。",
+                "女神像完成确认等待秒数": "点击许愿后等待每日导航文字消失的最长时间。",
+                "女神像许愿最多点击次数": "OCR 仍识别到许愿提示时最多重复点击几次。",
+                "广场返回主页等待秒数": "许愿完成后点击主页按钮并确认回到主页的最长时间。",
+                "广场返回主页最多点击次数": (
+                    "返回主页点击未生效且仍明确识别到广场聊天输入时，允许的总点击次数。"
+                ),
+                "广场返回主页重试间隔秒数": (
+                    "返回主页点击后仍停留在广场时，再次点击主页按钮前的最短等待时间。"
+                ),
+            }
+        )
+
+    def _status_set(self, key: str, value) -> None:
+        try:
+            self.info_set(key, value)
+        except AttributeError:
+            pass
+
+    def run(self):
+        if not bool(self.config.get("启用", True)):
+            self.info_set("状态", "广场女神像已禁用。")
+            self.log_info("广场女神像已禁用。")
+            return True
+
+        self.info_set("状态", "广场女神像启动。")
+        self.log_info("广场女神像：开始从主页进入梦幻广场。")
+        if not self._enter_square_from_home():
+            self.info_set("状态", "广场女神像失败：未能进入梦幻广场。")
+            return False
+
+        self.info_set("状态", "已进入梦幻广场，开始寻找女神像。")
+        if not self._pray_at_goddess():
+            self.info_set("状态", "广场女神像失败：未能完成女神像许愿。")
+            self._status_set("女神像许愿结果", "失败")
+            return False
+
+        self._record_wish()
+        self.info_set("状态", "女神像许愿完成。")
+        self._status_set("女神像许愿结果", "完成")
+        if not self._return_home_from_square():
+            self.info_set("状态", "广场女神像失败：许愿完成，但未能返回主页。")
+            return False
+        self.info_set("状态", "女神像许愿完成并返回主页。")
+        self.log_completion("广场女神像：许愿完成并返回主页。")
+        return True
+
+    def _return_home_from_square(self) -> bool:
+        self.info_set("当前阶段", "广场返回主页")
+        max_clicks = max(
+            1,
+            int(self.config.get("广场返回主页最多点击次数", 3)),
+        )
+        retry_interval = max(
+            0.0,
+            float(self.config.get("广场返回主页重试间隔秒数", 2.0)),
+        )
+        self.info_set("广场主页点击次数", f"1/{max_clicks}")
+        self.operate_click(*SQUARE_HOME_POINT, after_sleep=1.0)
+        return self._wait_for_cartridge_home(
+            timeout=float(self.config.get("广场返回主页等待秒数", 15.0)),
+            retry_home_clicks=max_clicks - 1,
+            retry_interval=retry_interval,
+            total_home_clicks=max_clicks,
+        )
+
+    def _enter_square_from_home(self) -> bool:
+        self.info_set("当前阶段", "打开卡带快速切换")
+        if not self.open_cartridge_quick_switcher(
+            ensure_home=self._wait_for_cartridge_home,
+            click_quick_switch=lambda: self._click_template_until(
+                QUICK_SWITCH_TEMPLATE,
+                timeout=float(self.config.get("快速卡带等待秒数", 10.0)),
+                name="快速切换按钮",
+                after_sleep=0.0,
+                stabilize=True,
+            ),
+            confirm_quick_switch_page=self._wait_for_quick_switch_page,
+        ):
+            self.log_info("广场女神像：未能从主页打开卡带快速切换页面。")
+            return False
+
+        self.info_set("当前阶段", "选择生活玩法游戏卡带")
+        self.sleep(0.5)
+        # 类别点击被吞时高亮不会变：仅在卡带选择页仍在、类别仍未高亮时重点（同末日之书）。
+        for attempt in range(1, SQUARE_CLICK_VERIFY_ATTEMPTS + 1):
+            self.operate_click(*LIFE_GAMEPLAY_CATEGORY_POINT, after_sleep=0.0)
+            if self._wait_for_life_gameplay_category():
+                break
+            if attempt >= SQUARE_CLICK_VERIFY_ATTEMPTS or not self._quick_switch_still_shows(
+                highlighted=False, seconds=1.0
+            ):
+                self.log_info("广场女神像：点击后未确认生活玩法游戏卡带类别高亮。")
+                return False
+            self.log_info(f"广场女神像：第{attempt}次点击生活玩法类别未生效，重试。")
+
+        self.info_set("当前阶段", "选择广场卡带2号位")
+        self.sleep(FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS)
+        self.operate_click(*SQUARE_CARTRIDGE_SLOT_POINT, after_sleep=0.0)
+        # 卡带格点击被吞时选择页原样停住；连续数秒仍是同一页（类别仍高亮）才重点，
+        # 页面一变就不再点，避免载入中重复操作。
+        for attempt in range(1, SQUARE_CLICK_VERIFY_ATTEMPTS):
+            if not self._quick_switch_still_shows(highlighted=True, seconds=8.0):
+                break
+            self.log_info(f"广场女神像：第{attempt}次点击广场卡带后选择页仍在，重试。")
+            self.operate_click(*SQUARE_CARTRIDGE_SLOT_POINT, after_sleep=0.0)
+
+        if self._wait_for_template(
+            FANTASIA_SQUARE_TEMPLATE,
+            timeout=float(self.config.get("广场入场等待秒数", 30.0)),
+            name="梦幻广场",
+        ):
+            return True
+
+        if self._handle_recent_cartridge_special_pages(
+            allow_pvp_pages=False,
+        ) is CartridgeSpecialPageResult.HANDLED:
+            return self._wait_for_template(
+                FANTASIA_SQUARE_TEMPLATE,
+                timeout=float(self.config.get("广场入场等待秒数", 30.0)),
+                name="梦幻广场",
+            )
+
+        return False
+
+    def _wait_for_cartridge_home(
+        self,
+        interval: float = 0.35,
+        timeout: float | None = None,
+        retry_home_clicks: int = 0,
+        retry_interval: float = 2.0,
+        total_home_clicks: int = 1,
+    ) -> bool:
+        self.info_set("当前阶段", "确认主页")
+        wait_seconds = (
+            float(self.config.get("主页确认等待秒数", 10.0))
+            if timeout is None
+            else max(0.0, float(timeout))
+        )
+        end_at = monotonic() + wait_seconds
+        last_left_hits = 0
+        last_p95 = 0.0
+        last_gacha_text = ""
+        remaining_home_clicks = max(0, int(retry_home_clicks))
+        total_home_clicks = max(
+            remaining_home_clicks + 1,
+            int(total_home_clicks),
+        )
+        completed_home_clicks = total_home_clicks - remaining_home_clicks
+        retry_interval = max(0.0, float(retry_interval))
+        next_home_retry_at = (
+            monotonic() + retry_interval
+            if remaining_home_clicks > 0
+            else float("inf")
+        )
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            left_text = self._ocr_text(
+                frame,
+                name="主页左列",
+                roi=HOME_LEFT_COLUMN_OCR_REFERENCE_ROI,
+            )
+            last_left_hits = home_left_column_hits(left_text)
+            last_p95 = home_left_column_brightness(frame)
+            gacha_result = home_gacha_ocr_with_fallback(
+                lambda scale: self._ocr_text(
+                    frame,
+                    name=f"主页抽抽乐 x{scale:g}",
+                    roi=HOME_GACHA_OCR_REFERENCE_ROI,
+                    ocr_scale=scale,
+                )
+            )
+            last_gacha_text = gacha_result.text
+            self.info_set("主页抽抽乐 OCR 尝试", gacha_result.trace)
+            self.info_set(
+                "主页左列关键词",
+                f"{last_left_hits}/{HOME_LEFT_COLUMN_REQUIRED_HITS}",
+            )
+            self.info_set(
+                "主页亮度p95",
+                f"{last_p95:.0f}/{self._home_p95_threshold():.0f}",
+            )
+            self.info_set("主页抽抽乐 OCR", last_gacha_text or "-")
+            if home_confirmation_passes(
+                left_hits=last_left_hits,
+                required_left_hits=HOME_LEFT_COLUMN_REQUIRED_HITS,
+                brightness=last_p95,
+                brightness_threshold=self._home_p95_threshold(),
+                gacha_ocr_text=last_gacha_text,
+            ):
+                return True
+            self.clear_temporary_home_announcement_if_needed(
+                left_hits=last_left_hits,
+                required_left_hits=HOME_LEFT_COLUMN_REQUIRED_HITS,
+                brightness=last_p95,
+                brightness_threshold=self._home_p95_threshold(),
+                gacha_ocr_text=last_gacha_text,
+                context="广场女神像返回主页",
+            )
+            still_in_square = False
+            if remaining_home_clicks > 0:
+                quick_switch_result = self._match(frame, QUICK_SWITCH_TEMPLATE)
+                self.info_set(
+                    "快速切换按钮",
+                    f"{quick_switch_result.score:.3f}/{quick_switch_result.pixel_score:.3f}",
+                )
+                still_in_square = self._passes(
+                    quick_switch_result,
+                    QUICK_SWITCH_TEMPLATE,
+                )
+            if (
+                remaining_home_clicks > 0
+                and still_in_square
+                and monotonic() >= next_home_retry_at
+            ):
+                completed_home_clicks += 1
+                remaining_home_clicks -= 1
+                self.info_set(
+                    "广场主页点击次数",
+                    f"{completed_home_clicks}/{total_home_clicks}",
+                )
+                self.log_info(
+                    "广场女神像：返回主页点击未生效，"
+                    f"仍识别到快速切换卡带按钮，执行第{completed_home_clicks}次点击。"
+                )
+                self.operate_click(*SQUARE_HOME_POINT, after_sleep=1.0)
+                next_home_retry_at = monotonic() + retry_interval
+                continue
+            self.sleep(interval)
+
+        self.log_info(
+            "广场女神像：未同时确认左列关键词、亮度和抽抽乐文字，"
+            f"left={last_left_hits}/{HOME_LEFT_COLUMN_REQUIRED_HITS}, "
+            f"p95={last_p95:.0f}, ocr={last_gacha_text or '-'}。"
+        )
+        return False
+
+    def _wait_for_quick_switch_page(self, interval: float = 0.5) -> bool:
+        self.info_set("当前阶段", "确认卡带选择页")
+        self.sleep(1.0)
+        end_at = monotonic() + float(
+            self.config.get("卡带选择页确认等待秒数", 10.0)
+        )
+        last_text = ""
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            text = self._ocr_text(frame, name="卡带选择页")
+            last_text = text or last_text
+            match_count = sum(
+                1 for pattern in QUICK_SWITCH_PAGE_PATTERNS if self._matches_any(text, [pattern])
+            )
+            self.info_set("卡带选择页 OCR", text or "-")
+            self.info_set(
+                "卡带选择页 OCR 命中",
+                f"{match_count}/{len(QUICK_SWITCH_PAGE_PATTERNS)}",
+            )
+            if match_count == len(QUICK_SWITCH_PAGE_PATTERNS):
+                return True
+            self.sleep(interval)
+
+        self.log_info(
+            "广场女神像：点击快速切换后未确认卡带选择页，"
+            f"OCR={last_text or '-'}。"
+        )
+        return False
+
+    def _quick_switch_still_shows(self, highlighted: bool, seconds: float) -> bool:
+        """Re-click guard: every frame for ``seconds`` (two at least) must still
+        show the life category label with the given highlight state."""
+        end_at = monotonic() + max(0.0, seconds)
+        reads = 0
+        threshold = float(
+            self.config.get("玩法类别高亮像素比例", GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO)
+        )
+        while True:
+            frame = self.capture_frame()
+            text = self._ocr_text(
+                frame, name="生活玩法游戏卡带", roi=LIFE_GAMEPLAY_CATEGORY_OCR_ROI
+            )
+            ratio = category_highlight_ratio(frame, LIFE_GAMEPLAY_CATEGORY_HIGHLIGHT_REGION)
+            if not self._matches_any(text, [LIFE_GAMEPLAY_CATEGORY_LABEL]):
+                return False
+            if (ratio >= threshold) != highlighted:
+                return False
+            reads += 1
+            if reads >= 2 and monotonic() >= end_at:
+                return True
+            self.sleep(0.5)
+
+    def _wait_for_life_gameplay_category(self, interval: float = 0.5) -> bool:
+        end_at = monotonic() + float(self.config.get("玩法类别高亮确认秒数", 3.0))
+        last_text = ""
+        last_highlight_ratio = 0.0
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            text = self._ocr_text(
+                frame,
+                name="生活玩法游戏卡带",
+                roi=LIFE_GAMEPLAY_CATEGORY_OCR_ROI,
+            )
+            last_text = text or last_text
+            last_highlight_ratio = category_highlight_ratio(
+                frame,
+                LIFE_GAMEPLAY_CATEGORY_HIGHLIGHT_REGION,
+            )
+            self.info_set("生活玩法游戏卡带 OCR", text or "-")
+            self.info_set("生活玩法类别高亮", f"{last_highlight_ratio:.3f}")
+            if (
+                self._matches_any(text, [LIFE_GAMEPLAY_CATEGORY_LABEL])
+                and last_highlight_ratio
+                >= float(
+                    self.config.get(
+                        "玩法类别高亮像素比例",
+                        GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO,
+                    )
+                )
+            ):
+                return True
+            self.sleep(interval)
+
+        self.log_info(
+            "广场女神像：未确认生活玩法游戏卡带类别高亮，"
+            f"highlight={last_highlight_ratio:.3f}, OCR={last_text or '-'}。"
+        )
+        return False
+
+    # The run history keeps only the latest run, so a later failed run would
+    # hide the morning's wish: the wish day is kept in its own file.
+    WISH_RECORD_PATH = Path("configs") / "goddess_wish.json"
+
+    @staticmethod
+    def _game_day() -> str:
+        from datetime import datetime
+
+        from src.tasks.map_trade.progress import UTC_PLUS_8, daily_cycle_key
+
+        return daily_cycle_key(datetime.now(UTC_PLUS_8))
+
+    def _wished_today(self) -> bool:
+        try:
+            data = json.loads(self.WISH_RECORD_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return isinstance(data, dict) and data.get("day") == self._game_day()
+
+    def _record_wish(self) -> None:
+        try:
+            self.WISH_RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
+            self.WISH_RECORD_PATH.write_text(
+                json.dumps({"day": self._game_day()}), encoding="utf-8"
+            )
+        except OSError:
+            pass
+
+    def _pray_at_goddess(self) -> bool:
+        self.info_set("当前阶段", "检查广场感叹号")
+        self._click_square_notice_if_present(
+            timeout=float(self.config.get("广场感叹号等待秒数", 3.0))
+        )
+
+        self.info_set("当前阶段", "检查女神像每日导航")
+        navigation_result = self._click_goddess_daily_navigation_until(
+            timeout=float(self.config.get("女神像导航入口等待秒数", 8.0))
+        )
+        if navigation_result == GODDESS_ALREADY_COMPLETE:
+            self.info_set("女神像许愿 OCR", "已确认女神像许愿任务完成")
+            self.log_info("广场女神像：已确认女神像许愿任务完成。")
+            return True
+        if navigation_result != GODDESS_NAVIGATION_CLICKED and self._wished_today():
+            # The wish is once a day and its navigation hint disappears once
+            # made: a second run the same day is not a failure (2026-09-28).
+            self.info_set("女神像许愿 OCR", "今日已许愿（导航已消失）")
+            self.log_info("广场女神像：今天已经许愿过，每日导航已消失。")
+            return True
+        if navigation_result != GODDESS_NAVIGATION_CLICKED:
+            self.info_set("女神像许愿 OCR", "未确认女神像每日导航，停止本次任务")
+            self.log_info("广场女神像：未确认每日导航；派遣感叹号处理不代表许愿完成。")
+            return False
+        self.info_set("当前阶段", "等待并完成女神像许愿")
+        if not self._wait_for_goddess_prayer_completion(
+            timeout=float(self.config.get("女神像导航最长等待秒数", 90.0))
+        ):
+            self.log_info("广场女神像：等待许愿或完成确认超时。")
+            return False
+
+        self.info_set("当前阶段", "祈祷完成后检查广场感叹号")
+        self._click_square_notice_if_present(
+            timeout=float(self.config.get("祈祷完成后感叹号等待秒数", 5.0))
+        )
+        return True
+
+    def _click_square_notice_if_present(self, timeout: float = 3.0) -> bool:
+        # The square "!" is the field F button: it shows while the characters
+        # that follow the player after login are around (Leo, 2026-10-03).
+        return self.dismiss_field_followers(appear_seconds=timeout) != FOLLOWERS_ABSENT
+
+    def _click_goddess_daily_navigation_until(
+        self,
+        timeout: float,
+        interval: float = 0.35,
+    ) -> str | None:
+        end_at = monotonic() + max(0.0, timeout)
+        previous = None
+        completion_hits = 0
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            observation = self._observe_goddess_navigation(frame)
+            if is_goddess_completion(observation.text):
+                completion_hits += 1
+                previous = None
+                if completion_hits >= 2:
+                    return GODDESS_ALREADY_COMPLETE
+                self.sleep(interval)
+                continue
+            completion_hits = 0
+            nav = observation.navigation
+            if nav is not None and previous is not None:
+                tolerance = max(nav.height, previous.height)
+                if all(abs(a - b) <= tolerance for a, b in zip(nav.center, previous.center)):
+                    self._click_client(*nav.center, frame.shape[1], frame.shape[0], after_sleep=2.0)
+                    return GODDESS_NAVIGATION_CLICKED
+            previous = nav
+            self.sleep(interval)
+        return None
+
+    def _wait_for_goddess_prayer_completion(
+        self,
+        timeout: float,
+        interval: float = 0.5,
+    ) -> bool:
+        end_at = monotonic() + max(0.0, timeout)
+        max_clicks = max(1, int(self.config.get("女神像许愿最多点击次数", 3)))
+        click_count = 0
+        # 导航点击可能被吞（2026-09-26 实测：90 秒内导航行一直在、许愿提示从未出现）：
+        # 超时未见许愿提示且导航行仍可点时补点导航。
+        renav_seconds = float(self.config.get("女神像导航重试秒数", 35.0))
+        renav_left = GODDESS_NAVIGATION_RETRIES
+        last_navigation_at = monotonic()
+
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            frame_height, frame_width = frame.shape[:2]
+            point, text = self._ocr_pattern_click_point(
+                frame,
+                GODDESS_PRAY_PATTERNS,
+                name="女神像许愿",
+                roi=None,
+            )
+            self.info_set("女神像许愿 OCR", text or "-")
+
+            if point is not None and click_count < max_clicks:
+                self._click_client(
+                    point[0],
+                    point[1],
+                    frame_width,
+                    frame_height,
+                    after_sleep=2.0,
+                )
+                click_count += 1
+            else:
+                if (
+                    point is None
+                    and renav_left > 0
+                    and monotonic() - last_navigation_at >= renav_seconds
+                ):
+                    observation = self._observe_goddess_navigation(frame)
+                    if observation.navigation is not None:
+                        renav_left -= 1
+                        self.log_info("广场女神像：许愿提示迟迟未出现，补点每日导航。")
+                        self._click_client(
+                            *observation.navigation.center,
+                            frame_width,
+                            frame_height,
+                            after_sleep=2.0,
+                        )
+                    last_navigation_at = monotonic()
+                self.sleep(interval)
+                continue
+
+            if self._wait_for_daily_navigation_to_disappear(
+                timeout=float(self.config.get("女神像完成确认等待秒数", 8.0))
+            ):
+                return True
+
+        return False
+
+    def _wait_for_daily_navigation_to_disappear(
+        self,
+        timeout: float,
+        interval: float = 0.5,
+    ) -> bool:
+        end_at = monotonic() + max(0.0, timeout)
+        absent_since = None
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            observation = self._observe_goddess_navigation(frame)
+            prayer, _ = self._ocr_pattern_click_point(
+                frame, GODDESS_PRAY_PATTERNS, name="许愿完成复核", roi=None
+            )
+            square = self._passes(
+                self._match(frame, FANTASIA_SQUARE_TEMPLATE), FANTASIA_SQUARE_TEMPLATE
+            )
+            # Only after an OCR-confirmed prayer click: require a visible square,
+            # no task row and no prayer prompt across multiple fresh frames.
+            if observation.state == "absent" and prayer is None and square:
+                now = monotonic()
+                if absent_since is not None and now - absent_since >= 2.0:
+                    return True
+                if absent_since is None:
+                    absent_since = now
+            else:
+                absent_since = None
+            self.sleep(interval)
+        return False
+
+    def _click_template_until(
+        self,
+        spec: TemplateSpec,
+        timeout: float,
+        name: str,
+        target_offset_mf: tuple[int, int] = (0, 0),
+        after_sleep: float = 0.0,
+        interval: float = 0.35,
+        stabilize: bool = False,
+    ) -> bool:
+        end_at = monotonic() + max(0.0, timeout)
+        last_score = -1.0
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            frame_height, frame_width = frame.shape[:2]
+            result = self._match(frame, spec)
+            last_score = result.score
+            self.info_set(name, f"{result.score:.3f}/{result.pixel_score:.3f}")
+            if self._passes(result, spec):
+                stable_center = None
+                if stabilize:
+
+                    def sample_match():
+                        sampled_frame = self.capture_frame()
+                        return self._match(sampled_frame, spec), sampled_frame.shape
+
+                    stabilized = stabilize_template_match(
+                        result,
+                        frame.shape,
+                        sample_match=sample_match,
+                        passes=lambda candidate: self._passes(candidate, spec),
+                        sleep=self.sleep,
+                        on_sample=lambda candidate: self.info_set(
+                            name,
+                            f"{candidate.score:.3f}/{candidate.pixel_score:.3f}",
+                        ),
+                    )
+                    if stabilized is None:
+                        self.info_set(f"{name}稳定识别", "未形成稳定位置")
+                        return False
+                    consensus, frame_shape = stabilized
+                    frame_height, frame_width = frame_shape[:2]
+                    stable_center = consensus.center
+                    self.info_set(
+                        f"{name}稳定识别",
+                        (
+                            f"center=({stable_center[0]},{stable_center[1]}), "
+                            f"hits={consensus.hit_count}/{consensus.sample_count}, "
+                            f"match={consensus.average_score:.3f}, "
+                            f"pixel={consensus.average_pixel_score:.3f}, "
+                            f"spread={consensus.center_spread:.1f}"
+                        ),
+                    )
+                offset_x, offset_y = self._mf_offset_for_frame(
+                    target_offset_mf[0],
+                    target_offset_mf[1],
+                    frame_width,
+                    frame_height,
+                )
+                center_x, center_y = (
+                    stable_center
+                    if stable_center is not None
+                    else (
+                        result.position[0] + result.size[0] // 2,
+                        result.position[1] + result.size[1] // 2,
+                    )
+                )
+                x = center_x + offset_x
+                y = center_y + offset_y
+                self._click_client(x, y, frame_width, frame_height, after_sleep=after_sleep)
+                return True
+            self.sleep(interval)
+
+        self.info_set(name, f"{last_score:.3f}")
+        return False
+
+    def _ocr_pattern_click_point(
+        self,
+        frame,
+        patterns: list[str],
+        name: str,
+        roi: tuple[int, int, int, int] | None = None,
+    ) -> tuple[tuple[int, int] | None, str]:
+        left, top, _crop = self._roi_frame(frame, roi)
+        boxes = self._ocr_boxes(frame, name=name, roi=roi)
+        text = " ".join(getattr(box, "name", "") for box in boxes if getattr(box, "name", ""))
+        matched_boxes = [
+            box for box in boxes if self._matches_any(getattr(box, "name", ""), patterns)
+        ]
+        if not matched_boxes:
+            return None, text
+
+        box = min(
+            matched_boxes,
+            key=lambda item: (
+                float(getattr(item, "y", 0)),
+                float(getattr(item, "x", 0)),
+            ),
+        )
+        x = getattr(box, "x", None)
+        y = getattr(box, "y", None)
+        width = getattr(box, "width", None)
+        height = getattr(box, "height", None)
+        if None in (x, y, width, height):
+            return None, text
+
+        center_x = int(round(left + float(x) + float(width) / 2))
+        center_y = int(round(top + float(y) + float(height) / 2))
+        return (center_x, center_y), text
+
+    def _observe_goddess_navigation(self, frame):
+        try:
+            observation = scan_navigation(
+                frame, ocr=self.ocr, normalize=self._normalize_text,
+                match=self._match, passes=self._passes,
+                icon_specs=(SQUARE_DAILY_ICON_TEMPLATE, NEW_DAILY_ICON),
+            )
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:
+            observation = NavigationObservation("unknown", f"识别异常：{exc}")
+        self.info_set("广场每日导航", observation.state)
+        self.info_set("广场导航文本 OCR", observation.text or "-")
+        return observation
+
+    def _wait_for_template(
+        self,
+        spec: TemplateSpec,
+        timeout: float,
+        name: str,
+        interval: float = 0.35,
+    ) -> bool:
+        end_at = monotonic() + max(0.0, timeout)
+        last_score = -1.0
+        while monotonic() <= end_at:
+            frame = self.capture_frame()
+            result = self._match(frame, spec)
+            last_score = result.score
+            self.info_set(name, f"{result.score:.3f}")
+            if self._passes(result, spec):
+                return True
+            self.sleep(interval)
+
+        self.info_set(name, f"{last_score:.3f}")
+        return False
+
+    def _match(self, frame, spec: TemplateSpec) -> MatchResult:
+        empty = MatchResult(-1.0, (0, 0), (0, 0))
+        if monotonic() < self._match_pause_until:
+            return empty
+
+        try:
+            return task_vision.match_template(
+                frame,
+                spec,
+                self.config,
+                TEMPLATE_DIR,
+                cache=self._templates,
+                min_size=5,
+                loader=lambda _template_dir, spec: self._load_template(spec),
+            )
+        except RuntimeError as exc:
+            if spec.name not in self._missing_template_names:
+                self._missing_template_names.add(spec.name)
+                self.log_warning(str(exc), notify=True)
+            return empty
+        except (cv2.error, MemoryError) as exc:
+            self._match_pause_until = monotonic() + 2.0
+            message = f"图像匹配内存不足，暂停识别2秒：{spec.name}"
+            self.info_set("匹配错误", message)
+            if spec.name not in self._match_error_names:
+                self._match_error_names.add(spec.name)
+                self.log_warning(f"{message}；{exc}", notify=True)
+            return empty
+
+    def _load_template(self, spec: TemplateSpec) -> tuple[np.ndarray, np.ndarray | None]:
+        return task_vision.load_template(TEMPLATE_DIR, spec, cache=self._templates)
+
+    def _passes(self, result: MatchResult, spec: TemplateSpec) -> bool:
+        return task_vision.passes_match(result, spec, self.config)
+
+    def _ocr_text(
+        self,
+        frame,
+        name: str,
+        roi: tuple[int, int, int, int] | None = None,
+        ocr_scale: float = 1.0,
+    ) -> str:
+        return " ".join(
+            label
+            for label, _confidence in self._ocr_entries(
+                frame,
+                name,
+                roi,
+                ocr_scale=ocr_scale,
+            )
+        )
+
+    def _ocr_entries(
+        self,
+        frame,
+        name: str,
+        roi: tuple[int, int, int, int] | None = None,
+        ocr_scale: float = 1.0,
+    ) -> list[tuple[str, float]]:
+        boxes = self._ocr_boxes(
+            frame,
+            name=name,
+            roi=roi,
+            ocr_scale=ocr_scale,
+        )
+        entries = []
+        for box in boxes:
+            label = getattr(box, "name", "")
+            if not label:
+                continue
+            confidence = float(getattr(box, "confidence", 1.0))
+            if confidence > 1.0:
+                confidence /= 100.0
+            entries.append((label, confidence))
+        return entries
+
+    def _ocr_boxes(
+        self,
+        frame,
+        name: str,
+        roi: tuple[int, int, int, int] | None = None,
+        ocr_scale: float = 1.0,
+    ):
+        ocr_frame = self._crop_reference(frame, roi) if roi is not None else frame
+        try:
+            if ocr_scale <= 0:
+                raise ValueError("ocr_scale must be positive")
+            if ocr_scale != 1.0:
+                ocr_frame = cv2.resize(
+                    ocr_frame,
+                    None,
+                    fx=ocr_scale,
+                    fy=ocr_scale,
+                    interpolation=cv2.INTER_CUBIC,
+                )
+            return self.ocr(
+                frame=ocr_frame,
+                threshold=float(self.config.get("广场 OCR 阈值", 0.2)),
+                target_height=720,
+                log=False,
+                name=name,
+            )
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:
+            self.info_set(f"{name} OCR 错误", str(exc))
+            return []
+
+    def _click_client(
+        self,
+        x: int,
+        y: int,
+        frame_width: int,
+        frame_height: int,
+        after_sleep: float = 0.0,
+    ):
+        self.operate_click(
+            max(0.0, min(1.0, x / max(1, frame_width))),
+            max(0.0, min(1.0, y / max(1, frame_height))),
+            after_sleep=after_sleep,
+        )
+
+    def _home_p95_threshold(self) -> float:
+        return float(self.config.get("主页压暗阈值", HOME_DIMMED_P95_THRESHOLD_DEFAULT))
+
+    @staticmethod
+    def _mf_point(x: int, y: int) -> tuple[int, int]:
+        return (
+            round(x * REFERENCE_WIDTH / HD720_REFERENCE_WIDTH),
+            round(y * REFERENCE_HEIGHT / HD720_REFERENCE_HEIGHT),
+        )
+
+    @staticmethod
+    def _mf_roi(x: int, y: int, width: int, height: int) -> tuple[int, int, int, int]:
+        left, top = SquareGoddessTask._mf_point(x, y)
+        right, bottom = SquareGoddessTask._mf_point(x + width, y + height)
+        return left, top, max(1, right - left), max(1, bottom - top)
+
+    @staticmethod
+    def _mf_offset_for_frame(
+        x: int,
+        y: int,
+        frame_width: int,
+        frame_height: int,
+    ) -> tuple[int, int]:
+        return (
+            round(x * frame_width / HD720_REFERENCE_WIDTH),
+            round(y * frame_height / HD720_REFERENCE_HEIGHT),
+        )
+
+    @staticmethod
+    def _matches_any(text: str, patterns: list[str]) -> bool:
+        normalized = SquareGoddessTask._normalize_text(text)
+        for pattern in patterns:
+            normalized_pattern = SquareGoddessTask._normalize_text(pattern)
+            if re.search(normalized_pattern, normalized, flags=re.IGNORECASE):
+                return True
+        return False
+
+    _normalize_text = staticmethod(normalize_ocr_text)
+    @staticmethod
+    def _roi_frame(
+        frame: np.ndarray,
+        roi: tuple[int, int, int, int] | None,
+    ) -> tuple[int, int, np.ndarray]:
+        return reference_roi_frame(frame, roi, (REFERENCE_WIDTH, REFERENCE_HEIGHT))
+
+    @staticmethod
+    def _crop_reference(frame, roi: tuple[int, int, int, int] | None):
+        return reference_roi_frame(frame, roi, (REFERENCE_WIDTH, REFERENCE_HEIGHT))[2]
+
+QUICK_SWITCH_TEMPLATE = TemplateSpec(
+    name="quick_switch",
+    file_name="image/green/QuickSwitchPlayIco.png",
+    threshold_key="快速切换按钮阈值",
+    default_threshold=0.88,
+    relative_rois=QUICK_SWITCH_SEARCH_REGIONS,
+    green_mask=True,
+    scale_ratios=(0.95, 0.975, 1.0, 1.025, 1.05),
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.88,
+    # 梦幻广场内的快捷切换按钮是白图标+深色圆底样式，与模板采样的浅色
+    # 样式存在结构差异：1600x901 实机帧 zncc 最高 0.838（RPT-20260902-225925），
+    # 0.85 门禁会确定性误拒；同帧误检位置 zncc 最高 0.43，0.78 仍有足够余量。
+    min_zncc_score=0.78,
+)
+
+FANTASIA_SQUARE_TEMPLATE = TemplateSpec(
+    name="fantasia_square",
+    file_name="image/Mirror_FantasiaSquare_Ico.png",
+    threshold_key="梦幻广场阈值",
+    default_threshold=0.78,
+    roi=SquareGoddessTask._mf_roi(656, 622, 77, 66),
+)
+
+SQUARE_DAILY_ICON_TEMPLATE = TemplateSpec(
+    name="square_daily_icon",
+    file_name="image/Square_DailyIco.png",
+    threshold_key="广场每日导航阈值",
+    default_threshold=0.76,
+    min_pixel_score=0.72,
+)
+
+GODDESS_PRAY_PATTERNS = [r"向女神像许愿|女神像许愿|许愿"]

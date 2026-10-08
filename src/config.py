@@ -1,0 +1,208 @@
+# ruff: noqa: E501
+
+import os
+import tomllib
+from pathlib import Path
+
+from ok import Box
+from ok.util.GlobalConfig import create_basic_options
+
+from src import GAME_EXE, HWND_CLASS
+from src.capture.hdr_wgc import install as install_hdr_aware_capture
+from src.compat.about_tab_layout import install_about_tab_layout
+from src.compat.launcher_update_notice import install_launcher_update_notice
+from src.compat.main_window_geometry import install_main_window_geometry_debounce
+from src.compat.ocr_memory import install_ocr_memory_cap
+from src.compat.starter_guard import enable_starter_launch_guard
+from src.compat.starter_launch import enable_starter_launch_uri
+from src.compat.update_card_ui import install_update_card_ui
+from src.compat.windows_graphics import WGC_MIN_CAPTURE_SIZE, enable_windows_10_wgc
+from src.game_path import calculate_pc_exe_path
+from src.interaction.BD2Interaction import BD2Interaction
+from src.process_feature import process_feature
+from src.ui.quest_theme import apply_app_font
+from src.ui.quest_ui import install_quest_ui
+
+# This marker is replaced with the Git tag when PyAppify creates the update
+# repository.  Source checkouts always read the project version from pyproject.
+version = "v0.1.2"
+
+
+def runtime_version(project_file: Path | None = None) -> str:
+    """Return the source package version or the inlined update-repository tag."""
+    project_file = project_file or Path(__file__).resolve().parents[1] / "pyproject.toml"
+    if project_file.is_file():
+        with project_file.open("rb") as file:
+            return tomllib.load(file)["project"]["version"]
+    if version == "release-tag-unset":
+        raise RuntimeError("Missing pyproject.toml and PyAppify release tag.")
+    return version
+
+apply_app_font()
+enable_windows_10_wgc()
+# Windows HDR: capture 16-bit float and convert back to the game's SDR image
+# (8-bit WGC frames come out over-exposed and every colour check drifts).
+install_hdr_aware_capture()
+# OCR memory: cap OpenVINO's per-input-size kernel cache (grew to 9.6 GB).
+install_ocr_memory_cap()
+enable_starter_launch_uri()
+enable_starter_launch_guard()
+install_main_window_geometry_debounce()
+install_launcher_update_notice()
+install_quest_ui()
+install_update_card_ui()
+install_about_tab_layout()
+
+DX11_OPTION = "Launch with DX11"
+
+
+def validate_basic_option(key, value):
+    if key == DX11_OPTION and bool(value):
+        return (
+            False,
+            "YES-BD2 通过 Neowiz Starter 启动游戏，暂不支持由程序强制传递 DX11 参数。",
+        )
+    return True, ""
+
+
+basic_options = create_basic_options()
+basic_options.validator = validate_basic_option
+basic_options.config_type = dict(basic_options.config_type or {})
+basic_options.config_type[DX11_OPTION] = {"hidden": True}
+
+def blur_area(width, height):
+    return Box(width * 0, height * 0.9769, to_x=width * 0.0943, to_y=height * 1)
+
+
+config = {
+    "custom_tasks": True,
+    "debug": False,
+    "use_gui": True,
+    "config_folder": "configs",
+    "global_configs": [basic_options],
+    "blur_area": blur_area,
+    "gui_icon": "icons/icon.png",
+    "wait_until_before_delay": 0,
+    "wait_until_check_delay": 0,
+    "wait_until_settle_time": 0,
+    "ocr": {
+        "default": {
+            "lib": "onnxocr",
+            "auto_simplify": True,
+            "params": {
+                "use_openvino": True,
+                # ok-script forwards only use_openvino/use_npu here;
+                # onnxocr 0.0.22 therefore keeps its safe AsyncInferQueue default (1).
+            },
+        },
+    },
+    "windows": {
+        "exe": GAME_EXE,
+        "hwnd_class": HWND_CLASS,
+        "calculate_pc_exe_path": calculate_pc_exe_path,
+        "interaction": [BD2Interaction],
+        "capture_method": [
+            "WGC",
+            "BitBlt_RenderFull",
+            "ForegroundBitBlt",
+        ],
+        "check_hdr": False,
+        "force_no_hdr": False,
+        "require_bg": True,
+        "start_exe": True,
+    },
+    "start_timeout": 120,
+    "window_size": {
+        # First-open size (Leo's 4K PC at 175%, 10-08): the home page shows its
+        # task cards 8 per row in 2 rows with no scrolling.  Smaller screens are
+        # shrunk to fit.
+        "width": 1335,
+        "height": 997,
+        "min_width": 600,
+        "min_height": 450,
+    },
+    "supported_resolution": {
+        "ratio": "16:9",
+        "min_size": WGC_MIN_CAPTURE_SIZE,
+        "resize_to": [
+            (3840, 2160),
+            (2560, 1440),
+            (1920, 1080),
+            (1280, 720),
+        ],
+    },
+    "links": {
+        "default": {
+            "github": "https://github.com/nobell001/YES-BD2",
+            "share": "Download from https://github.com/nobell001/YES-BD2",
+            "faq": "https://github.com/nobell001/YES-BD2",
+            "download": "https://github.com/nobell001/YES-BD2/releases/latest",
+        }
+    },
+    "about": """
+        <p style="color:red;">
+        <strong>This software is free and open-source.</strong>
+        It is intended for personal learning and research around Python,
+        computer vision, and UI automation.
+        </p>
+        <p style="color:red;">
+        Use automation only after understanding the risks for your account and game client.
+        </p>
+        <p>本软件使用 Noto Sans TC / Noto Sans SC 字体（Google，SIL Open Font License 1.1）。
+        许可协议随附于 assets/fonts/OFL.txt。</p>
+    """,
+    "log_file": "logs/ok-bd2.log",
+    "error_log_file": "logs/ok-bd2_error.log",
+    "screenshots_folder": "screenshots",
+    "gui_title": "YES-BD2",
+    "template_matching": {
+        "coco_feature_json": os.path.join("assets", "coco_annotations.json"),
+        "default_horizontal_variance": 0.002,
+        "default_vertical_variance": 0.002,
+        "default_threshold": 0.7,
+        "feature_processor": process_feature,
+    },
+    "template_tab": {
+        "generate_label_enum": True,
+        "label_enum_relative_path": "src/Labels",
+    },
+    "version": runtime_version(),
+    "my_app": [
+        "src.globals",
+        "Globals",
+    ],
+    "onetime_tasks": [
+        ["src.tasks.DailyBatchTask", "DailyBatchTask"],
+        ["src.tasks.DailyBatchTask", "WeeklyBatchTask"],
+        ["src.tasks.DailyTask", "DailyTask"],
+        ["src.tasks.QuickHuntTask", "QuickHuntTask"],
+        ["src.tasks.FiendHuntTask", "FiendHuntTask"],
+        ["src.tasks.FiendHuntTask", "FiendHuntRecordTask"],
+        ["src.tasks.SquareGoddessTask", "SquareGoddessTask"],
+        ["src.tasks.MapTradeTask", "MapTradeTask"],
+        ["src.tasks.MapCollectionTask", "MapCollectionTask"],
+        ["src.tasks.MapCollectionTask", "MapRouteTestTask"],
+        ["src.tasks.FreeGachaTask", "FreeGachaTask"],
+        ["src.tasks.PVPTask", "PVPTask"],
+        ["src.tasks.EventBattleTask", "EventBattleTask"],
+        ["src.tasks.RestaurantTask", "RestaurantStoneTask"],
+        ["src.tasks.GearTasks", "DailyRefineTask"],
+        ["src.tasks.JunkGearTask", "JunkGearTask"],
+        ["src.tasks.RewardClaimTasks", "MissionRewardTask"],
+        ["src.tasks.RewardClaimTasks", "PassRewardTask"],
+        ["src.tasks.RewardClaimTasks", "MailRewardTask"],
+        ["src.tasks.EventRewardTask", "EventRewardTask"],
+        ["src.tasks.WeeklyTasks", "ArcadeBrowseTask"],
+        ["src.tasks.WeeklyTasks", "HomePopularityTask"],
+        ["src.tasks.CraftGearTask", "CraftGearTask"],
+        ["src.tasks.DoomBookTask", "DoomBookTask"],
+        ["src.tasks.recovery", "ReturnHomeTask"],
+        ["src.tasks.BD2InputTestTask", "BD2MouseClickInputTestTask"],
+        ["src.tasks.BD2InputTestTask", "BD2MouseWheelInputTestTask"],
+        ["src.tasks.LauncherTask", "LauncherTask"],
+    ],
+    "trigger_tasks": [
+        ["src.tasks.trigger.AutoLoginTask", "AutoLoginTask"],
+    ],
+    "scene": ["src.scene.BD2Scene", "BD2Scene"],
+}

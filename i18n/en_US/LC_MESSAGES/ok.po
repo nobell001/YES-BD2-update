@@ -1,0 +1,2460 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ok-bd2 1.0\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "4号位"
+msgstr "Slot 4"
+
+msgid "5号位"
+msgstr "Slot 5"
+
+msgid "5星料理"
+msgstr "5★ Recipes"
+
+msgid "BD2"
+msgstr "BD2"
+
+msgid "BD2 鼠标单击测试"
+msgstr "BD2 mouse click test"
+
+msgid "BD2 鼠标滚轮测试"
+msgstr "BD2 mouse wheel test"
+
+msgid "BDXConfirm 点击 X 百分比"
+msgstr "BDXConfirm click X percentage"
+
+msgid "BDXConfirm 点击 Y 百分比"
+msgstr "BDXConfirm click Y percentage"
+
+msgid "Discord Webhook"
+msgstr "Discord Webhook"
+
+msgid "F10"
+msgstr "F10"
+
+msgid "F11"
+msgstr "F11"
+
+msgid "F12"
+msgstr "F12"
+
+msgid "F9"
+msgstr "F9"
+
+msgid "一键完成日常"
+msgstr "Run All Dailies"
+
+msgid "买"
+msgstr "Buy"
+
+msgid "从主页进入公会，领取每日签到奖励。"
+msgstr "Enters the Guild from Home and claims the daily Check-in reward."
+
+msgid "从主页进入小屋，确认到达后返回主页。"
+msgstr "Enters the House from Home, confirms it arrived, then returns to Home."
+
+msgid "从快速切换页的生活玩法游戏卡带2号位进入梦幻广场并完成女神像许愿。"
+msgstr "Enters Fantasia Square from Content Pack slot 2 on the Quick Switch page and makes a wish at the Goddess Statue."
+
+msgid "从首页进入快速狩猎，调度米饭并补充数量最少的属性圣石。"
+msgstr "Enters Quick Hunt from Home, allocates Cooked rice and tops up the Magic Crystals you have the fewest of."
+
+msgid "任务状态确认"
+msgstr "Task status confirmation"
+
+msgid "优先双倍"
+msgstr "Prefer double"
+
+msgid "优先双倍会检测金币和经验并在都双倍时选择金币；强制双倍优先配置资源；忽视双倍固定选择金币。"
+msgstr "Prefer bonus checks gold and EXP and chooses gold when both are doubled; force bonus prioritizes the configured resource; ignore bonus always chooses gold."
+
+msgid "使用出售白名单"
+msgstr "Use sell allowlist"
+
+msgid "使用出售黑名单"
+msgstr "Use sell blocklist"
+
+msgid "使用在线价表"
+msgstr "Use online price table"
+
+msgid "使用程序默认价表"
+msgstr "Use built-in price table"
+
+msgid "免费抽抽乐"
+msgstr "Free Draw"
+
+msgid "公会、小屋、酒馆"
+msgstr "Guild, House, Tavern"
+
+msgid "公告清理点击 X 百分比"
+msgstr "Notice cleanup click X percentage"
+
+msgid "公告清理点击 Y 百分比"
+msgstr "Notice cleanup click Y percentage"
+
+msgid "关闭程序默认价表后使用；在线获取失败时回退本地缓存。"
+msgstr "Used after disabling the built-in price table; falls back to the local cache if the online request fails."
+
+msgid "内测功能"
+msgstr "Experimental features"
+
+msgid "出售保险"
+msgstr "Sell safety"
+
+msgid "出售白名单"
+msgstr "Sell allowlist"
+
+msgid "出售黑名单"
+msgstr "Sell blocklist"
+
+msgid "制作料理"
+msgstr "Cook"
+
+msgid "刷几号位"
+msgstr "Skill slot"
+
+msgid "刷压制等级"
+msgstr "Level up Suppress"
+
+msgid "刷砍价等级"
+msgstr "Level up Bargain"
+
+msgid "区域上 Y 百分比"
+msgstr "Region top Y percentage"
+
+msgid "区域下 Y 百分比"
+msgstr "Region bottom Y percentage"
+
+msgid "区域右 X 百分比"
+msgstr "Region right X percentage"
+
+msgid "区域左 X 百分比"
+msgstr "Region left X percentage"
+
+msgid "卖"
+msgstr "Sell"
+
+msgid "卢戈山参烤串"
+msgstr "Lugo Ginseng Grilled Skewer"
+
+msgid "可同时选择多种利润料理。"
+msgstr "Multiple profitable dishes can be selected."
+
+msgid "向上"
+msgstr "Up"
+
+msgid "向下"
+msgstr "Down"
+
+msgid "启用"
+msgstr "Enable"
+
+msgid "在指定区域内单击聚焦，并测试向上或向下滚动鼠标滚轮。"
+msgstr "Click inside the specified region to focus it, then test scrolling the mouse wheel up or down."
+
+msgid "在第一章战斗地图中开始，同时要求第二章也处于战斗地图中"
+msgstr "Start on the Chapter 1 battle map; Chapter 2 must also be on its battle map"
+
+msgid "在第六章商人处开始"
+msgstr "Start at the Chapter 6 merchant"
+
+msgid "地狱火紫菜包饭"
+msgstr "Fire of Hell Kimbab"
+
+msgid "小屋按钮点击 X 百分比"
+msgstr "Home button click X percentage"
+
+msgid "小屋按钮点击 Y 百分比"
+msgstr "Home button click Y percentage"
+
+msgid "广场女神像"
+msgstr "Square Goddess Statue"
+
+msgid "开启后使用下面的1920×1080参考像素点；关闭时继续使用原百分比配置。"
+msgstr "When enabled, use the 1920x1080 reference pixel below; when disabled, keep using the percentage setting."
+
+msgid "开启后排除出售黑名单中的商品；黑名单优先于出售白名单。"
+msgstr "When enabled, exclude items in the sell blocklist. The blocklist takes priority over the allowlist."
+
+msgid "开启时只出售最高价表和出售白名单的交集；关闭时出售价表中全部允许出售的商品。"
+msgstr "When enabled, sell only items present in both the highest-price table and the sell allowlist. When disabled, sell every permitted item in the price table."
+
+msgid "开启时每种料理只做 1 份；关闭时选择 MAX。"
+msgstr "When enabled, cook one of each dish. When disabled, select MAX."
+
+msgid "开启时每种普通目标只卖最小数量；默认关闭并选择 MAX。价表中带保留量的商品始终优先执行保留规则。"
+msgstr "When enabled, sell only the minimum amount of each normal target. By default this is disabled and MAX is selected. Reserve rules in the price table always take priority."
+
+msgid "强制双倍"
+msgstr "Force double"
+
+msgid "强制双倍策略下优先检查金币或经验。"
+msgstr "Under Force double, checks Gold or EXP first."
+
+msgid "快速狩猎"
+msgstr "Quick Hunt"
+
+msgid "快速狩猎双倍策略"
+msgstr "Quick Hunt double strategy"
+
+msgid "快速狩猎米饭分配"
+msgstr "Quick Hunt Cooked rice split"
+
+msgid "快速狩猎资源倾向"
+msgstr "Quick Hunt resource preference"
+
+msgid "忽视双倍"
+msgstr "Ignore double"
+
+msgid "打开经营管理弹窗并执行一键获得。"
+msgstr "Opens the Management popup and runs Collect All."
+
+msgid "执行一键收菜"
+msgstr "Run Collect All"
+
+msgid "执行公会签到"
+msgstr "Guild Check-in"
+
+msgid "执行公会签到、小屋签到和酒馆一键收菜。"
+msgstr "Does the Guild Check-in, House Check-in and Tavern Collect All."
+
+msgid "执行地图采集"
+msgstr "Map gathering"
+
+msgid "执行小屋签到"
+msgstr "House Check-in"
+
+msgid "按周进度处理剧情卡带；每日吸收上限21次，因此最多完成7张。第14章在专用流程完成前安全跳过。"
+msgstr "Process story cartridges using weekly progress. The daily Absorb limit is 21, so at most seven cartridges are completed. Chapter 14 is safely skipped until its dedicated flow is ready."
+
+msgid "按周进度跑剧情卡带；每天最多7张，每张安全区吸收1次，战斗区域1、2各执行吸收、召集、压制。"
+msgstr "Farms Story Packs by weekly progress; up to 7 a day. Each Pack: Absorb once in the Safe area, and Absorb, Assemble and Overpower in Battle areas 1 and 2."
+
+msgid "按每日08:00库存批次进入 Q_sp6 完成砍价，并按本地卡带与灰星坐标表重建收藏。"
+msgstr "Use the daily 08:00 inventory batch to enter Q_sp6, complete Bargain, and rebuild favorites from the local cartridge and empty-star tables."
+
+msgid "按每日23:00刷新后的有效日期出售最高价商品。"
+msgstr "Sell highest-price items using the effective date after the daily 23:00 refresh."
+
+msgid "按顺序执行已开启的公会、小屋、酒馆、快速狩猎、抽抽乐、广场、PVP和跑商。"
+msgstr "Run enabled guild, home, pub, Quick Hunt, free draw, square, PVP, and trading tasks in order."
+
+msgid "收藏重建周期"
+msgstr "Rebuild Favorite"
+
+msgid "料理保险"
+msgstr "Safe cooking"
+
+msgid "料理制作周期"
+msgstr "Cooking cycle"
+
+msgid "日常/周常"
+msgstr "Daily / weekly"
+
+msgid "是否允许一键完成日常按顺序执行已开启的子任务。"
+msgstr "Allow Complete Dailies to run enabled subtasks in order."
+
+msgid "是否在一键完成日常中执行免费抽抽乐。"
+msgstr "Run Free Draws as part of Complete Dailies."
+
+msgid "是否在一键完成日常中执行公会、小屋、酒馆。"
+msgstr "Run Guild, Home, and Pub as part of Complete Dailies."
+
+msgid "是否在一键完成日常中执行广场女神像。"
+msgstr "Run Square Goddess Statue as part of Complete Dailies."
+
+msgid "是否在一键完成日常中执行快速狩猎。"
+msgstr "Run Quick Hunt as part of Complete Dailies."
+
+msgid "是否在一键完成日常中执行自动PVP。"
+msgstr "Run Auto PVP as part of Complete Dailies."
+
+msgid "是否在一键完成日常中执行跑商。"
+msgstr "Run Trading as part of Complete Dailies."
+
+msgid "是否执行独立的快速狩猎任务。"
+msgstr "Run the standalone Quick Hunt task."
+
+msgid "是否执行白嫖抽抽乐任务。"
+msgstr "Run the free draw task."
+
+msgid "最多战斗轮次"
+msgstr "Maximum battle rounds"
+
+msgid "每周"
+msgstr "Weekly"
+
+msgid "每周制作一次，或每次运行都尝试制作。"
+msgstr "Cook once per week, or attempt cooking on every run."
+
+msgid "每周只重建一次收藏；每次会强制重新核对；永不则只购买当前收藏。"
+msgstr "Weekly rebuilds favorites once per week; Every run rechecks them each time; Never buys only the current favorites."
+
+msgid "每周跑图"
+msgstr "Weekly Farming"
+
+msgid "每日按配置依次执行料理制作、购买和出售。"
+msgstr "Run cooking, buying, and selling each day according to the configuration."
+
+msgid "每日跑商"
+msgstr "Daily Trade Run"
+
+msgid "每次"
+msgstr "Every run"
+
+msgid "永不"
+msgstr "Never"
+
+msgid "测试"
+msgstr "Test"
+
+msgid "测试在指定屏幕百分比位置单击鼠标。"
+msgstr "Test a mouse click at the specified screen percentage coordinates."
+
+msgid "游戏启动后自动登录游戏"
+msgstr "Log in automatically after the game starts"
+
+msgid "滚轮方向"
+msgstr "Wheel direction"
+
+msgid "滚轮测试区域上边界相对游戏客户区的纵向百分比。"
+msgstr "Top edge of the wheel test region as a vertical percentage of the game client area."
+
+msgid "滚轮测试区域下边界相对游戏客户区的纵向百分比。"
+msgstr "Bottom edge of the wheel test region as a vertical percentage of the game client area."
+
+msgid "滚轮测试区域右边界相对游戏客户区的横向百分比。"
+msgstr "Right edge of the wheel test region as a horizontal percentage of the game client area."
+
+msgid "滚轮测试区域左边界相对游戏客户区的横向百分比。"
+msgstr "Left edge of the wheel test region as a horizontal percentage of the game client area."
+
+msgid "点击 X 百分比"
+msgstr "Click X percentage"
+
+msgid "点击 Y 百分比"
+msgstr "Click Y percentage"
+
+msgid "点击单个点位置坐标"
+msgstr "Use reference pixel coordinates"
+
+msgid "煤炭饼干"
+msgstr "Charcoal Cookie"
+
+msgid "狩猎场 MIN 时双倍冒险航线使用 MAX；狩猎场 MAX 时跳过冒险航线。"
+msgstr "With Hunting Ground at MIN, double Path of Adventure uses MAX; with Hunting Ground at MAX, Path of Adventure is skipped."
+
+msgid "狩猎场MAX / 跳过冒险航线"
+msgstr "Hunting Ground MAX / skip Path of Adventure"
+
+msgid "狩猎场x1 / 双倍图MAX"
+msgstr "Hunting Ground x1 / double MAX"
+
+msgid "用逗号、分号或换行填写禁止出售的商品。"
+msgstr "Enter items that must not be sold, separated by commas, semicolons, or line breaks."
+
+msgid "用逗号、分号或换行追加物品；五种已选利润料理始终纳入出售白名单。"
+msgstr "Add items separated by commas, semicolons, or line breaks. The five selected profitable dishes are always included in the sell allowlist."
+
+msgid "登录按钮点击 X 百分比"
+msgstr "Login button click X percentage"
+
+msgid "登录按钮点击 Y 百分比"
+msgstr "Login button click Y percentage"
+
+msgid "白嫖抽抽乐"
+msgstr "Free Draw"
+
+msgid "目标鸡尾酒消耗倍率，支持 1、4、5、10、20、40。AP 不足时会临时降到 1。"
+msgstr "Target cocktail consumption multiplier. Supports 1, 4, 5, 10, 20, and 40. Falls back to 1 when AP is insufficient."
+
+msgid "程序默认价表和在线价表均关闭后使用。必须包含 1-31 日，每行格式：日期=物品@商店,物品@商店；空日期写成 29=。"
+msgstr "Used when both the built-in and online price tables are disabled. Must contain days 1-31, one per line in the form day=item@shop,item@shop. Use an empty entry such as 29= for a day with no items."
+
+msgid "竞技场战斗倍数"
+msgstr "Mirror Wars battle multiplier"
+
+msgid "经验"
+msgstr "EXP"
+
+msgid "自动PVP"
+msgstr "Auto PVP"
+
+msgid "自动刷级"
+msgstr "Automatic skill leveling"
+
+msgid "自动登录游戏"
+msgstr "Auto login"
+
+msgid "自定义最高价表"
+msgstr "Custom highest-price table"
+
+msgid "跑商"
+msgstr "Trade Run"
+
+msgid "进入 Q_sp6 后先制作选中的 5 星利润料理，再开始买卖。"
+msgstr "After entering Q_sp6, cook the selected profitable 5-star dishes before buying and selling."
+
+msgid "进行pvp自动战斗。"
+msgstr "Runs PVP auto battles."
+
+msgid "选择向上或向下滚动。"
+msgstr "Choose whether to scroll up or down."
+
+msgid "选择循环开启4号位或5号位压制，默认4号位。"
+msgstr "Choose whether to repeatedly activate Suppress in slot 4 or 5. The default is slot 4."
+
+msgid "透明沙拉"
+msgstr "Transparent Salad"
+
+msgid "金币"
+msgstr "Gold"
+
+msgid "镜中之战"
+msgstr "Mirror Wars"
+
+msgid "闪闪铁板虾"
+msgstr "Shiny Gambas"
+
+msgid "防止识别异常导致无限循环的最大战斗轮次。"
+msgstr "Maximum number of battle rounds, preventing recognition failures from causing an infinite loop."
+
+msgid "领取服装和装备的所有免费抽抽乐。"
+msgstr "Claims all free Costume and Gear Draws."
+
+msgid "默认使用随程序附带、由作者确认的价表；关闭后才显示在线价表。"
+msgstr "Use the author-verified price table included with the app by default. The online price table is shown only after this is disabled."
+
+msgid "鼠标点击位置的横向百分比，范围 0 到 100。"
+msgstr "Horizontal percentage of the mouse click position, from 0 to 100."
+
+msgid "鼠标点击位置的纵向百分比，范围 0 到 100。"
+msgstr "Vertical percentage of the mouse click position, from 0 to 100."
+
+msgid "/ {n} 张卡带"
+msgstr "/ {n} Packs"
+
+msgid "3★/4★ 角色的 UR 专用装备算爛装；5★ 角色的永远保留。"
+msgstr "UR Exclusive Gear of 3★/4★ Characters counts as junk gear; 5★ Characters' is always kept."
+
+msgid "5 星料理"
+msgstr "5★ Recipes"
+
+msgid "BD2 自动日常"
+msgstr "BD2 Auto Dailies"
+
+msgid "{done} / {total} 完成"
+msgstr "{done} / {total} done"
+
+msgid "{elapsed} · 预计还要 {time}"
+msgstr "{elapsed} · about {time} left"
+
+msgid "{h} 小时 {m} 分"
+msgstr "{h} h {m} min"
+
+msgid "{label} · {when} 结束"
+msgstr "{label} · ends {when}"
+
+msgid "{month} 月 · 点一天看要卖什么"
+msgstr "Month {month} · click a day to see what to sell"
+
+msgid "{month}月{day}日"
+msgstr "{month}/{day}"
+
+msgid "{month}月{day}日 周{weekday}"
+msgstr "{weekday} {month}/{day}"
+
+msgid "{m} 分"
+msgstr "{m} min"
+
+msgid "{m} 分 {s} 秒"
+msgstr "{m} min {s} s"
+
+msgid "{name} · 点一下设定跑不跑这张"
+msgstr "{name} · click to choose whether to run this Pack"
+
+msgid "{n} 件"
+msgstr "{n} items"
+
+msgid "{n} 分钟"
+msgstr "{n} min"
+
+msgid "{n} 秒"
+msgstr "{n} s"
+
+msgid "{n} 项失败"
+msgstr "{n} failed"
+
+msgid "{n} 项跳过"
+msgstr "{n} skipped"
+
+msgid "{today} · 下次刷新 {next}"
+msgstr "{today} · next reset {next}"
+
+msgid "✓ {when} 完成"
+msgstr "✓ Done {when}"
+
+msgid "、"
+msgstr ", "
+
+msgid "一"
+msgstr "Mon"
+
+msgid "一二三四五六日"
+msgstr "一二三四五六日"
+
+msgid "一次最多处理的新装备件数（带黄色!新获得标记的装备），1~10 件。"
+msgstr "Max new Gear to handle per run (Gear with the yellow ! new mark), 1~10."
+
+msgid "一次运行最多进行的战斗场数（0 表示用完可用AP）。"
+msgstr "Max battles per run (0 means use all available AP)."
+
+msgid "一键完成周常"
+msgstr "Run All Weeklies"
+
+msgid "一键日常里不跑"
+msgstr "Skipped in Run All Dailies"
+
+msgid "一键日常里会跑"
+msgstr "Runs in Run All Dailies"
+
+msgid "一键日常里没有项目"
+msgstr "Nothing in Run All Dailies"
+
+msgid "一键运行会照左边的顺序跑 {n} 项 · 今天做完 {done} 项"
+msgstr "Run All runs {n} items in the order on the left · {done} done today"
+
+msgid "一键运行会照左边的顺序跑 {n} 项 · 本周做完 {done} 项"
+msgstr "Run All runs {n} items in the order on the left · {done} done this week"
+
+msgid "一键运行的设定"
+msgstr "Run All settings"
+
+msgid "一键运行的顺序"
+msgstr "Run All order"
+
+msgid "一项失败后继续跑后面的"
+msgstr "Keep running the rest if one fails"
+
+msgid "三"
+msgstr "Wed"
+
+msgid "三国同盟"
+msgstr "Triple Alliance"
+
+msgid "三文鱼"
+msgstr "Salmon"
+
+msgid "三明治便当"
+msgstr "Sandwich Lunch Box"
+
+msgid "三角美乃滋饭团"
+msgstr "Triangle Mayo Rice Ball"
+
+msgid "上次用时"
+msgstr "Last run time"
+
+msgid "上次运行"
+msgstr "Last run"
+
+msgid "下周一 08:00 刷新"
+msgstr "Resets next Mon 08:00"
+
+msgid "下次刷新 {next}"
+msgstr "Next reset {next}"
+
+msgid "不在一键日常里"
+msgstr "Not in Run All Dailies"
+
+msgid "不在一键运行里"
+msgstr "Not in Run All"
+
+msgid "不跑"
+msgstr "Don't run"
+
+msgid "不限"
+msgstr "No limit"
+
+msgid "中途停了"
+msgstr "Stopped midway"
+
+msgid "主页卡带 → 末日之书 → 键盘 WASD 走到红色交叉剑标记 → 去战斗 → 跳过 → 离开 → 回主页（每周任务：参与末日之书）。战斗不消耗资源。"
+msgstr "Packs on Home → Last Night → walk with WASD to the red crossed-swords marker → Go to battle → Skip → Leave → back to Home (Weekly Quest: Take part in Last Night). The battle costs no resources."
+
+msgid "主页右侧活动横幅上的文字，逗号分隔，命中任意一个即点击。"
+msgstr "Text on the Event banner on the right side of Home, comma-separated. Clicks it if any one matches."
+
+msgid "二"
+msgstr "Tue"
+
+msgid "五"
+msgstr "Fri"
+
+msgid "仅使用免费活动AP"
+msgstr "Use free Event AP only"
+
+msgid "今天"
+msgstr "Today"
+
+msgid "今天 · {n} 件"
+msgstr "Today · {n} items"
+
+msgid "今天卖 {n} 件"
+msgstr "Selling {n} today"
+
+msgid "今天已做"
+msgstr "Done today"
+
+msgid "今天没做完"
+msgstr "Not finished today"
+
+msgid "今天没有要卖的"
+msgstr "Nothing to sell today"
+
+msgid "今天的技能次数"
+msgstr "Today's skill uses"
+
+msgid "今天的日常都做完了"
+msgstr "All Dailies are done for today"
+
+msgid "今天的次数用完了"
+msgstr "No uses left today"
+
+msgid "今天跑了一部分"
+msgstr "Partly run today"
+
+msgid "今天跑完了"
+msgstr "Finished today"
+
+msgid "今天还没跑"
+msgstr "Not run today"
+
+msgid "今日任务"
+msgstr "Today's tasks"
+
+msgid "今日日常"
+msgstr "Today's Dailies"
+
+msgid "任务奖励"
+msgstr "Quest rewards"
+
+msgid "优先双倍：只打有双倍的冒险航线（都双倍时选金币，都没有就跳过）；强制双倍：按资源倾向先找双倍；忽视双倍：不看双倍，固定只打金币航线（适合史莱姆/经验已溢出的后期玩家）。"
+msgstr "Prefer double: only runs a Path of Adventure that has double (Gold if both do, skip if neither). Force double: looks for double first based on the resource preference. Ignore double: ignores double and always runs the Gold route (for late-game players with Slime/EXP to spare)."
+
+msgid "依次打开每张通行证，领取通行证任务经验与等级奖励（只点全部获得，绝不点购买）。"
+msgstr "Opens each Pass in turn and claims Pass quest EXP and level rewards (only taps Claim All, never Buy)."
+
+msgid "做料理"
+msgstr "Cook"
+
+msgid "停止"
+msgstr "Stop"
+
+msgid "允许一键运行"
+msgstr "Allow in Run All"
+
+msgid "全部"
+msgstr "All"
+
+msgid "全部做完后自动关机"
+msgstr "Shut down when everything is done"
+
+msgid "全部完成"
+msgstr "All done"
+
+msgid "全部通关后快速战斗"
+msgstr "Quick Battle after full clear"
+
+msgid "全部都跑"
+msgstr "Run every one"
+
+msgid "公会小屋酒馆"
+msgstr "Guild, House, Tavern"
+
+msgid "六"
+msgstr "Sat"
+
+msgid "关于"
+msgstr "About"
+
+msgid "关掉后只能在这里单独跑"
+msgstr "When off, it can only be run on its own here"
+
+msgid "其他设定"
+msgstr "Other settings"
+
+msgid "兽肉"
+msgstr "Beast Meat"
+
+msgid "再跑一次全部"
+msgstr "Run all again"
+
+msgid "冰镇甜点"
+msgstr "Frozen Dessert"
+
+msgid "凯洛药材"
+msgstr "Kailac Medicine"
+
+msgid "出错停了"
+msgstr "Stopped on error"
+
+msgid "出问题时把这里的档案传给开发者"
+msgstr "If something goes wrong, send the files here to the developer"
+
+msgid "分解3星4星角色的UR专用"
+msgstr "Dismantle UR Exclusive of 3★/4★ Characters"
+
+msgid "分解R和SR"
+msgstr "Dismantle R and SR"
+
+msgid "到「日常设定」把要跑的项目加进一键日常"
+msgstr "Add the items to run to Run All Dailies in \"Daily Setup\""
+
+msgid "制作几件 N 装备（1~10）。"
+msgstr "How many N Gear to craft (1~10)."
+
+msgid "制作后强化到的等级，达到后游戏自动分解。"
+msgstr "Level to Upgrade to after crafting; the game dismantles it automatically once reached."
+
+msgid "制作数量"
+msgstr "Craft amount"
+
+msgid "制作装备"
+msgstr "Craft Gear"
+
+msgid "剧情卡"
+msgstr "Story Pack"
+
+msgid "剧情卡带"
+msgstr "Story Pack"
+
+msgid "加入{batch}"
+msgstr "Add to {batch}"
+
+msgid "单独跑一次"
+msgstr "Run once on its own"
+
+msgid "单独跑时不会做事；一键运行不受影响"
+msgstr "Does nothing when run on its own; Run All is not affected"
+
+msgid "单独跑时启用"
+msgstr "Enable when run on its own"
+
+msgid "单独运行"
+msgstr "Run on its own"
+
+msgid "卡带"
+msgstr "Packs"
+
+msgid "压制"
+msgstr "Overpower"
+
+msgid "取消勾选的当天不卖"
+msgstr "Unchecked days don't sell"
+
+msgid "只用每日免费活动AP（顶部 a/5），不动用额外的 +AP。"
+msgstr "Uses only the daily free Event AP (a/5 at the top), never the extra +AP."
+
+msgid "只跑剩下的 {n} 项"
+msgstr "Run only the {n} left"
+
+msgid "召集"
+msgstr "Assemble"
+
+msgid "合约之战"
+msgstr "Contract Wars"
+
+msgid "同时领取商品邮箱（购买的礼包等）。默认只领普通邮箱。"
+msgstr "Also claims Purchase mail (bought bundles, etc.). By default only General mail is claimed."
+
+msgid "吐司"
+msgstr "Bread"
+
+msgid "吸收"
+msgstr "Absorb"
+
+msgid "周常"
+msgstr "Weeklies"
+
+msgid "咖啡豆"
+msgstr "Coffee Bean"
+
+msgid "哈密瓜"
+msgstr "Melon"
+
+msgid "啤酒花"
+msgstr "Hop"
+
+msgid "四"
+msgstr "Thu"
+
+msgid "回到主页"
+msgstr "Return to Home"
+
+msgid "回首页"
+msgstr "Back to Home"
+
+msgid "土豆"
+msgstr "Potato"
+
+msgid "在 {shop} 卖"
+msgstr "Sell at {shop}"
+
+msgid "地图 {done} / {total} 张"
+msgstr "Maps {done} / {total}"
+
+msgid "地图跑了 {done} / {total} 张"
+msgstr "Maps run {done} / {total}"
+
+msgid "复仇的誓言"
+msgstr "Promise of Vengeance"
+
+msgid "夏日骑士"
+msgstr "Summer Knight"
+
+msgid "外观"
+msgstr "Appearance"
+
+msgid "大逃脱"
+msgstr "EXODUS"
+
+msgid "大麦"
+msgstr "Barley"
+
+msgid "失败"
+msgstr "Failed"
+
+msgid "失败后继续"
+msgstr "Continue on failure"
+
+msgid "奶酪"
+msgstr "Cheese"
+
+msgid "姜黄"
+msgstr "Turmeric"
+
+msgid "完成"
+msgstr "Done"
+
+msgid "完成 {done} / {total} 项"
+msgstr "{done} / {total} items done"
+
+msgid "完成 {n} 项 · 用时 {time}"
+msgstr "{n} items done · took {time}"
+
+msgid "完成日常后自动关机"
+msgstr "Shut down after Dailies"
+
+msgid "实时画面"
+msgstr "Live view"
+
+msgid "小屋人气"
+msgstr "House Popularity"
+
+msgid "小屋增加人气"
+msgstr "Raise House Popularity"
+
+msgid "小麦"
+msgstr "Wheat"
+
+msgid "巧克力"
+msgstr "Chocolate"
+
+msgid "巧克力鸡尾酒"
+msgstr "Chocolat Cocktail"
+
+msgid "已完成"
+msgstr "Completed"
+
+msgid "已暂停"
+msgstr "Paused"
+
+msgid "已暂停：{name}"
+msgstr "Paused: {name}"
+
+msgid "已运行 {time}"
+msgstr "Running for {time}"
+
+msgid "已连接游戏"
+msgstr "Game connected"
+
+msgid "常客圣石"
+msgstr "Regulars' Magic Crystals"
+
+msgid "开始"
+msgstr "Start"
+
+msgid "开始时会自动连接"
+msgstr "Connects automatically on start"
+
+msgid "开始跑商"
+msgstr "Start Trade Run"
+
+msgid "开始跑图"
+msgstr "Start Farming"
+
+msgid "异教塔"
+msgstr "Pagan Tower"
+
+msgid "强化目标等级"
+msgstr "Upgrade target level"
+
+msgid "当前阶段"
+msgstr "Current step"
+
+msgid "御剑传"
+msgstr "Tales of Sword"
+
+msgid "恢复默认"
+msgstr "Restore defaults"
+
+msgid "恶梦之冬"
+msgstr "Nightmare Winter"
+
+msgid "愤怒天使"
+msgstr "Fury Angel"
+
+msgid "戏水女王"
+msgstr "Splash Queen"
+
+msgid "我的小屋 → 参观 → 随机，给其他玩家的小屋点赞（每周任务：增加人气 3 次）。"
+msgstr "My House → Visit → Random, likes other players' Houses (Weekly Quest: Raise Popularity 3 times)."
+
+msgid "战斗场数"
+msgstr "Battles"
+
+msgid "截图资料夹"
+msgstr "Screenshots folder"
+
+msgid "手动停止"
+msgstr "Manual stop"
+
+msgid "手动停止了"
+msgstr "Stopped manually"
+
+msgid "打开{page}页"
+msgstr "Open {page}"
+
+msgid "打开主页的街机游戏菜单再返回（每周任务：浏览街机游戏菜单）。不玩小游戏。"
+msgstr "Opens the Arcade menu on Home and goes back (Weekly Quest: Browse the Arcade menu). Doesn't play minigames."
+
+msgid "打开任务页，一键领取每日任务与每周任务的全部奖励。"
+msgstr "Opens the Quests page and claims all Daily Quest and Weekly Quest rewards at once."
+
+msgid "打开邮箱，一键领取普通邮箱（可选商品邮箱）的全部邮件。"
+msgstr "Opens the Mailbox and claims all General mail (and optionally Purchase mail) at once."
+
+msgid "执行"
+msgstr "Run"
+
+msgid "抽到的"
+msgstr "From Draws"
+
+msgid "抽抽乐"
+msgstr "Draw"
+
+msgid "换了之后重新打开工具才会生效"
+msgstr "Takes effect after you reopen the tool"
+
+msgid "换语言"
+msgstr "Change language"
+
+msgid "改了马上生效"
+msgstr "Takes effect right away"
+
+msgid "救赎"
+msgstr "Salvation"
+
+msgid "料理清单"
+msgstr "Recipe list"
+
+msgid "料酒"
+msgstr "Cooking Wine"
+
+msgid "新获得的 R / SR 装备算爛装。"
+msgstr "Newly obtained R / SR Gear counts as junk gear."
+
+msgid "日"
+msgstr "Sun"
+
+msgid "日常设定"
+msgstr "Daily Setup"
+
+msgid "日志资料夹"
+msgstr "Logs folder"
+
+msgid "日本語"
+msgstr "日本語"
+
+msgid "明天 {time}"
+msgstr "Tomorrow {time}"
+
+msgid "昨天"
+msgstr "Yesterday"
+
+msgid "普通与挑战都已通关时，对挑战战斗15使用快速战斗。"
+msgstr "When Normal and Challenge are both cleared, uses Quick Battle on Challenge Battle 15."
+
+msgid "暂停"
+msgstr "Pause"
+
+msgid "最多处理件数"
+msgstr "Max items"
+
+msgid "最多翻看小屋数"
+msgstr "Max Houses to visit"
+
+msgid "最近 7 天"
+msgstr "Last 7 days"
+
+msgid "有项目失败"
+msgstr "Some items failed"
+
+msgid "未完成"
+msgstr "Not finished"
+
+msgid "未跑"
+msgstr "Not run"
+
+msgid "未连接游戏"
+msgstr "Game not connected"
+
+msgid "末"
+msgstr "Last"
+
+msgid "末日之书"
+msgstr "Last Night"
+
+msgid "本周"
+msgstr "This week"
+
+msgid "本周周常"
+msgstr "This week's Weeklies"
+
+msgid "本周未完成"
+msgstr "Not finished this week"
+
+msgid "本周跑图"
+msgstr "Farming this week"
+
+msgid "本周进度"
+msgstr "Weekly progress"
+
+msgid "本次最多卡带数"
+msgstr "Max Packs this run"
+
+msgid "杏仁"
+msgstr "Almond"
+
+msgid "杰登之门"
+msgstr "Jayden's Gate"
+
+msgid "松露油"
+msgstr "Truffle oil"
+
+msgid "橄榄油意面"
+msgstr "Aglio e Olio"
+
+msgid "正在准备"
+msgstr "Preparing"
+
+msgid "正在跑"
+msgstr "Running"
+
+msgid "正在跑，跑完后重新打开工具就会换成新语言"
+msgstr "A run is going. Reopen the tool after it ends to switch language."
+
+msgid "正在跑：{name}"
+msgstr "Running: {name}"
+
+msgid "每周一 08:00 重新开始 · 每张卡带一周跑一次"
+msgstr "Resets every Mon 08:00 · each Pack runs once a week"
+
+msgid "每周制作装备"
+msgstr "Weekly Craft Gear"
+
+msgid "每场战斗消耗的免费鲜血鸡尾酒倍数，1~40。每天有 40 杯免费鸡尾酒，例如 10 倍打 4 场即用完。AP 不足时会临时降到 1。"
+msgstr "Free Blood Cocktail multiplier per battle, 1~40. You get 40 free Blood Cocktails a day; for example, 10x for 4 battles uses them all. Drops to 1 temporarily when AP is short."
+
+msgid "每天 08:00 重置"
+msgstr "Resets daily at 08:00"
+
+msgid "每天一次：买 → 做料理 → 卖"
+msgstr "Once a day: Buy → Cook → Sell"
+
+msgid "每日精炼"
+msgstr "Daily Refine"
+
+msgid "每日精炼一次"
+msgstr "Refine once a day"
+
+msgid "每次最多"
+msgstr "Max per run"
+
+msgid "每次最多战斗场数"
+msgstr "Max battles per run"
+
+msgid "每道做到最多"
+msgstr "Max of each"
+
+msgid "水果罐头"
+msgstr "Canned Fruit"
+
+msgid "沙漠之花"
+msgstr "Desert Flower"
+
+msgid "没办法自动重开，请自己关掉工具再打开"
+msgstr "Couldn't reopen automatically. Close the tool and open it again."
+
+msgid "泰瑞丝派"
+msgstr "Teresse Pie"
+
+msgid "活动卡"
+msgstr "Event Pack"
+
+msgid "活动战斗"
+msgstr "Event Battle"
+
+msgid "活动每日战斗"
+msgstr "Daily Event Battle"
+
+msgid "浅色"
+msgstr "Light"
+
+msgid "浏览街机菜单"
+msgstr "Browse Arcade menu"
+
+msgid "海滨天使"
+msgstr "Beachside Angel"
+
+msgid "深色"
+msgstr "Dark"
+
+msgid "游戏"
+msgstr "Game"
+
+msgid "游戏开着但还在登录画面时，自动点进主页"
+msgstr "When the game is open but still on the login screen, taps through to Home"
+
+msgid "游戏开着时，选好大小按「调整」"
+msgstr "With the game open, pick a size and press \"Resize\""
+
+msgid "游戏视窗大小"
+msgstr "Game window size"
+
+msgid "游戏设置为点击移动时选「鼠标点击舞台」；用 WASD 移动的玩家选「键盘WASD走到舞台」，脚本会用键盘把角色走到红色舞台正中。"
+msgstr "If the game is set to click-to-move, choose \"Click to stage\". Players who move with WASD choose \"Walk to stage with WASD\", and the script walks the character to the center of the red stage with the keyboard."
+
+msgid "火晶片"
+msgstr "Firechip"
+
+msgid "火烤鱼板棒"
+msgstr "Smoky Fish Cake bar"
+
+msgid "灵魂鲜奶油"
+msgstr "Soul whipped Cream"
+
+msgid "炸三文鱼便当"
+msgstr "Salmon Cutlet Lunchbox"
+
+msgid "点卡带设定这次跑不跑它"
+msgstr "Click a Pack to choose whether to run it this time"
+
+msgid "点赞未生效（如已点过）时换下一间，最多翻看这么多间后停止。"
+msgstr "If a like doesn't go through (e.g. already liked), moves to the next House; stops after visiting this many."
+
+msgid "点选才做"
+msgstr "Only the selected ones are made"
+
+msgid "照下面的出售日历"
+msgstr "Follows the sell calendar below"
+
+msgid "爛装分解"
+msgstr "Dismantle junk gear"
+
+msgid "爛装强化分解"
+msgstr "Upgrade & dismantle junk gear"
+
+msgid "爛装强化到的等级，达到后游戏自动分解。"
+msgstr "Level to Upgrade junk gear to; the game dismantles it automatically once reached."
+
+msgid "牛奶"
+msgstr "Milk"
+
+msgid "状态"
+msgstr "Status"
+
+msgid "玉米"
+msgstr "Corn"
+
+msgid "现在 {size}，选好大小按「调整」"
+msgstr "Now {size}; pick a size and press \"Resize\""
+
+msgid "现在重开"
+msgstr "Reopen now"
+
+msgid "甜椒"
+msgstr "Paprika"
+
+msgid "甜辣酱"
+msgstr "Chili Sauce"
+
+msgid "用时"
+msgstr "Time taken"
+
+msgid "留 {n}"
+msgstr "Keep {n}"
+
+msgid "番茄"
+msgstr "Tomato"
+
+msgid "白嫖抽抽乐 · 点图看大图"
+msgstr "Free Draw · click to enlarge"
+
+msgid "白糖"
+msgstr "Sugar"
+
+msgid "看日志"
+msgstr "View log"
+
+msgid "眼镜与猫"
+msgstr "Cat Daddy"
+
+msgid "砍价，买下收藏的商品"
+msgstr "Bargain, then buy Favorite items"
+
+msgid "神圣审判"
+msgstr "Trial By Ordeal"
+
+msgid "秃鹫羽毛"
+msgstr "Eagle's Feather"
+
+msgid "穿山甲鳞片"
+msgstr "Pangolin Scale"
+
+msgid "第一次跑，跑完就知道要多久"
+msgstr "First run; you'll know how long it takes once it's done"
+
+msgid "第一章商人"
+msgstr "Chapter 1 Merchant"
+
+msgid "等一下"
+msgstr "Later"
+
+msgid "简体中文"
+msgstr "简体中文"
+
+msgid "米"
+msgstr "Rice"
+
+msgid "系统通知"
+msgstr "System notifications"
+
+msgid "繁體中文"
+msgstr "繁體中文"
+
+msgid "经营管理 → 前往格鲁菲餐厅 → 点「常客」一次领取常客带来的圣石。"
+msgstr "Management → Go to Glupy Diner → tap \"Regulars\" once to claim the Magic Crystals your regulars brought."
+
+msgid "结算页的图和诊断截图都在这里"
+msgstr "Result images and diagnostic screenshots are all here"
+
+msgid "继续"
+msgstr "Continue"
+
+msgid "维生素B浓缩液"
+msgstr "Vita B Concentrated Solution"
+
+msgid "美丽无望"
+msgstr "Beauty Impossible"
+
+msgid "背包装备中挑一件精炼值低于24的装备精炼一次（活动任务：装备精炼）。只点「精炼」，绝不点「连续精炼」。"
+msgstr "Picks a Gear in your inventory with a Refine value under 24 and Refines it once (Event quest: Gear Refine). Only taps \"Refine\", never \"Continuous Refine\"."
+
+msgid "胡萝卜"
+msgstr "Carrot"
+
+msgid "能量粉末"
+msgstr "Energy Boost Powder"
+
+msgid "能量药水"
+msgstr "Energy Boost Potion"
+
+msgid "能量蘑菇"
+msgstr "Energy Boost Mushroom"
+
+msgid "自动战斗的场数；MAX（默认）用完当天的免费鸡尾酒。开打前会核对「战斗开始」上的消耗 = 倍数 × 场数，且不超过顶部免费鸡尾酒数，并确认「仅使用免费鲜血鸡尾酒」已开启，否则取消不打。"
+msgstr "Number of auto battles; MAX (default) uses up the day's free Blood Cocktails. Before fighting, it checks that the cost on \"Battle Start\" = multiplier × battles, that it doesn't exceed the free Blood Cocktails shown at the top, and that \"Use free Blood Cocktails only\" is on; otherwise it cancels."
+
+msgid "舞台移动方式"
+msgstr "Stage movement"
+
+msgid "芥末"
+msgstr "Wasabi"
+
+msgid "苍蓝魔女"
+msgstr "Lapis Witch"
+
+msgid "苹果"
+msgstr "Apple"
+
+msgid "萝卜缨"
+msgstr "Radish"
+
+msgid "葡萄"
+msgstr "Grape"
+
+msgid "藏红花"
+msgstr "Saffron"
+
+msgid "虚假游戏"
+msgstr "FAKE GAME"
+
+msgid "虾"
+msgstr "Shrimp"
+
+msgid "蜂蜜黄油杏仁"
+msgstr "Honey Butter Almond"
+
+msgid "血之狂想曲"
+msgstr "Bloody Rhapsody"
+
+msgid "血骑士"
+msgstr "Knight of Blood"
+
+msgid "街头烤鸡肉串"
+msgstr "Street Grilled Chicken Skewer"
+
+msgid "街机菜单"
+msgstr "Arcade menu"
+
+msgid "袋装鸡胸肉"
+msgstr "Chicken Breast Pack"
+
+msgid "被遗忘的战争"
+msgstr "Forgotten War"
+
+msgid "西蓝花"
+msgstr "Broccoli"
+
+msgid "要现在重新打开工具吗？"
+msgstr "Reopen the tool now?"
+
+msgid "角色卡"
+msgstr "Character Pack"
+
+msgid "角色卡带"
+msgstr "Character Pack"
+
+msgid "记忆边缘"
+msgstr "Memory's Edge"
+
+msgid "设定"
+msgstr "Setup"
+
+msgid "设定在「{page}」页"
+msgstr "Set up on the \"{page}\" page"
+
+msgid "设置"
+msgstr "Settings"
+
+msgid "试炼之路"
+msgstr "Path of Trials"
+
+msgid "语言"
+msgstr "Language"
+
+msgid "调味海苔"
+msgstr "Seasoned Seaweed"
+
+msgid "调整"
+msgstr "Resize"
+
+msgid "豆子"
+msgstr "Bean"
+
+msgid "资料夹"
+msgstr "Folder"
+
+msgid "跑图"
+msgstr "Farming"
+
+msgid "跑图章节"
+msgstr "Farming chapters"
+
+msgid "跑完了"
+msgstr "Finished"
+
+msgid "跑完了，有项目失败"
+msgstr "Finished, some items failed"
+
+msgid "跑完会在这里看到结果"
+msgstr "Results show up here after a run"
+
+msgid "跟随系统"
+msgstr "Follow system"
+
+msgid "跳过"
+msgstr "Skip"
+
+msgid "辣椒"
+msgstr "Chili Pepper"
+
+msgid "辣椒素"
+msgstr "Capsaicin"
+
+msgid "还剩 {n} 项"
+msgstr "{n} left"
+
+msgid "还没做"
+msgstr "Not done yet"
+
+msgid "还没有跑图记录"
+msgstr "No Farming records yet"
+
+msgid "还没跑过"
+msgstr "Never run"
+
+msgid "这一项被关掉了"
+msgstr "This item is turned off"
+
+msgid "这天没有要卖的"
+msgstr "Nothing to sell on this day"
+
+msgid "进入当期活动：普通战斗→挑战战斗用自动战斗推进未通关关卡；两种都通关后对挑战战斗15快速战斗。绝不点击补充AP。"
+msgstr "Enters the current Event: clears uncleared stages with auto battle, Normal Battle → Challenge Battle; once both are cleared, uses Quick Battle on Challenge Battle 15. Never taps Refill AP."
+
+msgid "迷雾神射手"
+msgstr "Mist Man"
+
+msgid "选一项，设定好后按开始"
+msgstr "Pick one, set it up, then press Start"
+
+msgid "通知"
+msgstr "Notifications"
+
+msgid "通行证"
+msgstr "Pass"
+
+msgid "邮件"
+msgstr "Mail"
+
+msgid "邮件领到的"
+msgstr "From mail"
+
+msgid "重建收藏"
+msgstr "Rebuild Favorite"
+
+msgid "金枪鱼罐头"
+msgstr "Canned Tuna"
+
+msgid "钢铁块"
+msgstr "Steel ingot"
+
+msgid "铁假面"
+msgstr "Iron Mask"
+
+msgid "铜块"
+msgstr "Copper ingot"
+
+msgid "铜矿石"
+msgstr "Copper ore"
+
+msgid "键盘WASD走到舞台"
+msgstr "Walk to stage with WASD"
+
+msgid "雪之歌"
+msgstr "Song of Snow"
+
+msgid "霍尔蒙克斯"
+msgstr "Homunculus"
+
+msgid "预计 {time}（照上次的用时估算）"
+msgstr "About {time} (based on the last run)"
+
+msgid "领取任务奖励"
+msgstr "Claim quest rewards"
+
+msgid "领取商品邮箱"
+msgstr "Claim Purchase mail"
+
+msgid "领取常客圣石"
+msgstr "Claim Regulars' Magic Crystals"
+
+msgid "领取每周任务"
+msgstr "Claim Weekly Quests"
+
+msgid "领取通行证"
+msgstr "Claim Pass"
+
+msgid "领取邮件"
+msgstr "Claim mail"
+
+msgid "领取邮件 · 点图看大图"
+msgstr "Claim mail · click to enlarge"
+
+msgid "领完每日任务后切到每周任务页再领取一次。"
+msgstr "After claiming Daily Quests, switches to the Weekly Quests tab and claims again."
+
+msgid "颜色"
+msgstr "Color"
+
+msgid "首页"
+msgstr "Home"
+
+msgid "香草牛排"
+msgstr "Herb Steak"
+
+msgid "魅惑粉末"
+msgstr "Charm Powder"
+
+msgid "鱼子酱蛋包饭"
+msgstr "Caviar Omelette"
+
+msgid "鲁的迷宫"
+msgstr "Rou's Labyrinth"
+
+msgid "鸡蛋"
+msgstr "Egg"
+
+msgid "黄油"
+msgstr "Butter"
+
+msgid "黄金罗勒"
+msgstr "Golden Basil"
+
+msgid "黄铜块"
+msgstr "Brass ingot"
+
+msgid "黑羽毛"
+msgstr "Black Feather"
+
+msgid "鼠标点击舞台"
+msgstr "Click to stage"
+
+msgid "买什么、做哪些料理、每天卖什么都在那里设定"
+msgstr "What to buy, which dishes to cook and what to sell each day are set there"
+
+msgid "出售日历"
+msgstr "Sale calendar"
+
+msgid "只处理带黄色!新获得标记的装备：R/SR 与 3★/4★ 角色的 UR 专用装备强化到 +7 并自动分解；5★ 角色 UR 专用、上锁、穿戴中、已强化的一律保留。"
+msgstr "Only handles Gear with the yellow ! new mark: R/SR and UR Exclusive Gear of 3★/4★ Characters are upgraded to +7 and dismantled automatically; 5★ Characters' UR Exclusive Gear and locked, equipped or already upgraded Gear are always kept."
+
+msgid "每日按配置依次执行购买、制作料理和出售。"
+msgstr "Each day, buys, cooks and sells in order, as configured."
+
+msgid "背包 → 装备制作 → 第一件 N 装备，开启自动分解、强化到 +5 后按「强化」：制作、强化、分解一次完成（每周任务：制作装备）。只做 N 装备。"
+msgstr "Bag → Craft Gear → first N Gear, turn on auto-dismantle, set upgrade to +5 and press \"Upgrade\": crafts, upgrades and dismantles in one go (Weekly Quest: Craft Gear). Only crafts N Gear."
+
+msgid "跑哪些卡带、每次最多跑几张都在那里设定"
+msgstr "Which Packs to farm and how many per run are set there"
+
+msgid ""
+"• 纯后台运行：游戏在另一个看不见的桌面跑\n"
+"• 照常用电脑，鼠标键盘不会被抢\n"
+"\n"
+"按「前往」后：\n"
+"• Windows 确认请按「是」\n"
+"• 第一次要打账户密码（不是 PIN），之后会记住\n"
+"• 游戏和日常自动开始，进度在这里看\n"
+"• 分身视窗缩到最小即可"
+msgstr ""
+"• Runs fully in the background: the game plays on a separate, hidden desktop\n"
+"• Keep using your PC; your mouse and keyboard stay yours\n"
+"\n"
+"After you press \"Go\":\n"
+"• Press \"Yes\" on the Windows confirmation\n"
+"• The first time, type your account password (not the PIN); it's remembered after that\n"
+"• The game and the Dailies start by themselves; follow the progress here\n"
+"• You can minimize the clone window"
+
+msgid ""
+"• 纯后台运行：游戏在另一个看不见的桌面跑\n"
+"• 照常用电脑，鼠标键盘不会被抢\n"
+"\n"
+"第一次要先设定：\n"
+"• 会跳出 Windows 确认，请按「是」\n"
+"• 设定好后再按一次这个按钮"
+msgstr ""
+"• Runs fully in the background: the game plays on a separate, hidden desktop\n"
+"• Keep using your PC; your mouse and keyboard stay yours\n"
+"\n"
+"First-time setup:\n"
+"• Windows will ask for confirmation; press \"Yes\"\n"
+"• When it's done, press this button again"
+
+msgid ""
+"• 纯后台运行：游戏在另一个看不见的桌面跑\n"
+"• 照常用电脑，鼠标键盘不会被抢\n"
+"\n"
+"要先改一个登录设定：\n"
+"• 分身要用密码登录，现在只允许 PIN／脸\n"
+"• 在「登录选项」关掉「只允许 Windows Hello 登录」\n"
+"• 改好后再按一次这个按钮"
+msgstr ""
+"• Runs fully in the background: the game plays on a separate, hidden desktop\n"
+"• Keep using your PC; your mouse and keyboard stay yours\n"
+"\n"
+"One sign-in setting needs changing first:\n"
+"• The clone signs in with a password; this account only allows PIN/face now\n"
+"• In \"Sign-in options\", turn off \"Only allow Windows Hello sign-in\"\n"
+"• Then press this button again"
+
+msgid "一般执行时请别动键盘和鼠标"
+msgstr "During a normal run, please don't touch the keyboard or mouse"
+
+msgid "前往"
+msgstr "Go"
+
+msgid "取消"
+msgstr "Cancel"
+
+msgid "在桌面分身跑"
+msgstr "Run on Clone Desktop"
+
+msgid "打开登录选项"
+msgstr "Open sign-in options"
+
+msgid "第一次设定"
+msgstr "First-time setup"
+
+msgid "纯后台运行：游戏在另一个看不见的桌面跑，你照常用电脑，鼠标键盘不会被抢"
+msgstr "Runs fully in the background: the game plays on a separate, hidden desktop while you keep using your PC; your mouse and keyboard stay yours"
+
+msgid "打开并开始"
+msgstr "Open and start"
+
+msgid "游戏还没开"
+msgstr "The game isn't open"
+
+msgid "要帮你打开游戏并开始跑吗？"
+msgstr "Open the game and start the run for you?"
+
+msgid ""
+"• 纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑\n"
+"• 照常用电脑，鼠标键盘不会被抢\n"
+"\n"
+"按「前往」后：\n"
+"• Windows 确认请按「是」\n"
+"• 第一次要打账户密码（不是 PIN），之后会记住\n"
+"• 游戏和日常自动开始，进度在这里看"
+msgstr ""
+"• Runs fully in the background: the game plays in its own clone window, and keeps going when minimized\n"
+"• Keep using your PC; your mouse and keyboard stay yours\n"
+"\n"
+"After you press \"Go\":\n"
+"• Press \"Yes\" on the Windows confirmation\n"
+"• The first time, type your account password (not the PIN); it's remembered after that\n"
+"• The game and the Dailies start by themselves; follow the progress here"
+
+msgid ""
+"• 纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑\n"
+"• 照常用电脑，鼠标键盘不会被抢\n"
+"\n"
+"第一次要先设定：\n"
+"• 会跳出 Windows 确认，请按「是」\n"
+"• 设定好后再按一次这个按钮"
+msgstr ""
+"• Runs fully in the background: the game plays in its own clone window, and keeps going when minimized\n"
+"• Keep using your PC; your mouse and keyboard stay yours\n"
+"\n"
+"First-time setup:\n"
+"• Windows will ask for confirmation; press \"Yes\"\n"
+"• When it's done, press this button again"
+
+msgid ""
+"• 纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑\n"
+"• 照常用电脑，鼠标键盘不会被抢\n"
+"\n"
+"要先改一个登录设定：\n"
+"• 分身要用密码登录，现在只允许 PIN／脸\n"
+"• 在「登录选项」关掉「只允许 Windows Hello 登录」\n"
+"• 改好后再按一次这个按钮"
+msgstr ""
+"• Runs fully in the background: the game plays in its own clone window, and keeps going when minimized\n"
+"• Keep using your PC; your mouse and keyboard stay yours\n"
+"\n"
+"One sign-in setting needs changing first:\n"
+"• The clone signs in with a password; this account only allows PIN/face now\n"
+"• In \"Sign-in options\", turn off \"Only allow Windows Hello sign-in\"\n"
+"• Then press this button again"
+
+msgid "纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑；你照常用电脑，鼠标键盘不会被抢"
+msgstr "Runs fully in the background: the game plays in its own clone window and keeps going when minimized; keep using your PC, your mouse and keyboard stay yours"
+
+msgid "打开活动页，依序领取有红点的活动：任务（全部领取）、兑换所（用完代币）、转盘（转到不能转）、骰子（自动进行）。有钻石或付费字样的页面一律不碰。"
+msgstr "Opens the Events page and claims each Event with a red badge: tasks (Claim All), exchange shops (spend all tokens), wheels (spin until you can't), dice (auto play). Pages showing Diamonds or paid text are never touched."
+
+msgid "活动奖励"
+msgstr "Event rewards"
+
+msgid "领取活动奖励"
+msgstr "Claim Event rewards"
+
+msgid "淡紫"
+msgstr "Lavender"
+
+msgid "淡紫、深色，或跟着 Windows 的设定"
+msgstr "Lavender, dark, or follow Windows"
+
+msgid "BD2DB 图鉴"
+msgstr "BD2DB Database"
+
+msgid "不是游戏官方的工具，跟游戏公司没有关系。"
+msgstr "It is not an official game tool and has nothing to do with the game company."
+
+msgid "使用须知"
+msgstr "Before you use it"
+
+msgid "底层框架和一键更新"
+msgstr "Framework and one-click updates"
+
+msgid "思源黑体 Noto Sans"
+msgstr "Noto Sans TC / SC"
+
+msgid "文字辨识"
+msgstr "Text recognition (OCR)"
+
+msgid "新"
+msgstr "New"
+
+msgid "更新内容"
+msgstr "What's new"
+
+msgid "有新版本"
+msgstr "Update available"
+
+msgid "桌面分身的做法"
+msgstr "How Clone Desktop works"
+
+msgid "桌面分身的画面窗口"
+msgstr "Clone Desktop viewer window"
+
+msgid "游戏名称、角色和装备资料"
+msgstr "Game names, characters and gear data"
+
+msgid "源代码、下载、回报问题"
+msgstr "Source code, downloads, bug reports"
+
+msgid "版本"
+msgstr "Version"
+
+msgid "版本 {version}"
+msgstr "Version {version}"
+
+msgid "版本、更新和致谢"
+msgstr "Version, updates and credits"
+
+msgid "界面元件"
+msgstr "UI components"
+
+msgid "界面字体（SIL OFL 1.1）"
+msgstr "UI font (SIL OFL 1.1)"
+
+msgid "简繁转换"
+msgstr "Simplified/Traditional Chinese conversion"
+
+msgid "自动操作有帐号风险，请了解后自己决定要不要用。"
+msgstr "Automation can put your account at risk. Understand that before deciding to use it."
+
+msgid "致谢（参考或使用了这些项目）"
+msgstr "Credits (projects we learned from or use)"
+
+msgid "跑商售卖物品表"
+msgstr "Trade Run sell list"
+
+msgid "跑商要卖哪些东西"
+msgstr "What Trade Run sells"
+
+msgid "跑图路线的想法"
+msgstr "Ideas for Farming routes"
+
+msgid "这个工具免费、开源，不收任何费用。"
+msgstr "This tool is free and open source. It never costs anything."
+
+msgid "这个工具的起点"
+msgstr "Where this tool started"
+
+msgid "{date} · 游戏日从 {time} 开始"
+msgstr "{date} · the game day starts at {time}"
+
+msgid "{month} 月 · {time} 更新 · 点一天看要卖什么"
+msgstr "Month {month} · updates at {time} · click a day to see what to sell"
+
+msgid "下周{weekday} {time} 刷新"
+msgstr "Resets next {weekday} {time}"
+
+msgid "今天 {time}"
+msgstr "Today {time}"
+
+msgid "每周{weekday} {time} 重新开始 · 每张卡带一周跑一次"
+msgstr "Resets every {weekday} {time} · each Pack runs once a week"
+
+msgid "每天 {time} 重置"
+msgstr "Resets daily at {time}"
+
+msgid "✓ 保持小地图"
+msgstr "✓ Keep it small"
+
+msgid "✗ 不要放大"
+msgstr "✗ Don't enlarge"
+
+msgid "「天赋技能使用角色设置」一定要选右边的「战场角色」"
+msgstr "Under the talent-skill character setting, always pick the right option, \"battlefield character\""
+
+msgid "上面的阵形选哪个都可以"
+msgstr "Any formation above is fine"
+
+msgid "两个按钮都在「首页」。"
+msgstr "Both buttons are on \"Home\"."
+
+msgid "使用说明"
+msgstr "Guide"
+
+msgid "先在游戏里把要买的商品加入收藏"
+msgstr "First add the items to buy to Favorites in the game"
+
+msgid "先看一次设定"
+msgstr "Check the settings once"
+
+msgid "只卖出售日历里当天勾选的商品"
+msgstr "Sells only the items ticked for that day in the sale calendar"
+
+msgid "右下角技能，按 1 → 4 放：探查、吸收、召集、压制"
+msgstr "Bottom-right skills, slots 1 → 4: Search, Absorb, Assemble, Overpower"
+
+msgid "地图放大了，按小地图旁边的「−」缩回来"
+msgstr "If the map is enlarged, press the \"−\" beside it to shrink it back"
+
+msgid "工具只买「收藏」里的商品"
+msgstr "The tool buys only Favorite items"
+
+msgid "左上角保持小地图"
+msgstr "Keep the top-left map small"
+
+msgid "建议跑之前先放好"
+msgstr "Best to set them before running"
+
+msgid "必看"
+msgstr "Read me"
+
+msgid "战场角色设定"
+msgstr "Battlefield character setting"
+
+msgid "技能按顺序放"
+msgstr "Put the skills in order"
+
+msgid "日常有两种跑法"
+msgstr "Two ways to run the dailies"
+
+msgid "最常用"
+msgstr "Most used"
+
+msgid "标「留」的商品会留下那个数量，其余卖掉"
+msgstr "Items marked \"Keep\" keep that many; the rest are sold"
+
+msgid "游戏在另一个分身窗口里跑，缩小也照跑"
+msgstr "The game runs in a separate clone window, even minimised"
+
+msgid "游戏开在前面，工具直接点游戏"
+msgstr "The game stays in front; the tool clicks it"
+
+msgid "游戏没开会先问你，再帮你开"
+msgstr "If the game isn't open, it asks, then opens it"
+
+msgid "点画面最下面中间的按钮"
+msgstr "Click the middle button at the bottom of the screen"
+
+msgid "照自己的习惯调好再跑"
+msgstr "Set it up your way before running"
+
+msgid "用哪一组技能（TAB 切换的 1/2/3）都可以"
+msgstr "Any skill set (1/2/3, switched with TAB) is fine"
+
+msgid "电脑照常用，鼠标键盘不会被抢"
+msgstr "Keep using the PC; mouse and keyboard stay yours"
+
+msgid "第一次用，先花一分钟看完"
+msgstr "New here? Take a minute to read this"
+
+msgid "要 Windows 专业版；第一次要设定，并输入微软账户密码"
+msgstr "Needs Windows Pro; first time: set it up and enter your Microsoft account password"
+
+msgid "要跑哪些、跑几次、要不要做料理，都在这几页"
+msgstr "What to run, how many times, whether to cook: it's all on these pages"
+
+msgid "跑图前，游戏里先设好这三样"
+msgstr "Before Farming, set these three things in the game"
+
+msgid "跑的时候不要动鼠标、键盘"
+msgstr "Don't touch the mouse or keyboard while it runs"
+
+msgid "边跑边用电脑"
+msgstr "Use the PC meanwhile"
+
+msgid "重要"
+msgstr "Important"
+
+msgid "从「{name}」继续"
+msgstr "Continue from {name}"
+
+msgid "上次在「{name}」手动停止，做完的不会再跑"
+msgstr "Stopped by hand at {name} last time; finished items won't run again"
+
+msgid "按继续会从「{name}」接着跑，做完的不会再跑"
+msgstr "Continue picks up from {name}; finished items won't run again"
+
+msgid "{task} · 点图看大图"
+msgstr "{task} · click a picture to enlarge"
+
+msgid ""
+"• 纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑\n"
+"• 照常用电脑，鼠标键盘不会被抢"
+msgstr ""
+"• Fully in the background: the game runs in its own clone window, even minimized\n"
+"• Keep using your PC; the mouse and keyboard stay yours"
+
+msgid "「{name}」还在执行，等它结束或先按停止再开始"
+msgstr "\"{name}\" is still running. Wait for it to end, or press Stop first."
+
+msgid "上一次调整仍在等待系统调用结束，请稍后重试。"
+msgstr "The last resize is still waiting on Windows. Try again shortly."
+
+msgid "不支持的目标分辨率：{size}。"
+msgstr "Unsupported size: {size}."
+
+msgid "交给桌面分身里的工具跑，进度在这里看"
+msgstr "Handed to the tool on the Clone Desktop; follow progress here"
+
+msgid "今天还没跑过任务"
+msgstr "Nothing has run today"
+
+msgid "今日报表"
+msgstr "Today's Report"
+
+msgid "任务正在运行，请先暂停任务再调整分辨率。"
+msgstr "A task is running. Pause it before changing the size."
+
+msgid "关掉分身并开始"
+msgstr "Close it and start"
+
+msgid "关掉弹窗、按返回，把游戏带回主页（卡住时用）"
+msgstr "Closes popups and presses Back to bring the game to Home (use when stuck)"
+
+msgid "其他任务"
+msgstr "Another task"
+
+msgid "分身里刚开始跑任务，这里先不开始"
+msgstr "A run just started on the Clone Desktop, so nothing starts here"
+
+msgid "分身里没能自动打开工具（{reason}），请在分身里自己打开"
+msgstr "Couldn't open the tool on the Clone Desktop ({reason}). Open it there yourself."
+
+msgid ""
+"分身里现在没在跑任务，但分身还开着。\n"
+"要在这里跑，得先关掉分身（分身里的游戏和工具会一起关）。"
+msgstr ""
+"Nothing is running on the Clone Desktop, but it is still open.\n"
+"To run here, close it first (its game and tool close with it)."
+
+msgid "加入一键完成日常"
+msgstr "Include in Run All Dailies"
+
+msgid "勾选：一键完成日常会跑这项"
+msgstr "Ticked: Run All Dailies runs this item"
+
+msgid "单独执行"
+msgstr "On its own"
+
+msgid "周常的结果"
+msgstr "Weeklies results"
+
+msgid "完成 {done} 项 · 失败 {failed} 项 · 点这里看全部"
+msgstr "{done} done · {failed} failed · click to see all"
+
+msgid "工具已经在分身里开始跑，这里可以看进度和报告"
+msgstr "The tool has started on the Clone Desktop. Follow progress and reports here."
+
+msgid "工具正在桌面分身里跑，要在这里跑请先按停止"
+msgstr "The tool is running on the Clone Desktop. Press Stop first to run here."
+
+msgid "工具正在桌面分身里跑，这里会跟着更新"
+msgstr "The tool is running on the Clone Desktop; this page follows along"
+
+msgid "开始失败：{error}"
+msgstr "Couldn't start: {error}"
+
+msgid "当前显示器无法容纳 {size} 游戏客户区。"
+msgstr "This monitor can't fit a {size} game window."
+
+msgid "当前游戏窗口已失效，请刷新后重新选择。"
+msgstr "The game window is no longer valid. Refresh and choose it again."
+
+msgid "当前游戏窗口：{size}"
+msgstr "Game window: {size}"
+
+msgid "截图失败：{error}"
+msgstr "Screenshot failed: {error}"
+
+msgid "截图方式未连接"
+msgstr "Capture method not connected"
+
+msgid "截图超时，正在重试"
+msgstr "Screenshot timed out, retrying"
+
+msgid "手动调整分辨率失败：{error}"
+msgstr "Resizing the game window failed: {error}"
+
+msgid "执行次数"
+msgstr "Runs"
+
+msgid "找不到这个任务，请重开工具再试"
+msgstr "Can't find this task. Reopen the tool and try again."
+
+msgid "把第一次设定改的 Windows 设定全部改回去"
+msgstr "Puts back every Windows setting the first-time setup changed"
+
+msgid ""
+"按「前往」后：\n"
+"• Windows 确认请按「是」\n"
+"• 第一次要打账户密码（不是 PIN），之后会记住\n"
+"• 游戏和日常自动开始，进度在这里看"
+msgstr ""
+"After you press \"Go\":\n"
+"• Click \"Yes\" when Windows asks to confirm\n"
+"• The first time, type your account password (not the PIN); it's remembered after that\n"
+"• The game and dailies start by themselves; follow progress here"
+
+msgid "日常"
+msgstr "Dailies"
+
+msgid "日常的结果"
+msgstr "Dailies results"
+
+msgid "暂无截图"
+msgstr "No screenshot yet"
+
+msgid "桌面分身"
+msgstr "Clone Desktop"
+
+msgid "桌面分身还开着"
+msgstr "The Clone Desktop is still open"
+
+msgid "桌面分身还没设定好，请先到「设置」按「第一次设定」"
+msgstr "The Clone Desktop isn't set up yet. Go to Settings and press \"First-time setup\"."
+
+msgid "正在调整到 {size}…"
+msgstr "Resizing to {size}…"
+
+msgid "每次跑完（一键日常、周常或单独执行）都会记在这里。"
+msgstr "Every run (Run All Dailies, Weeklies or a single item) is recorded here."
+
+msgid "没有开始"
+msgstr "Not started"
+
+msgid "没有打开分身（Windows 的确认按了「否」）"
+msgstr "The Clone Desktop didn't open (\"No\" was clicked in the Windows prompt)"
+
+msgid "没能关掉分身，请在分身窗口按右上角的 X 关掉再开始"
+msgstr "Couldn't close the Clone Desktop. Close it with the X at the top right of its window, then start."
+
+msgid "游戏窗口已最小化，请先恢复窗口。"
+msgstr "The game window is minimized. Restore it first."
+
+msgid "游戏窗口已调整为 {size}。"
+msgstr "Game window resized to {size}."
+
+msgid "游戏窗口无法退出最大化状态，请先手动还原窗口。"
+msgstr "The game window won't leave maximized. Restore it by hand first."
+
+msgid "游戏窗口管理器尚未就绪，请先刷新窗口列表。"
+msgstr "The game window manager isn't ready. Refresh the window list first."
+
+msgid "看今日报表"
+msgstr "See today's report"
+
+msgid "窗口没有稳定到目标分辨率，当前客户区为 {size}。"
+msgstr "The window didn't settle at the target size; it is now {size}."
+
+msgid ""
+"第一次要先设定：\n"
+"• 会跳出 Windows 确认，请按「是」\n"
+"• 设定好后再按一次这个按钮"
+msgstr ""
+"First, a one-time setup:\n"
+"• Windows will ask to confirm; click \"Yes\"\n"
+"• When it's done, press this button again"
+
+msgid "等待截图"
+msgstr "Waiting for a screenshot"
+
+msgid "等待自动登录完成"
+msgstr "Waiting for the automatic sign-in"
+
+msgid "等待选择截图方式"
+msgstr "Waiting for a capture method to be chosen"
+
+msgid "等待选择窗口"
+msgstr "Waiting for a window to be chosen"
+
+msgid "系统窗口调用超时，已停止后续步骤；请稍后重试。"
+msgstr "Windows took too long; stopped here. Try again shortly."
+
+msgid ""
+"要先改一个登录设定：\n"
+"• 分身要用密码登录，现在只允许 PIN／脸\n"
+"• 在「登录选项」关掉「只允许 Windows Hello 登录」\n"
+"• 改好后再按一次这个按钮"
+msgstr ""
+"One sign-in setting must change first:\n"
+"• The clone signs in with a password; right now only PIN/face is allowed\n"
+"• In \"Sign-in options\", turn off \"Only allow Windows Hello sign-in\"\n"
+"• Then press this button again"
+
+msgid "要把桌面分身的设定改回去吗？分身里的游戏和工具会被关掉。"
+msgstr "Undo the Clone Desktop settings? The game and tool on the Clone Desktop will be closed."
+
+msgid "设备管理器尚未就绪。"
+msgstr "Device manager not ready."
+
+msgid "设备管理未就绪"
+msgstr "Device manager not ready"
+
+msgid "请先在首页选择并连接 PC 游戏窗口。"
+msgstr "Choose and connect the PC game window on Home first."
+
+msgid "调整失败：{error}"
+msgstr "Resize failed: {error}"
+
+msgid "调整已取消。"
+msgstr "Resize cancelled."
+
+msgid "跑了 {n} 次"
+msgstr "Ran {n} times"
+
+msgid "跑完、出错时在 Windows 右下角跳出通知"
+msgstr "Show a notification at the bottom right of Windows when a run ends or fails"
+
+msgid "跑完会在这里看到今天的结果"
+msgstr "Today's results show up here after a run"
+
+msgid "跑过的项目"
+msgstr "Items run"
+
+msgid "还原"
+msgstr "Undo"
+
+msgid "还原桌面分身"
+msgstr "Undo Clone Desktop setup"
+
+msgid "项 · 最后 {time}"
+msgstr "items · last {time}"
+
+msgid "颜色、语言、通知和工具"
+msgstr "Colors, language, notifications and tools"
+
+msgid "魔兽追踪者"
+msgstr "Fiend Hunter"
+
+msgid "（尺寸已是目标值）"
+msgstr " (already this size)"
+
+msgid "桌面分身：这次由工具自动登录。"
+msgstr "Clone Desktop: the tool signs in this time."
+
+msgid "TEAM{team} · {n}/{max} 个角色 · 点头像移出，点下面的角色加入"
+msgstr "TEAM{team} · {n}/{max} Characters · click a portrait to remove, a Character below to add"
+
+msgid "{name} 已在 TEAM{n}：先从那一队移出"
+msgstr "{name} is already in TEAM{n}: remove them from that team first"
+
+msgid "{name}（已在 TEAM{n}）"
+msgstr "{name} (already in TEAM{n})"
+
+msgid "{n} 回合"
+msgstr "Turns: {n}"
+
+msgid "一队最多 {n} 个角色：先移出一个"
+msgstr "A team holds up to {n} Characters: remove one first"
+
+msgid "下次照它回放，更快更稳"
+msgstr "Replays from it next time are faster and steadier"
+
+msgid "不调整（推荐，较稳定）"
+msgstr "Don't adjust (recommended, steadier)"
+
+msgid "例如：10月魔兽"
+msgstr "e.g. October Fiend"
+
+msgid "停止录制"
+msgstr "Stop recording"
+
+msgid "先在游戏的「服装顺序设置」排好每个角色的服装顺序！工具只排出手顺序和站位，召唤物的技能照存档选"
+msgstr "First set each Character's Costume order in the game's Costume order settings! The tool only sets the turn order and positions; summons' skills follow the save"
+
+msgid "先建一个存档"
+msgstr "Make a save first"
+
+msgid "光"
+msgstr "Light"
+
+msgid "关"
+msgstr "Off"
+
+msgid "击退"
+msgstr "Knockback"
+
+msgid "删除第 {n} 回合"
+msgstr "Delete turn {n}"
+
+msgid "删除第 {n} 回合？"
+msgstr "Delete turn {n}?"
+
+msgid "勾了每回合逐个确认站位，较慢"
+msgstr "When on, positions are checked one by one each turn (slower)"
+
+msgid "取个名字，例如 10月魔兽"
+msgstr "Give it a name, e.g. October Fiend"
+
+msgid "只有截图时，打完存一份动作档"
+msgstr "Screenshots only: save an action file after the fight"
+
+msgid "只有截图：照截图排位，打完一场自动存成动作档"
+msgstr "Screenshots only: places units as the screenshots show, then saves an action file after the fight"
+
+msgid "召唤物每回合"
+msgstr "Summons by turn"
+
+msgid "名字不能空白，也不能有 \\ / : * ? \" < > |"
+msgstr "The name can't be blank or contain \\ / : * ? \" < > |"
+
+msgid "回合"
+msgstr "Turns"
+
+msgid "回放中"
+msgstr "Replaying"
+
+msgid "在任一回合的排位画面再点「开始打」，接着打，不用从头"
+msgstr "Press Start fight again on any turn's formation screen to carry on; no need to start over"
+
+msgid "在游戏的魔兽战排位画面，先按工具上的「开始录制」"
+msgstr "On the game's Fiend battle formation screen, first press Start recording in the tool"
+
+msgid "在魔兽战的排位画面（BATTLE 显示 TURN）按开始"
+msgstr "Press Start on the Fiend battle formation screen (BATTLE shows TURN)"
+
+msgid "存档"
+msgstr "Saves"
+
+msgid "存档「{save}」的第 {n} 回合和它的截图会被删除，不能复原。"
+msgstr "Turn {n} of the save {save} and its screenshot will be deleted. This can't be undone."
+
+msgid "展开"
+msgstr "Show"
+
+msgid "已改"
+msgstr "Edited"
+
+msgid "已经有这个存档了"
+msgstr "That save already exists"
+
+msgid "开始录制"
+msgstr "Start recording"
+
+msgid "开始打"
+msgstr "Start fight"
+
+msgid "录制中"
+msgstr "Recording"
+
+msgid "录制中：每回合排好后按 {key}，工具照右下角的回合数存"
+msgstr "Recording: press {key} after setting up each turn; it's saved under the turn number at the bottom right"
+
+msgid "录制按键"
+msgstr "Record key"
+
+msgid "录制：每回合排好后按 {key}，照右下角的回合数自动新增（录过的回合会覆盖）"
+msgstr "Record: press {key} after setting up each turn; it's added under the turn number at the bottom right (a turn recorded before is overwritten)"
+
+msgid "待补"
+msgstr "Unset"
+
+msgid "截图"
+msgstr "Screenshots"
+
+msgid "截图 {n} 张"
+msgstr "Screenshots: {n}"
+
+msgid "打到第几回合就停"
+msgstr "Stop after turn"
+
+msgid "打完"
+msgstr "To the end"
+
+msgid "打开原图"
+msgstr "Open full image"
+
+msgid "打开存档文件夹"
+msgstr "Open saves folder"
+
+msgid "打的时候不要动鼠标和键盘"
+msgstr "Don't touch the mouse or keyboard while it fights"
+
+msgid "技能"
+msgstr "Skill"
+
+msgid "技能1"
+msgstr "Skill 1"
+
+msgid "技能2"
+msgstr "Skill 2"
+
+msgid "技能3"
+msgstr "Skill 3"
+
+msgid "技能4"
+msgstr "Skill 4"
+
+msgid "把 {name} 移出队伍"
+msgstr "Remove {name} from the team"
+
+msgid "拖动头像换格子"
+msgstr "Drag a portrait to change cells"
+
+msgid "拖动改顺序"
+msgstr "Drag to reorder"
+
+msgid "拖动改顺序和站位，点召唤物改技能，改完自动存"
+msgstr "Drag to change order and cells; click a summon to change its skill. Saved automatically"
+
+msgid "按「开始录制」"
+msgstr "Press Start recording"
+
+msgid "排好这回合后，在这个画面按 F8"
+msgstr "After setting up the turn, press F8 on this screen"
+
+msgid "排轴"
+msgstr "Timeline"
+
+msgid "推荐先自己用 F8 录一场，之后回放最快最稳。下面有使用说明。"
+msgstr "Best: record one fight yourself with F8 first; replays are then fastest and steadiest. The guide is below."
+
+msgid "搜索角色名（中文或英文）"
+msgstr "Search Character name"
+
+msgid "收起"
+msgstr "Hide"
+
+msgid "收起或展开这一队"
+msgstr "Hide or show this team"
+
+msgid "攻击"
+msgstr "Attack"
+
+msgid "新增"
+msgstr "New"
+
+msgid "新增存档"
+msgstr "New save"
+
+msgid "暗"
+msgstr "Dark"
+
+msgid "服装技能"
+msgstr "Costume skills"
+
+msgid "每个人的技能和爆发都照存档选。开打前：队伍组得跟录的时候一样，服装技能要齐，SP 要够"
+msgstr "Everyone's skill and Burst follow the save. Before you start: the team must match the recording, every Costume skill must be there, and you need enough SP"
+
+msgid "每人每回合"
+msgstr "Everyone by turn"
+
+msgid "每回合按 F8"
+msgstr "Press F8 each turn"
+
+msgid "每回合排好后按录制按键（默认 F8），不用按 BATTLE"
+msgstr "After setting up each turn, press the record key (F8 by default); no need to press BATTLE"
+
+msgid "水"
+msgstr "Water"
+
+msgid "没切换成"
+msgstr "Didn't switch"
+
+msgid "没存上"
+msgstr "Not saved"
+
+msgid "没有符合的角色"
+msgstr "No matching Characters"
+
+msgid "火"
+msgstr "Fire"
+
+msgid "点一下改攻击、技能或爆发"
+msgstr "Click to change Attack, Skill or Burst"
+
+msgid "点一个人改技能和爆发，拖动改顺序和站位，改完自动存"
+msgstr "Click a unit to change its skill and Burst; drag to change order and cells. Saved automatically"
+
+msgid "爆发"
+msgstr "Burst"
+
+msgid "确定"
+msgstr "OK"
+
+msgid "第 {n} 回合"
+msgstr "Turn {n}"
+
+msgid "第 {n} 回合 · TEAM{team}"
+msgstr "Turn {n} · TEAM{team}"
+
+msgid "第 {n} 回合 · TEAM{team} · 上场 {count} 人"
+msgstr "Turn {n} · TEAM{team} · {count} in play"
+
+msgid "第 {n} 回合 · {name}"
+msgstr "Turn {n} · {name}"
+
+msgid "编辑队伍"
+msgstr "Edit team"
+
+msgid "自己录的存档：照每回合的站位、顺序和技能回放"
+msgstr "Your own recording: replays each turn's positions, order and skills"
+
+msgid "被中断了？"
+msgstr "Interrupted?"
+
+msgid "设置没存上，请再点一次"
+msgstr "The setting wasn't saved; click again"
+
+msgid "调整服装技能"
+msgstr "Adjust Costume skills"
+
+msgid "还没录"
+msgstr "Not recorded"
+
+msgid "还没有回合：在排位画面按「录制」开始录"
+msgstr "No turns yet: press Start recording on the formation screen"
+
+msgid "还没有存档：按「新增」建一个，再按「录制」"
+msgstr "No saves yet: press New to make one, then Start recording"
+
+msgid "还没有录到 TEAM{n} 的回合"
+msgstr "No TEAM{n} turns recorded yet"
+
+msgid "这一队没有召唤物，技能交给游戏的服装顺序"
+msgstr "This team has no summons; skills follow the game's Costume order"
+
+msgid "阵亡"
+msgstr "KO"
+
+msgid "风"
+msgstr "Wind"
+
+msgid "魔兽会推动角色位置"
+msgstr "The Fiend moves Characters"

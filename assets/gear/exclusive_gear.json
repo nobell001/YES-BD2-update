@@ -1,0 +1,789 @@
+{
+ "source": "https://browndust2-db.souseha.com (db-weapons, db-characters bundles)",
+ "fetched": "2026-09-26",
+ "items": [
+  {
+   "zh_cn": "皇家钢剑",
+   "zh_tw": "皇家石",
+   "en": "Royaldite",
+   "character_id": "Justia",
+   "character_tw": "悠絲緹亞",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "阿尔塔卢戈",
+   "zh_tw": "阿爾塔盧戈",
+   "en": "Artha Lugo",
+   "character_id": "Lathel",
+   "character_tw": "拉德爾",
+   "star": 5,
+   "part": "Armor"
+  },
+  {
+   "zh_cn": "丰识魔剑",
+   "zh_tw": "豐識魔劍",
+   "en": "Plentithoum",
+   "character_id": "Scheherazade",
+   "character_tw": "莎赫拉查德",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "权冠之弓",
+   "zh_tw": "迪亞德瑪",
+   "en": "Diathema",
+   "character_id": "Gray",
+   "character_tw": "格雷",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "黑暗封印工具",
+   "zh_tw": "黑暗封印道具",
+   "en": "Dark Restraint",
+   "character_id": "Rou",
+   "character_tw": "魯",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "真理眼镜",
+   "zh_tw": "貝魯姆盧克斯",
+   "en": "Verum Lux",
+   "character_id": "Olstein",
+   "character_tw": "奧爾施塔因",
+   "star": 5,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "红玉髓剑",
+   "zh_tw": "紅玉髓劍",
+   "en": "Carneliana",
+   "character_id": "Rubia",
+   "character_tw": "露比雅",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "报春剑",
+   "zh_tw": "伏利木蘭",
+   "en": "Primulan",
+   "character_id": "Sylvia",
+   "character_tw": "席比雅",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "唤星装饰",
+   "zh_tw": "星星召喚裝飾",
+   "en": "Star Caller Ornament",
+   "character_id": "Eclipse",
+   "character_tw": "伊柯利普斯",
+   "star": 5,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "刑罚之斧",
+   "zh_tw": "格拉比歐勒",
+   "en": "Gravior",
+   "character_id": "Teresse",
+   "character_tw": "泰瑞絲",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "穿月弓",
+   "zh_tw": "月亮穿弓",
+   "en": "Lunar Piercer",
+   "character_id": "Liatris",
+   "character_tw": "莉亞特里斯",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "掠食者",
+   "zh_tw": "掠食者",
+   "en": "Predator",
+   "character_id": "Alec",
+   "character_tw": "艾瑞克",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "泰拉假面",
+   "zh_tw": "泰拉遮瑕膏",
+   "en": "Terra Concealer",
+   "character_id": "Celia",
+   "character_tw": "西利亞",
+   "star": 5,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "M.A.I.DC",
+   "zh_tw": "M.A.I.DC",
+   "en": "M.A.I.D C",
+   "character_id": "Anastasia",
+   "character_tw": "安娜塔西亞",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "灵魂蝴蝶结",
+   "zh_tw": "靈魂卡提那",
+   "en": "Soul Curtana",
+   "character_id": "Lecliss",
+   "character_tw": "萊克莉斯",
+   "star": 5,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "E.P.G",
+   "zh_tw": "E.P.G",
+   "en": "E.P.G",
+   "character_id": "Rafina",
+   "character_tw": "拉菲娜",
+   "star": 5,
+   "part": "Gloves"
+  },
+  {
+   "zh_cn": "玫瑰精选",
+   "zh_tw": "玫瑰精選",
+   "en": "Rose Selection",
+   "character_id": "Elise",
+   "character_tw": "愛麗潔",
+   "star": 5,
+   "part": "Armor"
+  },
+  {
+   "zh_cn": "大邪灵",
+   "zh_tw": "大惡魔",
+   "en": "Arch Demons",
+   "character_id": "Seir",
+   "character_tw": "賽爾",
+   "star": 5,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "顶尖偶像",
+   "zh_tw": "頂尖偶像",
+   "en": "Top Idol",
+   "character_id": "Helena",
+   "character_tw": "海倫娜",
+   "star": 5,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "自由射手",
+   "zh_tw": "魔彈射手",
+   "en": "Freischutz",
+   "character_id": "Eleaneer",
+   "character_tw": "艾尼爾",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "魔剑约尔门",
+   "zh_tw": "魔劍約爾文",
+   "en": "Evil Sword Jormun",
+   "character_id": "Angelica",
+   "character_tw": "安潔莉卡",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "冰霜女王",
+   "zh_tw": "冰霜女王",
+   "en": "Frost Queen",
+   "character_id": "Glacia",
+   "character_tw": "克蕾西亞",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "魔剑紫月",
+   "zh_tw": "魔劍紫月",
+   "en": "Evil Sword Purple Moon",
+   "character_id": "Ventana",
+   "character_tw": "班塔納",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "白色小精灵",
+   "zh_tw": "白色小精靈",
+   "en": "White Pixie",
+   "character_id": "Diana",
+   "character_tw": "黛安娜",
+   "star": 5,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "兔子游侠",
+   "zh_tw": "兔子騎兵",
+   "en": "Rabbit Ranger",
+   "character_id": "Zenith",
+   "character_tw": "傑尼斯",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "黑雪大虎剑",
+   "zh_tw": "黑雪大虎劍",
+   "en": "Black Snow Tiger Sword",
+   "character_id": "Yuri",
+   "character_tw": "尤里",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "千年发簪",
+   "zh_tw": "千年簪",
+   "en": "Thousand-year-old Hairpin",
+   "character_id": "Dalvi",
+   "character_tw": "達非",
+   "star": 5,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "地狱之印",
+   "zh_tw": "地獄海",
+   "en": "Seal of Hell",
+   "character_id": "Nartas",
+   "character_tw": "納羅達斯",
+   "star": 5,
+   "part": "Gloves"
+  },
+  {
+   "zh_cn": "翼角头盔",
+   "zh_tw": "芙萊溫尼",
+   "en": "Freinir",
+   "character_id": "Granhildr",
+   "character_tw": "葛蘭西特",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "小仙子",
+   "zh_tw": "小仙子",
+   "en": "Little Fairy",
+   "character_id": "Refithea",
+   "character_tw": "芮彼泰雅",
+   "star": 5,
+   "part": "Armor"
+  },
+  {
+   "zh_cn": "失落魔法",
+   "zh_tw": "失落魔法",
+   "en": "Lost Magic",
+   "character_id": "Loen",
+   "character_tw": "羅安",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "洛琪希的魔杖",
+   "zh_tw": "洛琪希的魔杖",
+   "en": "Roxy's Staff",
+   "character_id": "Roxy",
+   "character_tw": "洛琪希",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "艾莉丝的剑",
+   "zh_tw": "艾莉絲的劍",
+   "en": "Eris's Sword",
+   "character_id": "Eris",
+   "character_tw": "艾莉絲",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "和声",
+   "zh_tw": "和聲",
+   "en": "Sing in Harmony",
+   "character_id": "Venaka",
+   "character_tw": "貝那卡",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "月影",
+   "zh_tw": "月影",
+   "en": "Moon Shadow",
+   "character_id": "Nebris",
+   "character_tw": "內布利斯",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "米斯特汀",
+   "zh_tw": "米斯特汀",
+   "en": "Mistilteinn",
+   "character_id": "SacredJustia",
+   "character_tw": "神聖悠絲緹亞",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "解放之书",
+   "zh_tw": "解放之書",
+   "en": "Tome of Liberation",
+   "character_id": "Levia",
+   "character_tw": "萊維亞",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "拉·修普诺斯",
+   "zh_tw": "拉·許普諾斯",
+   "en": "La Hypnos",
+   "character_id": "Morpeah",
+   "character_tw": "墨菲亞",
+   "star": 5,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "治愈圣杯",
+   "zh_tw": "治癒聖杯",
+   "en": "Prelude",
+   "character_id": "Michaela",
+   "character_tw": "米卡埃拉",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "轰剑·诸神黄昏",
+   "zh_tw": "轟劍・諸神黃昏",
+   "en": "Roaring Sword - Ragnarok",
+   "character_id": "Yomi",
+   "character_tw": "詠",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "好友的拳甲",
+   "zh_tw": "好友的拳甲",
+   "en": "Expandable Pile Bunker Gauntlets",
+   "character_id": "Yozakura",
+   "character_tw": "夜櫻",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "日向之刀",
+   "zh_tw": "日向之刀",
+   "en": "Hinata's Knife",
+   "character_id": "Hikage",
+   "character_tw": "日影",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "黑影之扇",
+   "zh_tw": "黑影之扇",
+   "en": "Kurokage's Fan",
+   "character_id": "Yumi",
+   "character_tw": "雪泉",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "史佩露比亚",
+   "zh_tw": "史佩露比亞",
+   "en": "Superbia",
+   "character_id": "Luvencia",
+   "character_tw": "盧班希亞",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "黑暗玫瑰念珠",
+   "zh_tw": "黑暗玫瑰念珠",
+   "en": "Dark Rosarium",
+   "character_id": "Liberta",
+   "character_tw": "黎維塔",
+   "star": 5,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "布莱德",
+   "zh_tw": "布萊德",
+   "en": "Blade",
+   "character_id": "Blade",
+   "character_tw": "布萊德",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "花刺剑",
+   "zh_tw": "花刺劍",
+   "en": "Fleur Stinger",
+   "character_id": "Wilhelmina",
+   "character_tw": "威廉明娜",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "短剑",
+   "zh_tw": "短劍",
+   "en": "Short Sword",
+   "character_id": "GoblinSlayer",
+   "character_tw": "哥布林殺手",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "锡杖",
+   "zh_tw": "錫杖",
+   "en": "Staff",
+   "character_id": "Priestess",
+   "character_tw": "女神官",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "赤柏松木弓",
+   "zh_tw": "赤柏松木弓",
+   "en": "Yew Wood Bow",
+   "character_id": "HighElfArcher",
+   "character_tw": "妖精弓手",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "天秤剑",
+   "zh_tw": "天秤劍",
+   "en": "Sword-and-Scales Staff",
+   "character_id": "SwordMaiden",
+   "character_tw": "劍之聖女",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "提尔锋",
+   "zh_tw": "提爾鋒",
+   "en": "Tyrfing",
+   "character_id": "Olivier",
+   "character_tw": "奧利維爾",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "阿忒尔·赫卡忒",
+   "zh_tw": "亞特爾·赫卡特",
+   "en": "Ater Hecate",
+   "character_id": "Sonya",
+   "character_tw": "索妮亞",
+   "star": 5,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "布里欧纳克",
+   "zh_tw": "布魯納克",
+   "en": "Brionac",
+   "character_id": "Tyr",
+   "character_tw": "提爾",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "默示",
+   "zh_tw": "雷貝拉西歐",
+   "en": "Revelatio",
+   "character_id": "Darian",
+   "character_tw": "達麗安",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "葛洛堤女王",
+   "zh_tw": "葛洛堤女王",
+   "en": "Glutti Queen",
+   "character_id": "Granadair",
+   "character_tw": "葛拉娜德",
+   "star": 5,
+   "part": "Armor"
+  },
+  {
+   "zh_cn": "黛莉内奥",
+   "zh_tw": "德里尼歐",
+   "en": "Delineo",
+   "character_id": "Palette",
+   "character_tw": "帕萊特",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "暗影涌动",
+   "zh_tw": "闇影之鋒",
+   "en": "Grim Surge",
+   "character_id": "Mamonir",
+   "character_tw": "馬莫尼勒",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "名剑飞燕",
+   "zh_tw": "名劍飛燕",
+   "en": "The Exquisite Hien",
+   "character_id": "Ikaruga",
+   "character_tw": "斑鳩",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "莱夫科斯遗骸",
+   "zh_tw": "雪白遺骸",
+   "en": "Leukos Leipsana",
+   "character_id": "Nekyndalia",
+   "character_tw": "涅肯達莉亞",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "噬血者",
+   "zh_tw": "血之吞噬者",
+   "en": "Blood Devourer",
+   "character_id": "Aquila",
+   "character_tw": "阿奇拉",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "京香的剑",
+   "zh_tw": "京香的劍",
+   "en": "Kyouka's Sword",
+   "character_id": "KyoukaUzen",
+   "character_tw": "羽前京香",
+   "star": 5,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "天花的耳环",
+   "zh_tw": "天花的耳環",
+   "en": "Tenka's Earring",
+   "character_id": "TenkaIzumo",
+   "character_tw": "出雲天花",
+   "star": 5,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "恋的头饰",
+   "zh_tw": "戀的頭飾",
+   "en": "Ren's Hair Accessory",
+   "character_id": "RenYamashiro",
+   "character_tw": "山城戀",
+   "star": 5,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "阿米堤耶",
+   "zh_tw": "阿米堤耶",
+   "en": "Amitie",
+   "character_id": "Lisianne",
+   "character_tw": "莉西安",
+   "star": 4,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "掠夺之手",
+   "zh_tw": "掠奪之手",
+   "en": "Stealer Hand",
+   "character_id": "Bernie",
+   "character_tw": "維爾尼",
+   "star": 4,
+   "part": "Gloves"
+  },
+  {
+   "zh_cn": "猪猪锻造王",
+   "zh_tw": "皮格史密斯",
+   "en": "Pigsmith",
+   "character_id": "Layla",
+   "character_tw": "蕾拉",
+   "star": 4,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "飞翅骷髅",
+   "zh_tw": "飛翅骷髏",
+   "en": "Winged Skull",
+   "character_id": "Lucrezia",
+   "character_tw": "盧克雷齊亞",
+   "star": 4,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "七层地狱",
+   "zh_tw": "第七地獄",
+   "en": "Seventh Hell",
+   "character_id": "Samay",
+   "character_tw": "莎美",
+   "star": 4,
+   "part": "Gloves"
+  },
+  {
+   "zh_cn": "邪灵服",
+   "zh_tw": "惡魔套裝",
+   "en": "Demon's Suit",
+   "character_id": "Andrew",
+   "character_tw": "安德魯",
+   "star": 4,
+   "part": "Armor"
+  },
+  {
+   "zh_cn": "哭泣魔王",
+   "zh_tw": "哭泣的惡魔",
+   "en": "Crying Devil",
+   "character_id": "Kry",
+   "character_tw": "克萊",
+   "star": 4,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "J收藏品",
+   "zh_tw": "J收藏品",
+   "en": "J Collection",
+   "character_id": "Jayden",
+   "character_tw": "傑登",
+   "star": 4,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "亚克力西温",
+   "zh_tw": "亞克力西溫",
+   "en": "Arkrasion",
+   "character_id": "Elpis",
+   "character_tw": "厄爾比斯",
+   "star": 4,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "劲弩",
+   "zh_tw": "勁弩",
+   "en": "Arbalest",
+   "character_id": "Remnunt",
+   "character_tw": "雷南特",
+   "star": 3,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "手工艺",
+   "zh_tw": "手工",
+   "en": "Handmade",
+   "character_id": "Gynt",
+   "character_tw": "君特",
+   "star": 3,
+   "part": "Gloves"
+  },
+  {
+   "zh_cn": "卢戈制衬衫",
+   "zh_tw": "盧戈製襯衫",
+   "en": "Lugo Shirt",
+   "character_id": "Fred",
+   "character_tw": "弗雷德",
+   "star": 3,
+   "part": "Armor"
+  },
+  {
+   "zh_cn": "危险炸弹",
+   "zh_tw": "危險炸彈",
+   "en": "Dangerous Bomb",
+   "character_id": "Wiggle",
+   "character_tw": "威格",
+   "star": 3,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "毁灭者",
+   "zh_tw": "摧毀者",
+   "en": "Ruiner",
+   "character_id": "Maria",
+   "character_tw": "瑪麗亞",
+   "star": 3,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "神圣凝视",
+   "zh_tw": "神聖凝視",
+   "en": "Holy Gaze",
+   "character_id": "Arines",
+   "character_tw": "阿里內斯",
+   "star": 3,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "首席勋章",
+   "zh_tw": "首席徽章",
+   "en": "Scholar's Emblem",
+   "character_id": "Emma",
+   "character_tw": "艾瑪",
+   "star": 3,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "双重麻烦",
+   "zh_tw": "雙重麻煩",
+   "en": "Double Trouble",
+   "character_id": "Ingrid",
+   "character_tw": "英格利得",
+   "star": 3,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "冰雪红宝石",
+   "zh_tw": "冰雪紅寶石",
+   "en": "Frozen Ruby",
+   "character_id": "Cynthia",
+   "character_tw": "辛西亞",
+   "star": 3,
+   "part": "Jewelry"
+  },
+  {
+   "zh_cn": "精神蝴蝶结",
+   "zh_tw": "精神蝴蝶結",
+   "en": "Spirit Ribbon",
+   "character_id": "Julie",
+   "character_tw": "茱莉",
+   "star": 3,
+   "part": "Helmet"
+  },
+  {
+   "zh_cn": "埃保伦侍卫",
+   "zh_tw": "埃保倫警衛",
+   "en": "Evoren Guard",
+   "character_id": "Carlson",
+   "character_tw": "卡森",
+   "star": 3,
+   "part": "Armor"
+  },
+  {
+   "zh_cn": "简约长矛",
+   "zh_tw": "簡約長矛",
+   "en": "Simple Spear",
+   "character_id": "Lydia",
+   "character_tw": "黎迪雅",
+   "star": 3,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "猎人之弓",
+   "zh_tw": "獵人之弓",
+   "en": "Hunter's Bow",
+   "character_id": "Rigenette",
+   "character_tw": "莉茲內",
+   "star": 3,
+   "part": "Weapon"
+  },
+  {
+   "zh_cn": "撼地者",
+   "zh_tw": "撼地者",
+   "en": "Earth Shaker",
+   "character_id": "Beatrice",
+   "character_tw": "比阿特麗絲",
+   "star": 3,
+   "part": "Weapon"
+  }
+ ]
+}

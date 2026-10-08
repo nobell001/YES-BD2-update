@@ -1,0 +1,279 @@
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from src.tasks.map_trade.models import MatchResult, TemplateSpec
+from src.utils.calibration import FHD_1080, reference_rect_to_relative_roi
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+CALENDAR_DIR = PROJECT_ROOT / "assets" / "map_trade"
+SHOP_CARTRIDGE_SCROLL_REGION = (
+    228 / FHD_1080.width,
+    117 / FHD_1080.height,
+    463 / FHD_1080.width,
+    959 / FHD_1080.height,
+)
+SHOP_CARTRIDGE_RECOGNITION_REGION = (
+    200 / FHD_1080.width,
+    70 / FHD_1080.height,
+    500 / FHD_1080.width,
+    1.0,
+)
+SHOP_CARTRIDGE_SCROLL_POINT = (
+    (SHOP_CARTRIDGE_SCROLL_REGION[0] + SHOP_CARTRIDGE_SCROLL_REGION[2]) / 2,
+    (SHOP_CARTRIDGE_SCROLL_REGION[1] + SHOP_CARTRIDGE_SCROLL_REGION[3]) / 2,
+)
+SHOP_CARTRIDGE_SCALE_RATIOS = (0.95, 1.0, 1.05)
+# 商品卡带竞争 OCR 区域：1920×1080 参考矩形 (200, 70, 300, 1010) 的 LTRB 相对形式。
+# 必须走 ocr_boxes 的 relative_roi 路径；roi= 路径按 720p 参考缩放，会裁错区域。
+SHOP_CARTRIDGE_OCR_RELATIVE_ROI = reference_rect_to_relative_roi(
+    (200, 70, 300, 1010),
+    FHD_1080,
+)
+SHOP_CARTRIDGE_CANDIDATE_SCORE = 0.70
+SHOP_CARTRIDGE_CONFIRM_SCORE = 0.78
+# 余量门禁需容忍未选中行的去色渲染损耗：1280x720 下色彩丰富的行（如剧情游戏卡3）
+# 自身匹配降到 ~0.90，而 S11 等浅色模板在其他行普遍刷出 0.80-0.86 的 runner 分，
+# 实测余量低至 0.078；行身份另有 OCR 类目与名称一致性把关。
+SHOP_CARTRIDGE_MIN_MARGIN = 0.05
+SHOP_CARTRIDGE_OCR_MIN_CONFIDENCE = 0.85
+SHOP_CARTRIDGE_NAME_MIN_SIMILARITY = 0.70
+SHOP_CARTRIDGE_ROW_CLUSTER_RADIUS = 28
+SHOP_CARTRIDGE_OCR_ROW_LINK_RADIUS = 42
+SHOP_CARTRIDGE_CATEGORY_PATTERN = re.compile(r"(剧情|角色|活动)游戏卡\s*(\d+)")
+SHOP_CARTRIDGE_CATEGORY_PREFIX = {"剧情": "S", "角色": "R", "活动": "E"}
+SHOP_FIRST_PAGE_MAX_UP_SCROLLS = 40
+# 出售会话起点定位：OCR 估算顶部行号后向上快滚，多滚 3 格保险（滚过头的列表
+# 会停在顶部，不会影响后续识别）。
+SHOP_LIST_TOP_EXTRA_UP_SCROLLS = 3
+SHOP_UP_SCROLL_RECOGNITION_INTERVAL = 0.5
+SHOP_DOWN_SCROLL_INTERVAL = 0.1
+STAR_TEMPLATE_FILE = "shop/cartridges/star_gray.png"
+# 灰星搜索区域按 1920×1080 参考像素定义并转为相对比例，随客户端分辨率同比缩放。
+# 720p 实机测量中灰星中心相对标定点偏移约 (-7,+13) 客户端像素，因此区域必须明显大于
+# 旧 ±15 参考像素；4K 下同一相对偏移约 (-21,+38) 像素，相对比例可同时覆盖 720p 与 4K。
+STAR_ROI_HALF_SIZE_X = 42
+STAR_ROI_HALF_SIZE_Y = 52
+STAR_TEMPLATE_THRESHOLD = 0.82
+STAR_PIXEL_THRESHOLD = 0.90
+STAR_VERIFY_ATTEMPTS = 5
+STAR_VERIFY_INTERVAL = 0.25
+STAR_POST_CLICK_DELAY = 1.0
+STAR_REMOVE_TOAST_KEYWORD = "从收藏中移除"
+STAR_ADD_TOAST_KEYWORD = "加入收藏"
+BUY_ALL_FAVORITES_KEYWORD = "购买全部收藏"
+BUY_ALL_FAVORITES_STABLE_HITS = 2
+BUY_ALL_FAVORITES_TIMEOUT = 30.0
+BUY_ALL_FAVORITES_INTERVAL = 0.25
+BUY_CONFIRM_DIALOG_REGION = (
+    701 / FHD_1080.width,
+    328 / FHD_1080.height,
+    1219 / FHD_1080.width,
+    753 / FHD_1080.height,
+)
+BUY_CONFIRM_POINT = (1045 / FHD_1080.width, 697 / FHD_1080.height)
+BUY_CONFIRM_KEYWORDS = (
+    "一键购买全部收藏",
+    "是否购买所有加入收藏的商品",
+)
+BUY_CONFIRM_TIMEOUT = 30.0
+BUY_CONFIRM_INTERVAL = 0.25
+BUY_CONFIRM_CLOSE_TIMEOUT = 5.0
+BUY_CONFIRM_PRE_CLICK_DELAY = 0.8
+BUY_CONFIRM_POST_CLICK_DELAY = 0.8
+BUY_TO_SELL_SOLD_OUT_TEMPLATE = TemplateSpec(
+    "买后售罄",
+    "soled-out.png",
+    0.84,
+    min_pixel_score=0.93,
+    min_zncc_score=0.84,
+    minimum_safe_threshold=0.84,
+    relative_roi=(
+        360 / FHD_1080.width,
+        140 / FHD_1080.height,
+        1620 / FHD_1080.width,
+        510 / FHD_1080.height,
+    ),
+)
+BUY_TO_SELL_SOLD_OUT_STABLE_HITS = 2
+BUY_TO_SELL_TIMEOUT = 30.0
+BUY_TO_SELL_INTERVAL = 0.25
+BUY_TO_SELL_PRE_CLICK_DELAY = 0.5
+BUY_TO_SELL_POST_CLICK_DELAY = 0.5
+SHOP_MODE_TITLE_REGION = (
+    226 / FHD_1080.width,
+    24 / FHD_1080.height,
+    359 / FHD_1080.width,
+    80 / FHD_1080.height,
+)
+SELL_MODE_POINT = (173 / FHD_1080.width, 250 / FHD_1080.height)
+# The 购买→出售 switch clicks plus an OCR read each used up 4 s on a slow PC.
+SHOP_MODE_TIMEOUT = 8.0
+SHOP_MODE_INTERVAL = 0.25
+SHOP_MODE_SWITCH_MAX_CLICKS = 3
+# 卖：在对应卡带页用 OCR 定位商品名，用真实模板定位 ↑120% 标志。
+# 商品名识别框左侧的局部 ↑120% 搜索区（1920×1080 参考像素，运行时按
+# 客户区宽高分别同比缩放）。标志识别必须由商品名 OCR 驱动，禁止脱离商品
+# 在全画面搜索。
+SALE_MARKER_SEARCH_WIDTH = 150
+SALE_MARKER_VERTICAL_PADDING = 12
+# 全帧 OCR 目标高度：仅用于商品名识别重试。↑120% 标志本身不再依赖 OCR。
+SALE_FULL_PAGE_OCR_TARGET_HEIGHT = 900
+# 售出一组后的短暂重排/动画仍可能让 900 高度漏读商品名；
+# 保持 900 优先，并在同一帧追加相邻 OCR 高度。
+SALE_FULL_PAGE_OCR_TARGET_HEIGHTS = (900, 840, 960)
+# beta 模板移除了人工标注中不稳定的数字像素，仅在商品名左侧局部 ROI 内
+# 使用；全局误匹配由局部空间门禁阻断。
+SALE_120_PERCENT_MARKER_BETA_TEMPLATE = TemplateSpec(
+    "sale_120_percent_marker_beta",
+    "shop/sale_120_percent_marker_beta_transparent.png",
+    0.80,
+    scale_ratios=(0.95, 0.99, 1.0, 1.005, 1.05),
+    min_pixel_score=0.93,
+    minimum_safe_threshold=0.80,
+)
+SALE_120_PERCENT_MARKER_TEMPLATE = SALE_120_PERCENT_MARKER_BETA_TEMPLATE
+# At 3840x2160 the upscaled template scored pixel 0.928 on a real ↑120% badge,
+# just under 0.93, while ↑109% scored 0.898 and ↑116% 0.876 (live
+# 2026-09-26): the digit-free template cannot tell them apart there.  A
+# marker between this floor and the template's own floor therefore also
+# needs OCR of the badge to contain "120" (read as "1.20%" / "4120%"; the
+# arrow comes out as a stray 1 or 4, 117% as "4117%").
+SALE_MARKER_RELAXED_PIXEL_SCORE = 0.85
+SALE_MARKER_OCR_DIGITS = "120"
+SALE_120_PERCENT_MARKER_MAX_RESULTS = 40
+SALE_120_PERCENT_MARKER_PEAK_RADIUS = 5
+SALE_MARKER_MIN_MARGIN = 0.03
+# 商品名反向子串匹配（OCR框文本是名称的一部分）要求片段至少 2 个字符：
+# 单字母噪声框（如卡带缩略图旁的杂散"C"）不得命中英文别名而被当成商品
+# 仍在售；正向匹配（框包含完整商品名）不受此限制。
+SALE_NAME_FRAGMENT_MIN_CHARS = 2
+# The item list right of the cartridge column.  The shop keeper's line above
+# it can name the day's item ("这里好像正在收购黄金罗勒", live 2026-09-26),
+# which must not count as the item itself.
+SALE_ITEM_LIST_REGION = (
+    500 / FHD_1080.width,
+    140 / FHD_1080.height,
+    1.0,
+    975 / FHD_1080.height,
+)
+# The list is taller than the screen (食物, then 料理食材): items further down
+# only show after scrolling (user, 2026-09-26).  It is moved by dragging: after
+# a shop tab switch the list ignored every mouse wheel, posted or real, while
+# a drag still moved it (live 2026-09-26).
+SALE_LIST_DRAG_X = 1300 / FHD_1080.width
+SALE_LIST_DRAG_TOP = 330 / FHD_1080.height
+SALE_LIST_DRAG_BOTTOM = 870 / FHD_1080.height
+SALE_LIST_DRAG_SECONDS = 0.5
+SALE_LIST_MAX_SCROLLS = 15
+# Drag up in steps until the list stops moving (it is at the top).
+SALE_LIST_TOP_ATTEMPTS = 8
+SALE_LIST_SETTLE_SECONDS = 0.8
+# Mean grey difference of the list below which a scroll did not move it.
+SALE_LIST_END_DIFF = 2.0
+SALE_LIST_SCROLL_WAIT_TIMEOUT = 3.0
+COOKING_BACK_POINT = (175 / FHD_1080.width, 50 / FHD_1080.height)
+SALE_DIALOG_REGION = (
+    470 / FHD_1080.width,
+    294 / FHD_1080.height,
+    1450 / FHD_1080.width,
+    785 / FHD_1080.height,
+)
+# Keeping a reserve: the slider is corrected this many clicks, and the kept
+# amount may exceed the reserve by this much (never fall below it): up to
+# +20% of the reserve is fine (Leo 2026-10-07, keep 10000 -> 10000..12000).
+SALE_RESERVE_ADJUST_ATTEMPTS = 6
+SALE_RESERVE_MIN_SLACK = 300
+SALE_RESERVE_SLACK_RATIO = 0.20
+SALE_MIN_POINT = (677 / FHD_1080.width, 721 / FHD_1080.height)
+SALE_MAX_POINT = (903 / FHD_1080.width, 724 / FHD_1080.height)
+SALE_CONFIRM_POINT = (1312 / FHD_1080.width, 728 / FHD_1080.height)
+SALE_CLOSE_POINT = (1420 / FHD_1080.width, 323 / FHD_1080.height)
+SALE_SLIDER_REGION = (
+    552 / FHD_1080.width,
+    647 / FHD_1080.height,
+    912 / FHD_1080.width,
+    683 / FHD_1080.height,
+)
+SALE_DIALOG_TITLE_REGION = (
+    495 / FHD_1080.width,
+    310 / FHD_1080.height,
+    795 / FHD_1080.width,
+    390 / FHD_1080.height,
+)
+SALE_DIALOG_TIMEOUT = 5.0
+SALE_DIALOG_TITLE_STABLE_HITS = 2
+SALE_DIALOG_OPEN_MAX_CLICKS = 3
+# The name and ↑120% badge must still look the same right before the click
+# (normalised correlation); a list still coasting after a drag fails this.
+SALE_CANDIDATE_STILL_MIN = 0.8
+SALE_CANDIDATE_SETTLE_RETRIES = 3
+SALE_OCR_INTERVAL = 0.25
+SALE_COMPLETION_TIMEOUT = 8.0
+SALE_COMPLETION_INTERVAL = 0.25
+SALE_COMPLETION_STABLE_HITS = 2
+# Require two consecutive scans without the target name before treating a
+# post-sale page as empty; a single OCR miss can occur during card reflow.
+SALE_EMPTY_NAME_STABLE_HITS = 2
+SALE_TOAST_ID_PATTERN = re.compile(r"交易差价\s*([0-9]+)\s*完成")
+SALE_OWNED_PATTERN = re.compile(r"拥有[^0-9]{0,8}([0-9][0-9,，.]*)")
+SALE_AVAILABLE_PATTERN = re.compile(r"可购买[^0-9]{0,8}([0-9][0-9,，.]*)")
+COOK_SUBMENU_TEMPLATE = TemplateSpec(
+    "料理子菜单",
+    "image/green/UI_cooking_submenu.png",
+    0.72,
+    roi=(670, 540, 230, 180),
+)
+
+
+@dataclass(frozen=True)
+class ShopCartridgeTemplateCandidate:
+    shop_id: str
+    result: MatchResult
+
+
+@dataclass(frozen=True)
+class ShopCartridgeOcrText:
+    text: str
+    confidence: float
+    center: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class ShopCartridgeOcrRow:
+    shop_id: str
+    category: ShopCartridgeOcrText
+    chapter: ShopCartridgeOcrText | None
+    name_similarity: float
+
+
+@dataclass(frozen=True)
+class ShopCartridgeDetection:
+    best: ShopCartridgeTemplateCandidate
+    runner_up: ShopCartridgeTemplateCandidate | None
+    ocr: ShopCartridgeOcrRow | None
+
+    @property
+    def margin(self) -> float:
+        if self.runner_up is None:
+            return 1.0
+        return self.best.result.score - self.runner_up.result.score
+
+
+@dataclass(frozen=True)
+class SaleItemCandidate:
+    """One OCR-confirmed sale card on the current shop page."""
+
+    center: tuple[int, int]
+    name_box: object
+    percent_box: object
+
+
+def split_items(value: str | list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    if isinstance(value, str):
+        values = re.split(r"[,，;；\n]", value)
+    else:
+        values = value
+    return tuple(str(item).strip() for item in values if str(item).strip())

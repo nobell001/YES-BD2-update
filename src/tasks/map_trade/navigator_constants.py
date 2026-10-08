@@ -1,0 +1,965 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from src.tasks.map_trade.action_icons import (
+    ABSORB_ICON,
+    ACTION_SLOT_CENTER_RELATIVE_ROIS,
+    ACTION_SLOT_CENTERS_REFERENCE,
+    ACTION_SLOT_RELATIVE_ROIS,
+    SANDBOX_ACTION_ICONS,
+    SEARCH_ICON,
+    SKILL_GROUP_CENTERS_REFERENCE,
+    SUBDUE_ICON,
+    SUMMON_ICON,
+)
+from src.tasks.map_trade.card_status import StoryCardCompletion
+from src.tasks.map_trade.models import CardSpec, MapPageMode, MatchResult, TemplateSpec
+from src.utils.calibration import FHD_1080, HD_720, reference_rect_to_relative_roi
+from src.utils.cartridge_quick_switch import QUICK_SWITCH_PAGE_LABELS, QUICK_SWITCH_SEARCH_REGIONS
+from src.utils.vision_models import FrameGeometry
+
+QUICK_SWITCH_TEMPLATE = TemplateSpec(
+    "快速切换按钮",
+    "image/green/QuickSwitchPlayIco.png",
+    0.88,
+    relative_rois=QUICK_SWITCH_SEARCH_REGIONS,
+    scale_ratios=(0.95, 0.975, 1.0, 1.025, 1.05),
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.88,
+    # 与 SquareGoddessTask.QUICK_SWITCH_TEMPLATE 同一按钮：梦幻广场内暗色
+    # 圆底样式在 1600x901 实机帧 zncc 最高 0.838（RPT-20260902-225925），
+    # 0.85 门禁确定性误拒；同帧误检 zncc 最高 0.43，0.78 仍有足够余量。
+    min_zncc_score=0.78,
+)
+Q_SP6_SHOP_PRIORITY_TIMEOUT = 3.0
+# 折扣商店页专有页签 OCR 信号：在商店页整帧 OCR 中已验证稳定命中
+# （“仓库”单独可能出现在 NPC 名“仓库管理石怪”里，必须与“严加管理”成对出现）。
+SHOP_PAGE_OCR_KEYWORDS = ("仓库", "严加管理")
+# 砍价确认后的购买页使用按钮文本确认。标题牌中的“严加管理”在不同
+# 分辨率/窗口状态下容易漏读，而“一键购买全部收藏”是进入购买页后仍存在
+# 的专用控件；弹窗专有词仍由 _wait_for_bargain_shop_confirmation 排除。
+Q_SP6_SHOP_PAGE_KEYWORDS = ("购买全部收藏",)
+Q_SP6_SHOP_PAGE_OCR_INTERVAL = 0.25
+Q_SP6_BARGAIN_RECHECK_DELAY = 0.5
+Q_SP6_BARGAIN_CLICK_DELAY = 1.5
+Q_SP6_BARGAIN_OCR_TIMEOUT = 10.0
+# Re-press the merchant prompt when his menu has not opened by then.
+MERCHANT_MENU_RECHECK_SECONDS = 1.5
+MERCHANT_MENU_REPRESSES = 3
+# 共享分类的局部 OCR 区域（1920×1080 参考像素）。整帧 OCR 成本高，
+# 这里只扫描各状态专有关键字所在的小区域；坐标来自实机截图标定。
+CLASSIFY_LOADING_REFERENCE_ROI = (0, 0, 700, 150)
+CLASSIFY_LOADING_RELATIVE_ROI = reference_rect_to_relative_roi(
+    CLASSIFY_LOADING_REFERENCE_ROI,
+    FHD_1080,
+)
+# 商店页签（购买/出售）位于左上，标题/仓库/严加管理位于中部标题牌。
+CLASSIFY_SHOP_TABS_REFERENCE_ROI = (100, 120, 300, 220)
+CLASSIFY_SHOP_TABS_RELATIVE_ROI = reference_rect_to_relative_roi(
+    CLASSIFY_SHOP_TABS_REFERENCE_ROI,
+    FHD_1080,
+)
+CLASSIFY_SHOP_TITLE_REFERENCE_ROI = (840, 240, 300, 170)
+CLASSIFY_SHOP_TITLE_RELATIVE_ROI = reference_rect_to_relative_roi(
+    CLASSIFY_SHOP_TITLE_REFERENCE_ROI,
+    FHD_1080,
+)
+# 卡带页：顶部“游戏卡珍藏集”标题与底部类别页签/收藏页描述。
+CLASSIFY_CARD_MENU_TITLE_REFERENCE_ROI = (0, 0, 700, 110)
+CLASSIFY_CARD_MENU_TITLE_RELATIVE_ROI = reference_rect_to_relative_roi(
+    CLASSIFY_CARD_MENU_TITLE_REFERENCE_ROI,
+    FHD_1080,
+)
+CLASSIFY_CARD_MENU_CATEGORY_REFERENCE_ROI = (0, 840, 700, 240)
+CLASSIFY_CARD_MENU_CATEGORY_RELATIVE_ROI = reference_rect_to_relative_roi(
+    CLASSIFY_CARD_MENU_CATEGORY_REFERENCE_ROI,
+    FHD_1080,
+)
+# 料理页：左侧标题与食谱/材料区域（配方模板搜索区同源）。
+CLASSIFY_COOKING_TITLE_REFERENCE_ROI = (100, 0, 400, 110)
+CLASSIFY_COOKING_TITLE_RELATIVE_ROI = reference_rect_to_relative_roi(
+    CLASSIFY_COOKING_TITLE_REFERENCE_ROI,
+    FHD_1080,
+)
+CLASSIFY_COOKING_MATERIALS_REFERENCE_ROI = (250, 70, 500, 300)
+CLASSIFY_COOKING_MATERIALS_RELATIVE_ROI = reference_rect_to_relative_roi(
+    CLASSIFY_COOKING_MATERIALS_REFERENCE_ROI,
+    FHD_1080,
+)
+QUICK_SWITCH_PAGE_KEYWORDS = QUICK_SWITCH_PAGE_LABELS
+STORY_CATEGORY_POINT = (557 / FHD_1080.width, 877 / FHD_1080.height)
+STORY_CATEGORY_HIGHLIGHT_REGION = (
+    445 / FHD_1080.width,
+    840 / FHD_1080.height,
+    670 / FHD_1080.width,
+    915 / FHD_1080.height,
+)
+STORY_CATEGORY_HIGHLIGHT_MIN_RATIO = 0.05
+# The 角色游戏卡 tab beside it (live 2K 2026-09-30: highlight 0.084 selected,
+# 0.010 not; the story region reads 0.079 / 0.025).
+CHARACTER_CATEGORY_POINT = (725 / FHD_1080.width, 877 / FHD_1080.height)
+CHARACTER_CATEGORY_HIGHLIGHT_REGION = (
+    630 / FHD_1080.width,
+    840 / FHD_1080.height,
+    825 / FHD_1080.width,
+    915 / FHD_1080.height,
+)
+QUICK_SWITCH_CARTRIDGE_REGION = (0.0, 908 / FHD_1080.height, 1.0, 1.0)
+QUICK_SWITCH_SCROLL_FOCUS_POINT = (43 / FHD_1080.width, 974 / FHD_1080.height)
+# Top-left back arrow of the quick bar / card collection page.
+QUICK_SWITCH_BACK_RELATIVE_POINT = (172 / FHD_1080.width, 50 / FHD_1080.height)
+QUICK_SWITCH_SCROLL_POINT = QUICK_SWITCH_SCROLL_FOCUS_POINT
+QUICK_SWITCH_SCROLL_RESET_AMOUNT = -1
+QUICK_SWITCH_SCROLL_RESET_COUNT = 24
+QUICK_SWITCH_SCROLL_UP_AMOUNT = 1
+QUICK_SWITCH_SCROLL_UP_COUNT = 2
+QUICK_SWITCH_SCROLL_SCAN_STEPS = 16
+QUICK_SWITCH_SCROLL_INTERVAL = 0.08
+QUICK_SWITCH_SCROLL_SETTLE_SECONDS = 0.35
+PROBE_QUICK_SWITCH_SCROLL_POINT = QUICK_SWITCH_SCROLL_FOCUS_POINT
+PROBE_QUICK_SWITCH_SCROLL_AMOUNT = 1
+PROBE_QUICK_SWITCH_SCROLL_COUNT = 5
+PROBE_QUICK_SWITCH_SCROLL_STEPS = 30
+PROBE_QUICK_SWITCH_SCROLL_INTERVAL_SECONDS = 0.1
+PROBE_QUICK_SWITCH_SCROLL_SETTLE_SECONDS = 0.5
+PROBE_STORY_BADGE_CONFIRM_SECONDS = 0.4
+STORY_BADGE_TEMPLATE_SCORE = 0.95
+STORY_BADGE_PIXEL_SCORE = 0.95
+STORY_BADGE_MIN_MARGIN = 0.05
+# Tutorial-video frames can preserve a strong badge structure while H.264
+# chroma/block compression slightly lowers whole-pixel similarity and the
+# separation from the next number.  Keep the original strict path, and allow
+# this narrower recovery path only when all structural scores stay high.
+STORY_BADGE_ENCODED_TEMPLATE_SCORE = 0.98
+STORY_BADGE_ENCODED_PIXEL_SCORE = 0.94
+STORY_BADGE_ENCODED_ZNCC_SCORE = 0.88
+STORY_BADGE_ENCODED_MIN_MARGIN = 0.04
+STORY_BADGE_CANDIDATE_SCORE = 0.70
+STORY_BADGE_CANDIDATE_PIXEL_SCORE = 0.70
+STORY_BADGE_CANDIDATE_ZNCC_SCORE = 0.50
+STORY_BADGE_OCR_MIN_CONFIDENCE = 0.75
+STORY_BADGE_CENTER_REGION = (0.0, 919 / FHD_1080.height, 1.0, 953 / FHD_1080.height)
+STORY_BADGE_OCR_INNER_RADIUS_RATIO = 12.5 / 29
+STORY_BADGE_OCR_BINARY_THRESHOLD = 140
+STORY_BADGE_OCR_INNER_HEIGHT = 208
+STORY_BADGE_OCR_VERTICAL_BORDER = 32
+STORY_BADGE_OCR_HORIZONTAL_BORDER = 40
+STORY_BADGE_CLUSTER_RADIUS = 12
+# The quick-switch bar lays out cartridge slots on a stable 3/32-width lattice.
+# Low-resolution clients can blur one badge enough to miss the strict identity
+# gate, while the neighbouring candidate centers still preserve that lattice.
+# Use those centers only as a location signal, then reclassify at the slightly
+# tighter inner-badge scale; identity remains protected by independent score,
+# pixel, ZNCC, and runner-up-margin gates below.
+STORY_BADGE_GRID_SPACING_RATIO = 3 / 32
+STORY_BADGE_GRID_MIN_ANCHORS = 5
+STORY_BADGE_GRID_MIN_VISIBLE_FRACTION = 0.60
+STORY_BADGE_GRID_ALIGNMENT_TOLERANCE_RATIO = 0.02
+STORY_BADGE_GRID_LOCAL_TOLERANCE_RATIO = 0.03
+STORY_BADGE_GRID_VERTICAL_TOLERANCE_RATIO = 0.006
+STORY_BADGE_GRID_MIN_SPACING_RATIO = 0.04
+STORY_BADGE_GRID_MAX_SPACING_RATIO = 0.25
+STORY_BADGE_GRID_MAX_PAIR_GAP = 8
+# A valid cartridge slot is several badge diameters wide.  This rejects the
+# half-spacing harmonic produced by the upper/lower anti-aliased edge peaks.
+STORY_BADGE_GRID_MIN_SPACING_BADGE_RATIO = 4.5
+STORY_BADGE_GRID_ROW_TOLERANCE_RATIO = 0.28
+STORY_BADGE_GRID_STRONG_COMBINED_SCORE = 0.72
+STORY_BADGE_GRID_REFERENCE_SCALE = 27 / 29
+STORY_BADGE_GRID_TEMPLATE_SCORE = 0.95
+STORY_BADGE_GRID_PIXEL_SCORE = 0.90
+STORY_BADGE_GRID_ZNCC_SCORE = 0.70
+# The grid path has a fixed physical slot and four additional structural
+# signals.  Calibration against the retained later-card hard negative leaves
+# 0.035 as the lowest raw-ZNCC separation that remains safe for this family.
+STORY_BADGE_GRID_MIN_MARGIN = 0.035
+# Below the raw-margin floor the digit OCR becomes the discriminator: real
+# 1280x720 captures leave badge 8 separated by only ~0.013 ZNCC while the
+# prepared digit still reads cleanly.  The combined-margin floor keeps pure
+# noise ties out of the OCR path.
+STORY_BADGE_GRID_MIN_COMBINED_MARGIN = 0.004
+STORY_BADGE_GRID_OCR_MARGIN = 0.005
+# The trade runs at the merchant of story cartridge 1 血骑士 (user choice
+# 2026-09-26; upstream used chapter 6).  His shop room is also where the
+# character stands after trading, so the next run usually starts there.
+TRADE_STORY_NUMBER = 1
+STORY_BADGE_SPECS = tuple(
+    (
+        number,
+        TemplateSpec(
+            name=f"剧情游戏卡{number}角标",
+            file_name=(f"quick_switch_cartridges/story_cartridge_badge_{number:02d}.png"),
+            threshold=STORY_BADGE_TEMPLATE_SCORE,
+            relative_roi=QUICK_SWITCH_CARTRIDGE_REGION,
+            min_pixel_score=STORY_BADGE_CANDIDATE_PIXEL_SCORE,
+            min_zncc_score=STORY_BADGE_CANDIDATE_ZNCC_SCORE,
+            candidate_center_roi=STORY_BADGE_CENTER_REGION,
+        ),
+    )
+    for number in range(1, 21)
+)
+# The 角色游戏卡 tab draws the same number circles on blue card frames: the
+# story templates scored 0.43-0.76 there (live 2K 2026-09-30), so the tab has
+# its own, cut at the badge centres (93 + 180 x (n - 1), 936) of a 1080p
+# frame of the tab.
+# All ten character cards sit in view in fixed slots (1080p): the badge of
+# card n is looked for only in its own slot, and its template must beat the
+# other nine there.  Live 2K: the right one scored 0.92-0.96, the others
+# <= 0.86 at the same slot (not the story tab's 0.95 floor).
+CHARACTER_BADGE_FIRST_X = 93
+CHARACTER_BADGE_SPACING = 180
+CHARACTER_BADGE_Y = 936
+CHARACTER_BADGE_WINDOW = 34
+CHARACTER_BADGE_MIN_SCORE = 0.85
+CHARACTER_BADGE_MIN_MARGIN = 0.08
+CHARACTER_BADGE_SPECS = tuple(
+    (
+        number,
+        TemplateSpec(
+            name=f"角色游戏卡{number}角标",
+            file_name=(f"quick_switch_cartridges/character_cartridge_badge_{number:02d}.png"),
+            threshold=CHARACTER_BADGE_MIN_SCORE,
+            relative_roi=QUICK_SWITCH_CARTRIDGE_REGION,
+            scale_ratios=(0.97, 1.0, 1.03),
+        ),
+    )
+    for number in range(1, 11)
+)
+BARGAIN_POINT = (191 / FHD_1080.width, 900 / FHD_1080.height)
+BARGAIN_CONFIRM_POINT = (1047 / FHD_1080.width, 652 / FHD_1080.height)
+# 砍价确认后必须等待商店页 OCR 稳定出现，不能依赖固定延时。砍价弹窗未关闭时
+# 整帧 OCR 仍会读到“仓库/严加管理”，因此同时排除砍价弹窗专有文字。
+BARGAIN_SHOP_CONFIRM_POPUP_KEYWORD = "砍价成功率"
+BARGAIN_SHOP_CONFIRM_STABLE_HITS = 2
+DISCOUNT_SHOP_CLOSE_DIALOG_REGION = (
+    700 / FHD_1080.width,
+    382 / FHD_1080.height,
+    1220 / FHD_1080.width,
+    694 / FHD_1080.height,
+)
+DISCOUNT_SHOP_CLOSE_KEYWORDS = (
+    "折扣商店结束",
+    "是否关闭折扣商店",
+)
+DISCOUNT_SHOP_CLOSE_POINT = (1045 / FHD_1080.width, 639 / FHD_1080.height)
+CHAPTER_HOME_POINT = (1797 / FHD_1080.width, 63 / FHD_1080.height)
+DISCOUNT_SHOP_CLOSE_TIMEOUT = 5.0
+RETURN_HOME_TIMEOUT = 10.0
+# One pass handles one screen and can leave the next (merchant menu, then the
+# field, then home), so return_home repeats the pass.
+RETURN_HOME_PASSES = 3
+RETURN_HOME_STEP_TIMEOUT = 4.0
+# Several posters can stack on home (Leo 2026-09-29).
+RETURN_HOME_ANNOUNCEMENT_MAX_CLICKS = 5
+RETURN_HOME_ANNOUNCEMENT_OCR_INTERVAL = 0.35
+RETURN_HOME_ANNOUNCEMENT_OCR_REGION = (
+    360 / FHD_1080.width,
+    180 / FHD_1080.height,
+    1560 / FHD_1080.width,
+    900 / FHD_1080.height,
+)
+RETURN_HOME_ANNOUNCEMENT_KEYWORD_GROUPS = (
+    ("更新", "抢先看"),
+    ("7天内不再显示", "前往查看"),
+)
+SHOP_CLOSE_CLICK_RETRIES = 2
+SHOP_CLOSE_CLICK_INTERVAL = 0.3
+# 关闭按钮与主页按钮是稳定 UI 控件：优先用模板命中后点击识别中心，
+# 模板未通过时才回退到已标定的相对坐标。
+# ⚠ 参考系待实机核对（代码质量阶段 B-1）：下方点值原注释写"1920×1080 参考点"，
+# 但唯一生产消费方 navigator_trade 经 vision.click_reference 按 MAP_TRADE_REFERENCE
+# =HD_720（1280×720）归一；历史跑商定价死代码用同值同归一、运行时自洽，
+# 更可能是注释把参考分辨率写错。若确为 1080p 标定，运行时落点将偏约 40%。
+# 实机核对折扣商店关闭按钮回退落点前，按 1280×720 参考理解本值。
+DISCOUNT_SHOP_CLOSE_CONTROL_REFERENCE_POINT = (82, 36)
+DISCOUNT_SHOP_CLOSE_CONTROL_TEMPLATES = (
+    TemplateSpec(
+        "折扣商店关闭按钮",
+        "image/EquipMenuQuit.png",
+        0.85,
+        min_pixel_score=0.85,
+        min_zncc_score=0.85,
+        relative_roi=(0.0, 0.0, 0.2, 0.18),
+    ),
+    TemplateSpec(
+        "折扣商店关闭小按钮",
+        "image/equipclose.png",
+        0.85,
+        min_pixel_score=0.85,
+        min_zncc_score=0.85,
+        relative_roi=(0.0, 0.0, 0.2, 0.18),
+    ),
+)
+# Relative template ROIs are always fractional left/top/right/bottom bounds.
+CHAPTER_HOME_RELATIVE_ROI = (0.86, 0.0, 1.0, 0.18)
+CHAPTER_HOME_TEMPLATES = (
+    TemplateSpec(
+        "箱庭主页按钮",
+        "image/MapUI_HomeBtum.png",
+        0.85,
+        min_pixel_score=0.85,
+        min_zncc_score=0.85,
+        relative_roi=CHAPTER_HOME_RELATIVE_ROI,
+    ),
+    TemplateSpec(
+        "箱庭主页按钮E3",
+        "image/UI_HomeButm_E3.png",
+        0.85,
+        min_pixel_score=0.85,
+        min_zncc_score=0.85,
+        relative_roi=CHAPTER_HOME_RELATIVE_ROI,
+    ),
+    TemplateSpec(
+        "箱庭主页按钮GE",
+        "image/UI_HomeButm_GE.png",
+        0.85,
+        min_pixel_score=0.85,
+        min_zncc_score=0.85,
+        relative_roi=CHAPTER_HOME_RELATIVE_ROI,
+    ),
+)
+HOME_DIMMED_P95_THRESHOLD = 185.0
+STORY_SANDBOX_STABLE_HITS = 2
+STORY_SANDBOX_SWITCH_WINDOW = 5
+STORY_SANDBOX_SWITCH_WINDOW_HITS = 3
+SANDBOX_TEMPLATES = (
+    TemplateSpec(
+        "箱庭小地图缩放按钮",
+        "image/UI_miniMap_B.png",
+        0.90,
+        min_pixel_score=0.90,
+        minimum_safe_threshold=0.90,
+        min_zncc_score=0.90,
+    ),
+    QUICK_SWITCH_TEMPLATE,
+)
+# Fallback field-HUD proof: the opaque C and H key caps at the top right.
+# The two templates above are see-through and failed on snow at 1080p (ch13
+# town teleport circle, live 2026-09-30: minimap button pixel 0.83, quick
+# switch 0.69) - the tool stood in the field calling it UNKNOWN.  Over 250
+# saved frames the caps passed only on field frames (4K: C 0.91/0.90, H
+# 0.82/0.82; a dimmed dialog drops the pixel score to 0.35-0.42).  Both caps
+# must pass.  Cut from a native 1080p frame (field/ = 1:1 at 1080p).
+FIELD_KEYCAP_TEMPLATES = (
+    TemplateSpec(
+        "箱庭按键C",
+        "field/field_keycap_C.png",
+        0.85,
+        relative_roi=(1545 / 1920, 70 / 1080, 1625 / 1920, 118 / 1080),
+        min_pixel_score=0.80,
+        minimum_safe_threshold=0.85,
+    ),
+    TemplateSpec(
+        "箱庭按键H",
+        "field/field_keycap_H.png",
+        0.78,
+        relative_roi=(1760 / 1920, 70 / 1080, 1840 / 1920, 118 / 1080),
+        min_pixel_score=0.75,
+        minimum_safe_threshold=0.78,
+    ),
+)
+SANDBOX_SKILL_GROUP_TEMPLATE_SCORE = 0.95
+# Structural gates retain candidates in complex backgrounds; HSV semantics
+# below decide whether a slot is selected or unselected.
+SANDBOX_SKILL_GROUP_PIXEL_SCORE = 0.80
+SANDBOX_SKILL_GROUP_ZNCC_SCORE = None
+SANDBOX_SKILL_SELECTED_YELLOW_MIN_RATIO = 0.20
+SANDBOX_SKILL_UNSELECTED_YELLOW_MAX_RATIO = 0.10
+SANDBOX_SKILL_GROUP_SCALE_RATIOS = (0.90, 0.95, 1.0, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35)
+SANDBOX_SKILL_GROUP_SEARCH_ROI = (0.80, 0.85, 0.96, 1.0)
+# The map confirmation path is restricted to these two map-only templates.
+# It is intentionally separate from action-slot identity gates: WGC at a
+# small viewport can lower raw template correlation while preserving edges.
+SANDBOX_MAP_EVIDENCE_MIN_SCORE = 0.80
+SANDBOX_MAP_EVIDENCE_MIN_PIXEL = 0.84
+SANDBOX_MAP_EVIDENCE_MIN_ZNCC = 0.78
+SANDBOX_MAP_EVIDENCE_MIN_GRADIENT = 0.50
+SANDBOX_MAP_EVIDENCE_MIN_EDGE = 0.85
+SANDBOX_MAP_EVIDENCE_MIN_COMPOSITE = 0.80
+SANDBOX_SKILL_SLOT_1_REFERENCE_CENTER = SKILL_GROUP_CENTERS_REFERENCE[1]
+SANDBOX_SKILL_SLOT_2_REFERENCE_CENTER = SKILL_GROUP_CENTERS_REFERENCE[2]
+SANDBOX_SKILL_SLOT_1_RELATIVE_POINT = (
+    SANDBOX_SKILL_SLOT_1_REFERENCE_CENTER[0] / FHD_1080.width,
+    SANDBOX_SKILL_SLOT_1_REFERENCE_CENTER[1] / FHD_1080.height,
+)
+SANDBOX_SKILL_SLOT_1_CENTER_ROI = (
+    1620 / FHD_1080.width,
+    950 / FHD_1080.height,
+    1710 / FHD_1080.width,
+    1060 / FHD_1080.height,
+)
+SANDBOX_SKILL_SLOT_2_CENTER_ROI = (
+    1710 / FHD_1080.width,
+    950 / FHD_1080.height,
+    1800 / FHD_1080.width,
+    1060 / FHD_1080.height,
+)
+
+
+def _sandbox_skill_template(
+    name: str,
+    file_name: str,
+    candidate_center_roi: tuple[float, float, float, float],
+) -> TemplateSpec:
+    return TemplateSpec(
+        name,
+        f"image/green/{file_name}",
+        SANDBOX_SKILL_GROUP_TEMPLATE_SCORE,
+        green_mask=True,
+        relative_roi=SANDBOX_SKILL_GROUP_SEARCH_ROI,
+        scale_ratios=SANDBOX_SKILL_GROUP_SCALE_RATIOS,
+        candidate_center_roi=candidate_center_roi,
+        min_pixel_score=SANDBOX_SKILL_GROUP_PIXEL_SCORE,
+        minimum_safe_threshold=SANDBOX_SKILL_GROUP_TEMPLATE_SCORE,
+        min_zncc_score=SANDBOX_SKILL_GROUP_ZNCC_SCORE,
+    )
+
+
+SANDBOX_SKILL_SLOT_1_SELECTED_TEMPLATE = _sandbox_skill_template(
+    "技能组1号选中",
+    "SandboxSkillSlot1AvailableGE.png",
+    SANDBOX_SKILL_SLOT_1_CENTER_ROI,
+)
+SANDBOX_SKILL_SLOT_2_UNSELECTED_TEMPLATE = _sandbox_skill_template(
+    "技能组2号未选中",
+    "SandboxSkillSlot2UsedGE.png",
+    SANDBOX_SKILL_SLOT_2_CENTER_ROI,
+)
+SANDBOX_SKILL_SLOT_2_SELECTED_TEMPLATE = _sandbox_skill_template(
+    "技能组2号选中",
+    "SandboxSkillSlot2AvailableGE.png",
+    SANDBOX_SKILL_SLOT_2_CENTER_ROI,
+)
+SANDBOX_SKILL_SLOT_1_UNSELECTED_TEMPLATE = _sandbox_skill_template(
+    "技能组1号未选中",
+    "SandboxSkillSlot1UsedGE.png",
+    SANDBOX_SKILL_SLOT_1_CENTER_ROI,
+)
+SANDBOX_SKILL_STATE_TEMPLATES = (
+    SANDBOX_SKILL_SLOT_1_SELECTED_TEMPLATE,
+    SANDBOX_SKILL_SLOT_2_UNSELECTED_TEMPLATE,
+    SANDBOX_SKILL_SLOT_2_SELECTED_TEMPLATE,
+    SANDBOX_SKILL_SLOT_1_UNSELECTED_TEMPLATE,
+)
+LOADING_TEMPLATE = TemplateSpec("加载页面", "image/UI_loading_black.png", 0.70)
+# 商人交互菜单：右侧对话/商店选项与左下天赋技能卡（1920×1080 参考像素，
+# 实机截图标定）。
+TRADE_MERCHANT_OPTIONS_REFERENCE_ROI = (860, 370, 210, 100)
+TRADE_MERCHANT_OPTIONS_REGION = reference_rect_to_relative_roi(
+    TRADE_MERCHANT_OPTIONS_REFERENCE_ROI,
+    FHD_1080,
+)
+TRADE_MERCHANT_TALENTS_REFERENCE_ROI = (100, 670, 550, 370)
+TRADE_MERCHANT_TALENTS_REGION = reference_rect_to_relative_roi(
+    TRADE_MERCHANT_TALENTS_REFERENCE_ROI,
+    FHD_1080,
+)
+# The merchant is found by the name on his interaction prompt ("F 无聊收集狂
+# 大叔"), which only shows while the character stands next to him; its
+# position moves with the camera (live: (1153,321), (1008,397) at 1080p).
+MERCHANT_PROMPT_PATTERN = r"收集狂大叔"
+MERCHANT_PROMPT_OCR_ROI = (380, 120, 640, 260)
+MERCHANT_PROMPT_FAILURE_MESSAGE = "未识别到商人无聊收集狂大叔的互动按钮"
+# Navigation toast when the destination is the area the character is in,
+# e.g. choosing 商店 while already inside the shop room.
+MERCHANT_NAV_UNREACHABLE_KEYWORD = "无法移动"
+MERCHANT_NAV_TOAST_OCR_ROI = (430, 115, 420, 100)
+# Titles of the optional travel confirmation ("不再显示" can hide it).
+MERCHANT_TRAVEL_DIALOG_KEYWORDS = ("立即前往", "自动移动")
+MERCHANT_TRAVEL_DIALOG_OCR_ROI = (400, 260, 480, 140)
+MERCHANT_NAV_OUTCOME_TIMEOUT = 4.0
+MERCHANT_ARRIVAL_TIMEOUT = 40.0
+# A real 立即前往 teleports or walks within seconds; no prompt by then and
+# still in the field means it did nothing (live: the prompt shows ~2 s after
+# a working 立即前往; 8 s only left the screen still, 2026-09-27).
+MERCHANT_QUICK_ARRIVAL_TIMEOUT = 4.0
+# The merchant menu's 对话/商店 bubbles pop up after the talent cards.
+PLAIN_SHOP_OPTION_TIMEOUT = 5.0
+# A swallowed 砍价 / 确认 / 商店 press left the pre-click screen up and failed
+# the phase (selling then waited a day); after this long with that screen
+# still read on 2 frames, the same press is repeated once.
+SHOP_ENTRY_RECLICK_AFTER = 3.0
+SHOP_ENTRY_RECLICK_HITS = 2
+# Consecutive field frames that confirm story card 1 has loaded.
+TRADE_CARD_SANDBOX_HITS = 2
+# Inside the shop area: open the area map from the minimap and click the
+# merchant's money-bag icon; the game then walks the character to him.
+MINIMAP_CENTER_REFERENCE = (205, 170)
+MAP_MERCHANT_ICON_TEMPLATE = TemplateSpec(
+    "地图商人图标",
+    "TradeMapMerchantIcon.png",
+    0.85,
+    green_mask=False,
+    # Cropped from the 1920x1080 area map of 卢戈商店 (root = 1080p).
+    scale_ratios=(0.90, 0.95, 1.0, 1.05, 1.10),
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.85,
+    min_zncc_score=0.80,
+)
+MAP_MERCHANT_ICON_TIMEOUT = 5.0
+# 箱庭内角色位置保持在上次离开处；不在商人旁时经小地图导航菜单的"商店"
+# 目的地传送到商人面前（已在商店区域内则改点区域地图上的商人图标）。
+MERCHANT_NAV_GUIDE_TEMPLATE = TemplateSpec(
+    "小地图导航", "image/Nvi_SandGuideButt.png", 0.72, roi=(180, 45, 210, 110)
+)
+# 以下两个 OCR 区域与上方模板 roi 同属 map_trade 模块的 1280×720（MAP_TRADE_REFERENCE）
+# 参考系，由 vision.reference_roi / match 统一缩放（代码质量阶段 B-1 补注）。
+MERCHANT_NAV_MENU_OCR_ROI = (220, 40, 360, 340)
+MERCHANT_NAV_CONFIRM_OCR_ROI = (620, 350, 230, 240)
+MERCHANT_NAV_GUIDE_TIMEOUT = 3.0
+MERCHANT_NAV_MENU_OCR_TIMEOUT = 6.0
+MERCHANT_NAV_MENU_OCR_INTERVAL = 0.5
+# ≡-menu entries of the safe restart: the hunting ground, else the town NPC
+# 艾琳 (Leo 2026-09-30: "選單沒有狩獵場 就一律直接傳去艾琳"; chapters 14 and 15
+# list her and no 狩猎场).
+HUNTING_GROUND_NAV_ENTRY = "狩猎场"
+TOWN_NPC_NAV_ENTRY = "艾琳"
+MERCHANT_NAV_LANDMARK_TIMEOUT = 10.0
+SANDBOX_NAVIGATION_PIN_TEMPLATE = TemplateSpec(
+    "箱庭小地图图钉",
+    "image/pin.png",
+    0.72,
+    candidate_center_roi=(
+        100 / HD_720.width,
+        70 / HD_720.height,
+        210 / HD_720.width,
+        180 / HD_720.height,
+    ),
+)
+SANDBOX_NAVIGATION_RUN_TEMPLATE = TemplateSpec(
+    "箱庭小地图自动移动",
+    "image/green/Run.png",
+    0.72,
+    green_mask=True,
+    candidate_center_roi=(
+        100 / HD_720.width,
+        70 / HD_720.height,
+        210 / HD_720.width,
+        180 / HD_720.height,
+    ),
+)
+SANDBOX_NAVIGATION_OPEN_TEMPLATES = (
+    SANDBOX_NAVIGATION_PIN_TEMPLATE,
+    SANDBOX_NAVIGATION_RUN_TEMPLATE,
+)
+SANDBOX_NAVIGATION_PAGE_KEYWORDS = ("在战场中查看", "探索", "世界地图")
+SANDBOX_TELEPORT_SKILL_FAILURE_GROUPS = (
+    ("无法在", "魔法阵附近"),
+    ("无法在", "该地点"),
+    ("魔法阵附近", "天赋技能"),
+    ("该地点", "天赋技能"),
+)
+# The hand prompt shows only once the arrival animation ends (a 1.5 s probe
+# missed it on the hunting ground at 2K, 2026-09-29).
+SANDBOX_INTERACTION_PROBE_TIMEOUT = 3.0
+SANDBOX_INTERACTION_PROBE_INTERVAL = 0.25
+SANDBOX_NAVIGATION_OPEN_TIMEOUT = 5.0
+SANDBOX_NAVIGATION_OPEN_SETTLE_SECONDS = 2.5
+SANDBOX_NAVIGATION_MAP_TIMEOUT = 8.0
+SANDBOX_NAVIGATION_TELEPORT_SETTLE_SECONDS = 3.0
+SANDBOX_NAVIGATION_CONFIRM_TIMEOUT = 4.0
+SANDBOX_NAVIGATION_WALK_TIMEOUT = 45.0
+SANDBOX_NAVIGATION_OCR_INTERVAL = 0.25
+
+
+@dataclass(frozen=True)
+class StoryBadgeCandidate:
+    number: int
+    result: MatchResult
+
+    @property
+    def discrimination_score(self) -> float:
+        if self.result.zncc_score > -1.0:
+            return self.result.zncc_score
+        return self.result.score
+
+    @property
+    def combined_score(self) -> float:
+        """Rank identity with all finite structural evidence when available."""
+        values = (
+            (self.result.score, 0.25),
+            (self.result.pixel_score, 0.20),
+            (self.result.zncc_score, 0.30),
+            (self.result.gradient_zncc_score, 0.15),
+            (self.result.edge_score, 0.10),
+        )
+        available = tuple((value, weight) for value, weight in values if value > -1.0)
+        if not available:
+            return -1.0
+        weight_sum = sum(weight for _value, weight in available)
+        return sum(value * weight for value, weight in available) / weight_sum
+
+
+@dataclass(frozen=True)
+class StoryBadgeDetection:
+    best: StoryBadgeCandidate
+    runner_up: StoryBadgeCandidate | None
+    ocr_text: str = ""
+    ocr_number: int | None = None
+    recovery_mode: str = ""
+
+    @property
+    def margin(self) -> float:
+        if self.runner_up is None:
+            return -1.0
+        return self.best.discrimination_score - self.runner_up.discrimination_score
+
+    @property
+    def combined_margin(self) -> float:
+        if self.runner_up is None:
+            return -1.0
+        return self.best.combined_score - self.runner_up.combined_score
+
+
+@dataclass(frozen=True)
+class StoryBadgeGrid:
+    spacing: float
+    phase: float
+    center_y: float
+    anchors: int
+
+
+@dataclass(frozen=True)
+class LocatedStoryCard:
+    card: CardSpec
+    frame: np.ndarray
+    badge: StoryBadgeDetection
+
+
+@dataclass(frozen=True)
+class ProbedStoryCard:
+    located: LocatedStoryCard
+    completion: StoryCardCompletion
+
+
+@dataclass(frozen=True)
+class AreaMapContext:
+    frame_shape: tuple[int, ...]
+    raw_text: str
+    normalized_text: str
+    map_page_mode: MapPageMode
+    candidate_target_keys: tuple[str, ...]
+    resolved_target_key: str | None
+    left_arrow: MatchResult | None
+    right_arrow: MatchResult | None
+    teleports: tuple[MatchResult, ...]
+    overlap_arrow: MatchResult | None
+    back_button: MatchResult | None
+    confirmation_text: str = ""
+
+    @property
+    def is_area_map(self) -> bool:
+        return self.map_page_mode.is_teleport_map
+
+
+@dataclass(frozen=True)
+class MapPageDetection:
+    mode: MapPageMode
+    header_text: str = ""
+    footer_text: str = ""
+    evidence: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class SandboxConfirmation:
+    """One-frame evidence used to confirm a story-card sandbox."""
+
+    map_signal_hits: int
+    skill_state_hits: int
+    action_hits: int
+    skill_group: int | None
+    geometry: FrameGeometry | None = None
+    action_states: tuple[tuple[str, str], ...] = ()
+    reason: str = ""
+
+    @property
+    def passed(self) -> bool:
+        return (
+            (self.geometry is None or self.geometry.accepted)
+            and self.map_signal_hits >= 1
+            and self.skill_state_hits >= 2
+            and self.skill_group == 1
+            and self.action_hits >= 3
+        )
+
+
+HAND_TEMPLATE = TemplateSpec(
+    "传送阵交互按钮",
+    "image/green/IcoHand.png",
+    0.95,
+    green_mask=True,
+    min_pixel_score=0.90,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.85,
+)
+SANDBOX_TELEPORT_SKILL_TEMPLATE = TemplateSpec(
+    "箱庭5号传送阵技能",
+    "image/green/Skill3-4GE.png",
+    0.95,
+    green_mask=True,
+    relative_roi=ACTION_SLOT_RELATIVE_ROIS["teleport"],
+    candidate_center_roi=ACTION_SLOT_CENTER_RELATIVE_ROIS["teleport"],
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.85,
+)
+# Keep the historical strict TemplateSpec above for compatibility.  The
+# low-resolution sandbox path uses the independent ActionIconSpec set so its
+# local evidence gates can evolve without changing generic callers.
+SANDBOX_SKILL_ACTION_ICONS = SANDBOX_ACTION_ICONS
+
+
+def _sandbox_empty_slot_template(slot_name: str) -> TemplateSpec:
+    return TemplateSpec(
+        f"{slot_name}空技能槽加号",
+        "image/Skill-Nothing.png",
+        0.78,
+        relative_roi=ACTION_SLOT_RELATIVE_ROIS[slot_name],
+        candidate_center_roi=ACTION_SLOT_CENTER_RELATIVE_ROIS[slot_name],
+        scale_ratios=(0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.25),
+        min_pixel_score=0.70,
+        minimum_safe_threshold=0.78,
+    )
+
+
+SANDBOX_EMPTY_SLOT_TEMPLATES = tuple(
+    (slot_name, _sandbox_empty_slot_template(slot_name))
+    for slot_name in ACTION_SLOT_CENTERS_REFERENCE
+)
+SANDBOX_TELEPORT_SKILL_REFERENCE_CENTER = ACTION_SLOT_CENTERS_REFERENCE["teleport"]
+SANDBOX_TELEPORT_SKILL_RELATIVE_POINT = (
+    SANDBOX_TELEPORT_SKILL_REFERENCE_CENTER[0] / FHD_1080.width,
+    SANDBOX_TELEPORT_SKILL_REFERENCE_CENTER[1] / FHD_1080.height,
+)
+SANDBOX_CONFIRM_ACTION_TEMPLATES = (
+    ("吸收", ABSORB_ICON.template),
+    ("探查", SEARCH_ICON.template),
+    ("召集", SUMMON_ICON.template),
+    ("压制", SUBDUE_ICON.template),
+    ("传送阵技能", SANDBOX_TELEPORT_SKILL_TEMPLATE),
+)
+# Area-map teleport icon by pixel similarity.  Live 2K: the real icon 0.94
+# (施塔因之塔, others <= 0.62) and 0.955 on 科库托斯研究设施, where the inn and NPC
+# icons share its round frame and scored 0.856 / 0.838 (2026-09-30): a high
+# floor and a smaller lead keep those out without missing the real one.
+SANDBOX_MAP_TELEPORT_MIN_PIXEL = 0.90
+SANDBOX_MAP_TELEPORT_PIXEL_MARGIN = 0.07
+SANDBOX_MAP_TELEPORT_TEMPLATE = TemplateSpec(
+    "箱庭地图传送阵模板",
+    "image/green/SandboxNviTpCircleMapGE.png",
+    0.72,
+)
+TELEPORT_MAP_HEADER_OCR_RELATIVE_ROI = (
+    180 / FHD_1080.width,
+    0.0,
+    900 / FHD_1080.width,
+    110 / FHD_1080.height,
+)
+SANDBOX_LARGE_MAP_FOOTER_OCR_RELATIVE_ROI = (
+    100 / FHD_1080.width,
+    900 / FHD_1080.height,
+    1850 / FHD_1080.width,
+    1070 / FHD_1080.height,
+)
+TELEPORT_MAP_DIRECT_HEADER_TEMPLATE = TemplateSpec(
+    "交互直传页图标",
+    "TeleportMapDirectHeader.png",
+    0.95,
+    relative_roi=(0.09, 0.01, 0.15, 0.10),
+    scale_ratios=(0.95, 1.0, 1.05),
+    min_pixel_score=0.90,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.90,
+)
+TELEPORT_MAP_GENERATE_HEADER_TEMPLATE = TemplateSpec(
+    "技能生成页图标",
+    "image/Skill3-1.png",
+    0.95,
+    relative_roi=(0.09, 0.01, 0.15, 0.10),
+    scale_ratios=(0.78, 0.79, 0.80, 0.81, 0.82),
+    min_pixel_score=0.88,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.90,
+)
+SANDBOX_LARGE_MAP_LEFT_TEMPLATE = TemplateSpec(
+    "箱庭大地图左箭头",
+    "image/MapLeft.png",
+    0.95,
+    relative_roi=(0.07, 0.35, 0.20, 0.65),
+    scale_ratios=(0.95, 0.975, 1.0, 1.025, 1.05),
+    min_pixel_score=0.90,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.90,
+)
+SANDBOX_LARGE_MAP_RIGHT_TEMPLATE = TemplateSpec(
+    "箱庭大地图右箭头",
+    "image/MapRight.png",
+    0.95,
+    relative_roi=(0.35, 0.35, 0.55, 0.65),
+    scale_ratios=(0.95, 0.975, 1.0, 1.025, 1.05),
+    min_pixel_score=0.90,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.90,
+)
+TELEPORT_MAP_FORWARD_TEMPLATE = TemplateSpec(
+    "传送阵地图向前",
+    "image/green/TpMapLeft.png",
+    0.95,
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.90,
+)
+TELEPORT_MAP_BACKWARD_TEMPLATE = TemplateSpec(
+    "传送阵地图向后",
+    "image/green/TpMapRight.png",
+    0.95,
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.90,
+)
+# Two 1920×1080 enabled teleport-map samples bottomed out at
+# 0.991/0.939/0.958 with the new inner-circle-only template. The template
+# excludes the activated outer halo and is intentionally separate from the
+# smaller Nvi marker used by the left-top navigation fallback.
+TELEPORT_MAP_TELEPORT_CIRCLE_TEMPLATE = TemplateSpec(
+    "传送阵地图传送阵",
+    "image/green/TpCircleMapNewGE.png",
+    0.95,
+    min_pixel_score=0.90,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.85,
+)
+TELEPORT_MAP_TELEPORT_CIRCLE_TEMPLATES = (TELEPORT_MAP_TELEPORT_CIRCLE_TEMPLATE,)
+TELEPORT_MAP_SKILL_TEMPLATE = TemplateSpec(
+    "传送阵地图传送技能",
+    "image/green/TpSkillMapGE.png",
+    0.95,
+    min_pixel_score=0.90,
+    minimum_safe_threshold=0.95,
+    min_zncc_score=0.85,
+)
+OVERLAP_ARROW_TEMPLATE = TemplateSpec(
+    "传送阵重叠箭头",
+    "image/green/map_tcArrowGE.png",
+    0.72,
+)
+AREA_MAP_BACK_TEMPLATE = TemplateSpec(
+    "传送阵地图返回",
+    "image/green/BackButGe.png",
+    0.88,
+    relative_roi=(0.03, 0.0, 0.13, 0.12),
+    scale_ratios=(0.70, 0.75, 0.80),
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.88,
+)
+AREA_MAP_SCAN_LIMIT = 24
+# Where the area map draws the floor and its exit labels (header and footer
+# left out), and the exit icon's offsets under a label (1080p; live 2K
+# 2026-09-30: label centre y 675, its green house icon y 694).
+AREA_MAP_EXIT_LABEL_RELATIVE_ROI = (0.10, 0.10, 0.90, 0.86)
+AREA_MAP_EXIT_ICON_OFFSETS = (18, 0, 30)
+# One poll reads several OCR boxes; a slow PC got only 1-2 looks in 3 s
+# and took a slow page turn for the end of the list.
+AREA_MAP_CHANGE_TIMEOUT = 6.0
+AREA_MAP_CHANGE_INTERVAL = 0.25
+AREA_MAP_CLICK_SETTLE_SECONDS = 0.5
+AREA_MAP_TELEPORT_CLUSTER_RADIUS = 24
+SANDBOX_MAP_SETTLE_SECONDS = 0.5
+SANDBOX_SKILL_GROUP_SWITCH_SETTLE_SECONDS = 0.5
+SANDBOX_TELEPORT_SKILL_TIMEOUT = 5.0
+SANDBOX_TELEPORT_SKILL_POLL_INTERVAL = 0.25
+TELEPORT_INTERACTION_CLICK_DELAY = 0.5
+TELEPORT_MAP_OPEN_TIMEOUT = 10.0
+MAP_PAGE_MODE_STABLE_HITS = 2
+# The loading/field wait after it covers the rest (was a flat 4.5 s).
+TELEPORT_MAP_TRAVEL_SETTLE_SECONDS = 1.5
+# The teleport loading screen is black but for NOW LOADING (95th pct ~0-1).
+TELEPORT_LOADING_DARK_P95 = 40
+TELEPORT_GENERATION_OCR_TIMEOUT = 8.0
+TELEPORT_GENERATION_OCR_INTERVAL = 0.25
+TELEPORT_MAP_FIRST_PAGE_LIMIT = AREA_MAP_SCAN_LIMIT
+# Pages flipped in one direction while looking for a map by name (chapter 18
+# has 10 pages; a flip that changes nothing ends the direction early).
+TELEPORT_MAP_SEEK_LIMIT = 12
+# The field minimap: ⊕ at its lower right when small, ⊖ when enlarged (user
+# demo 2026-09-28).  Enlarged, the ✦/◎/💀 panel under it is hidden, so
+# trade and collection switch it back to small first.
+MINIMAP_SMALL_TEMPLATE = TemplateSpec(
+    "小地图(缩小状态)加号",
+    "minimap/minimap_plus.png",
+    0.85,
+    relative_roi=(230 / 1920, 180 / 1080, 350 / 1920, 280 / 1080),
+    scale_ratios=(0.95, 1.0, 1.05),
+)
+MINIMAP_LARGE_TEMPLATE = TemplateSpec(
+    "小地图(放大状态)减号",
+    "minimap/minimap_minus.png",
+    0.85,
+    relative_roi=(390 / 1920, 340 / 1080, 510 / 1920, 445 / 1080),
+    scale_ratios=(0.95, 1.0, 1.05),
+)
+MINIMAP_SHRINK_ATTEMPTS = 3
+# Walking to a map without a teleport page (chapter 6's 第5层).
+WALK_MAP_OPEN_TIMEOUT = 4.0
+# After closing the area map: its header must be gone within this long.
+FIELD_MAP_CLOSE_TIMEOUT = 3.0
+# After clicking an exit spot: the area map closes at once when it reacts.
+WALK_CLICK_SETTLE_SECONDS = 2.5
+# The exit labels can be missing from the area map for ~2 s just after a
+# teleport while its header already reads (ch14 左侧回廊, live 2K
+# 2026-09-30: found on the 5th read, 2.2 s); read them again for this long.
+WALK_LABEL_READ_TIMEOUT = 5.0
+WALK_LABEL_READ_INTERVAL = 0.4
+# A walk that ends on the map it started from (a patrol expelled it, or it
+# stopped short) clicks the exit again, once.
+WALK_EXIT_ATTEMPTS = 2
+# A field patrol caught the game's walk and sent the character back: ch14's
+# 光明监视者 flashes "被发现了！！", says "凡入侵者，皆当驱除。", then
+# "被光明监视者发现，已遭驱逐。" and the map reloads at its entrance, where the
+# walk resumes (live 2K 2026-09-30).
+WALK_CAUGHT_KEYWORDS = ("驱逐", "驱除", "被发现")
+# The ✕ under "自动移动中" (1080p) stops the game's walk.  Without a walk
+# the run button sits there, so it is pressed only in a frame with the banner.
+AUTO_MOVE_CANCEL_REFERENCE_POINT = (960, 985)
+AUTO_MOVE_CANCEL_ATTEMPTS = 3
+# Polls without the banner before a walk counts as over (a frame between the
+# banner and a patrol's speech bubble shows neither).
+AUTO_MOVE_IDLE_READS = 2
+AREA_MAP_REFERENCE_SIZE = FHD_1080.size
+AREA_MAP_OPEN_REFERENCE_POINT = (289, 253)
+AREA_MAP_OPEN_RELATIVE_POINT = (
+    AREA_MAP_OPEN_REFERENCE_POINT[0] / AREA_MAP_REFERENCE_SIZE[0],
+    AREA_MAP_OPEN_REFERENCE_POINT[1] / AREA_MAP_REFERENCE_SIZE[1],
+)
+TELEPORT_MAP_TITLE_OCR_REFERENCE_ROI = (654, 946, 1268, 1021)
+TELEPORT_MAP_TITLE_OCR_RELATIVE_ROI = (
+    TELEPORT_MAP_TITLE_OCR_REFERENCE_ROI[0] / AREA_MAP_REFERENCE_SIZE[0],
+    TELEPORT_MAP_TITLE_OCR_REFERENCE_ROI[1] / AREA_MAP_REFERENCE_SIZE[1],
+    TELEPORT_MAP_TITLE_OCR_REFERENCE_ROI[2] / AREA_MAP_REFERENCE_SIZE[0],
+    TELEPORT_MAP_TITLE_OCR_REFERENCE_ROI[3] / AREA_MAP_REFERENCE_SIZE[1],
+)
+TELEPORT_MAP_RETURN_REFERENCE_POINT = (136, 52)
+TELEPORT_MAP_RETURN_RELATIVE_POINT = (
+    TELEPORT_MAP_RETURN_REFERENCE_POINT[0] / AREA_MAP_REFERENCE_SIZE[0],
+    TELEPORT_MAP_RETURN_REFERENCE_POINT[1] / AREA_MAP_REFERENCE_SIZE[1],
+)
+SANDBOX_LARGE_MAP_RETURN_REFERENCE_POINT = (172, 50)
+SANDBOX_LARGE_MAP_RETURN_RELATIVE_POINT = (
+    SANDBOX_LARGE_MAP_RETURN_REFERENCE_POINT[0] / AREA_MAP_REFERENCE_SIZE[0],
+    SANDBOX_LARGE_MAP_RETURN_REFERENCE_POINT[1] / AREA_MAP_REFERENCE_SIZE[1],
+)
+AREA_MAP_TELEPORT_BRIGHT_RADIUS_RATIO = 24 / 52
+AREA_MAP_TELEPORT_BRIGHT_MINIMUM_GRAY = 200
+AREA_MAP_TELEPORT_BRIGHT_MAXIMUM_SPREAD = 35
+AREA_MAP_TELEPORT_BRIGHT_NEUTRAL_RATIO = 0.10
+FIRST_CARD_INSERT_REGION = (413, 481, 440, 132)
+FIRST_CARD_SKIP_TEMPLATE = TemplateSpec(
+    "首次卡带跳过",
+    "image/UI_Skip.png",
+    0.72,
+    roi=(915, 9, 265, 68),
+)
+FIRST_CARD_CONFIRM_REGION = (626, 368, 186, 293)

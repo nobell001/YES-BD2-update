@@ -1,0 +1,4779 @@
+{
+ "source": "https://browndust2-db.souseha.com",
+ "fetched": "2026-10-08",
+ "note": "names, skills and SP; portraits in costumes/; refresh with tools/fetch_souseha_characters.py",
+ "characters": [
+  {
+   "id": "Lathel",
+   "star": 5,
+   "element": "fire",
+   "costume": "Lathel_1",
+   "name_zh_tw": "拉德爾",
+   "name_zh_cn": "拉德尔",
+   "name_en": "Lathel",
+   "name_ja": "ラテル",
+   "name_ko": "라텔",
+   "costumes": [
+    {
+     "id": "Lathel_1",
+     "name_zh_tw": "草藥獵人",
+     "name_zh_cn": "草药猎人",
+     "name_en": "Herb Tracker",
+     "name_ja": "薬草採集者",
+     "name_ko": "약초 추적자",
+     "skill_zh_tw": "鮮血之劍",
+     "skill_zh_cn": "鲜血之剑",
+     "skill_en": "The Sword of Fresh Blood",
+     "skill_ja": "鮮血の剣",
+     "skill_ko": "선혈의 검",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Lathel_2",
+     "name_zh_tw": "孤獨的生存者",
+     "name_zh_cn": "孤独生还者",
+     "name_en": "Lonely Survivor",
+     "name_ja": "ローンサバイバー",
+     "name_ko": "론리 서바이버",
+     "skill_zh_tw": "路德比昂大爆衝",
+     "skill_zh_cn": "路德比昂大爆冲",
+     "skill_en": "Ludbion Drive",
+     "skill_ja": "ルードビオンドライブ",
+     "skill_ko": "루드비온 드라이브",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Lathel_4",
+     "name_zh_tw": "暗黑騎士",
+     "name_zh_cn": "暗黑骑士",
+     "name_en": "Dark Knight",
+     "name_ja": "暗黒騎士",
+     "name_ko": "암흑 기사",
+     "skill_zh_tw": "血色咆哮",
+     "skill_zh_cn": "血色咆哮",
+     "skill_en": "Bloody Howl",
+     "skill_ja": "鮮血の咆哮",
+     "skill_ko": "핏빛 포효",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Lathel_5",
+     "name_zh_tw": "復仇的誓約",
+     "name_zh_cn": "复仇的誓言",
+     "name_en": "Promise of Vengeance",
+     "name_ja": "復讐の誓い",
+     "name_ko": "복수의 맹세",
+     "skill_zh_tw": "復仇的火焰",
+     "skill_zh_cn": "复仇火焰",
+     "skill_en": "Flame of Revenge",
+     "skill_ja": "復讐の炎",
+     "skill_ko": "복수의 불길",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Lathel_6",
+     "name_zh_tw": "泳池派對",
+     "name_zh_cn": "泳池派对",
+     "name_en": "Pool Party",
+     "name_ja": "プールパーティ",
+     "name_ko": "풀 파티",
+     "skill_zh_tw": "鯊魚龍捲風",
+     "skill_zh_cn": "鲨鱼龙卷风",
+     "skill_en": "Shark Tornado",
+     "skill_ja": "シャークトルネード",
+     "skill_ko": "샤크 토네이도",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Lathel_3",
+     "name_zh_tw": "霍爾蒙克斯",
+     "name_zh_cn": "霍尔蒙克斯",
+     "name_en": "Homunculus",
+     "name_ja": "ホムンクルス",
+     "name_ko": "호문쿨루스",
+     "skill_zh_tw": "鮮血的犧牲",
+     "skill_zh_cn": "鲜血牺牲",
+     "skill_en": "The Sacrifice of Fresh Blood",
+     "skill_ja": "鮮血の犠牲",
+     "skill_ko": "선혈의 희생",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Justia",
+   "star": 5,
+   "element": "light",
+   "costume": "Justia_1",
+   "name_zh_tw": "悠絲緹亞",
+   "name_zh_cn": "悠丝缇亚",
+   "name_en": "Justia",
+   "name_ja": "ユースティア",
+   "name_ko": "유스티아",
+   "costumes": [
+    {
+     "id": "Justia_2",
+     "name_zh_tw": "血騎士",
+     "name_zh_cn": "血骑士",
+     "name_en": "Knight of Blood",
+     "name_ja": "鮮血の騎士",
+     "name_ko": "피의 기사",
+     "skill_zh_tw": "月暈砍擊",
+     "skill_zh_cn": "月晕砍击",
+     "skill_en": "Lunar Halo Slit",
+     "skill_ja": "月暈斬り",
+     "skill_ko": "달무리 베기",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Justia_1",
+     "name_zh_tw": "皎潔死神",
+     "name_zh_cn": "皎洁死神",
+     "name_en": "White Reaper",
+     "name_ja": "白い死神",
+     "name_ko": "하얀 사신",
+     "skill_zh_tw": "下弦刺擊",
+     "skill_zh_cn": "下弦刺击",
+     "skill_en": "Quarter Moon Jab",
+     "skill_ja": "下弦突き",
+     "skill_ko": "하현 찌르기",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Justia_3",
+     "name_zh_tw": "血之貪食者",
+     "name_zh_cn": "血之贪食者",
+     "name_en": "Blood Glutton",
+     "name_ja": "血の貪食者",
+     "name_ko": "피의 탐식자",
+     "skill_zh_tw": "貪吃的犬齒",
+     "skill_zh_cn": "贪食尖齿",
+     "skill_en": "The Fang of Gluttony",
+     "skill_ja": "貪食の牙",
+     "skill_ko": "탐식의 송곳니",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Justia_4",
+     "name_zh_tw": "劍道社",
+     "name_zh_cn": "剑道社",
+     "name_en": "Kendo Club",
+     "name_ja": "剣道部",
+     "name_ko": "검도부",
+     "skill_zh_tw": "櫻花日暈砍擊",
+     "skill_zh_cn": "樱花砍击",
+     "skill_en": "Sakura Halo's Stroke",
+     "skill_ja": "桜斬り",
+     "skill_ko": "벚무리 베기",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Justia_5",
+     "name_zh_tw": "泳池派對",
+     "name_zh_cn": "泳池派对",
+     "name_en": "Pool Party",
+     "name_ja": "プールパーティ",
+     "name_ko": "풀 파티",
+     "skill_zh_tw": "食物戰士",
+     "skill_zh_cn": "食物战士",
+     "skill_en": "Food Fighter",
+     "skill_ja": "フードファイター",
+     "skill_ko": "푸드 파이터",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Scheherazade",
+   "star": 5,
+   "element": "water",
+   "costume": "Scheherazade_1",
+   "name_zh_tw": "莎赫拉查德",
+   "name_zh_cn": "莎赫拉查德",
+   "name_en": "Scheherazade",
+   "name_ja": "シェラザード",
+   "name_ko": "세헤라자드",
+   "costumes": [
+    {
+     "id": "Scheherazade_1",
+     "name_zh_tw": "蒼藍魔女",
+     "name_zh_cn": "苍蓝魔女",
+     "name_en": "The Lapis Witch",
+     "name_ja": "蒼の魔女",
+     "name_ko": "푸른 마녀",
+     "skill_zh_tw": "水流裂破",
+     "skill_zh_cn": "水流裂破",
+     "skill_en": "Aqua Break",
+     "skill_ja": "アクアブレイク",
+     "skill_ko": "아쿠아 브레이크",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Scheherazade_2",
+     "name_zh_tw": "魔法學校教授",
+     "name_zh_cn": "魔法学校教授",
+     "name_en": "The Magic School Professor",
+     "name_ja": "魔法学校教授",
+     "name_ko": "마법학교 교수",
+     "skill_zh_tw": "寧靜水流",
+     "skill_zh_cn": "幽静水流",
+     "skill_en": "Aqua Silence",
+     "skill_ja": "アクアサイレンス",
+     "skill_ko": "아쿠아 사일런스",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Scheherazade_3",
+     "name_zh_tw": "代號S",
+     "name_zh_cn": "代号S",
+     "name_en": "Code Name S",
+     "name_ja": "コードネームS",
+     "name_ko": "코드네임 S",
+     "skill_zh_tw": "藍寶石迴旋鏢",
+     "skill_zh_cn": "蓝宝石回旋镖",
+     "skill_en": "Sapphire Boomerang",
+     "skill_ja": "サファイアブーメラン",
+     "skill_ko": "사파이어 부메랑",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Scheherazade_4",
+     "name_zh_tw": "泳池派對",
+     "name_zh_cn": "泳池派对",
+     "name_en": "Pool Party",
+     "name_ja": "プールパーティ",
+     "name_ko": "풀 파티",
+     "skill_zh_tw": "盛夏熱浪",
+     "skill_zh_cn": "盛夏热浪",
+     "skill_en": "Midsummer Heat Wave",
+     "skill_ja": "真夏のシューター",
+     "skill_ko": "한여름 난사",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Gray",
+   "star": 5,
+   "element": "wind",
+   "costume": "Gray_1",
+   "name_zh_tw": "格雷",
+   "name_zh_cn": "格雷",
+   "name_en": "Gray",
+   "name_ja": "グレイ",
+   "name_ko": "그레이",
+   "costumes": [
+    {
+     "id": "Gray_1",
+     "name_zh_tw": "迷霧神射手",
+     "name_zh_cn": "迷雾神射手",
+     "name_en": "The Sharpshooter of the Mist",
+     "name_ja": "霧の名射手",
+     "name_ko": "안개의 명사수",
+     "skill_zh_tw": "三重射擊",
+     "skill_zh_cn": "三重射击",
+     "skill_en": "Triple Shot",
+     "skill_ja": "トリプルショット",
+     "skill_ko": "트리플 샷",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Gray_3",
+     "name_zh_tw": "先鋒大將",
+     "name_zh_cn": "先锋大将",
+     "name_en": "Vanguard",
+     "name_ja": "先鋒隊",
+     "name_ko": "선봉장",
+     "skill_zh_tw": "光榮的旗幟",
+     "skill_zh_cn": "光荣旗帜",
+     "skill_en": "The Flag of Honor",
+     "skill_ja": "栄光の旗",
+     "skill_ko": "영광의 깃발",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Gray_2",
+     "name_zh_tw": "B級老闆",
+     "name_zh_cn": "B级老板",
+     "name_en": "B-Rank Manager",
+     "name_ja": "B級社長",
+     "name_ko": "B급 사장",
+     "skill_zh_tw": "一腳踢開瘋狂粉絲",
+     "skill_zh_cn": "狂粉驱散腿",
+     "skill_en": "A kick to shake off obsessive fans",
+     "skill_ja": "ストーカー撃退キック",
+     "skill_ko": "극성팬 퇴치 킥",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Gray_4",
+     "name_zh_tw": "泳池派對",
+     "name_zh_cn": "泳池派对",
+     "name_en": "Pool Party",
+     "name_ja": "プールパーティ",
+     "name_ko": "풀 파티",
+     "skill_zh_tw": "水彈發射！",
+     "skill_zh_cn": "水弹发射！",
+     "skill_en": "Waterbomb Launching!",
+     "skill_ja": "ウォーターボム！",
+     "skill_ko": "워터밤 발사!",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Rou",
+   "star": 5,
+   "element": "dark",
+   "costume": "Rou_1",
+   "name_zh_tw": "魯",
+   "name_zh_cn": "鲁",
+   "name_en": "Rou",
+   "name_ja": "ルゥ",
+   "name_ko": "루",
+   "costumes": [
+    {
+     "id": "Rou_1",
+     "name_zh_tw": "白色貓咪",
+     "name_zh_cn": "白色猫咪",
+     "name_en": "White Cat",
+     "name_ja": "白猫",
+     "name_ko": "하얀 고양이",
+     "skill_zh_tw": "半月腳",
+     "skill_zh_cn": "半月脚",
+     "skill_en": "Half Moon Kick",
+     "skill_ja": "半月脚",
+     "skill_ko": "반월각",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Rou_3",
+     "name_zh_tw": "自然的腳爪",
+     "name_zh_cn": "自然之爪",
+     "name_en": "Nature's Claw",
+     "name_ja": "自然の爪",
+     "name_ko": "자연의 발톱",
+     "skill_zh_tw": "抓怪遊戲開始！",
+     "skill_zh_cn": "追赶游戏开始！",
+     "skill_en": "Let's Play Hide-and-seek!",
+     "skill_ja": "遊びスタート！",
+     "skill_ko": "잡기 놀이 시작!",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Rou_2",
+     "name_zh_tw": "小紅帽",
+     "name_zh_cn": "小红帽",
+     "name_en": "Red Riding Hood",
+     "name_ja": "赤ずきん",
+     "name_ko": "빨간모자",
+     "skill_zh_tw": "是零食時間！",
+     "skill_zh_cn": "吃零食咯！",
+     "skill_en": "It's Snack Time!",
+     "skill_ja": "おやつの時間だよっ！",
+     "skill_ko": "간식 시간이야!",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Rou_4",
+     "name_zh_tw": "流浪貓",
+     "name_zh_cn": "流浪猫",
+     "name_en": "Stray Cat",
+     "name_ja": "ストレイ・キャット",
+     "name_ko": "스트레이 캣",
+     "skill_zh_tw": "泰拉爆發",
+     "skill_zh_cn": "泰拉爆发",
+     "skill_en": "Terra Burst",
+     "skill_ja": "テラ・バースト",
+     "skill_ko": "테라 버스트",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Olstein",
+   "star": 5,
+   "element": "wind",
+   "costume": "Olstein_1",
+   "name_zh_tw": "奧爾施塔因",
+   "name_zh_cn": "奥尔施塔因",
+   "name_en": "Olstein",
+   "name_ja": "オルシュタイン",
+   "name_ko": "올슈타인",
+   "costumes": [
+    {
+     "id": "Olstein_1",
+     "name_zh_tw": "魔獸學家",
+     "name_zh_cn": "魔物学家",
+     "name_en": "The Fiend Scholar",
+     "name_ja": "魔物学者",
+     "name_ko": "마물학자",
+     "skill_zh_tw": "寧靜激怒",
+     "skill_zh_cn": "沉默之怒",
+     "skill_en": "Silent Fury",
+     "skill_ja": "サイレンスフューリー",
+     "skill_ko": "사일런스 퓨리",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Olstein_2",
+     "name_zh_tw": "青雲道士",
+     "name_zh_cn": "青云道士",
+     "name_en": "Sage of Blue Clouds",
+     "name_ja": "青雲の道士",
+     "name_ko": "청운의 도사",
+     "skill_zh_tw": "雲龍到來",
+     "skill_zh_cn": "云龙到来",
+     "skill_en": "The Arrival of the Cloud Dragon",
+     "skill_ja": "雲竜到来",
+     "skill_ko": "운룡도래",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Sylvia",
+   "star": 5,
+   "element": "water",
+   "costume": "Sylvia_1",
+   "name_zh_tw": "席比雅",
+   "name_zh_cn": "席比雅",
+   "name_en": "Sylvia",
+   "name_ja": "シルヴィア",
+   "name_ko": "실비아",
+   "costumes": [
+    {
+     "id": "Sylvia_1",
+     "name_zh_tw": "沙漠之花",
+     "name_zh_cn": "沙漠之花",
+     "name_en": "Desert Flower",
+     "name_ja": "砂漠の華",
+     "name_ko": "사막의 꽃",
+     "skill_zh_tw": "劍的要塞",
+     "skill_zh_cn": "利剑要塞",
+     "skill_en": "The Sword Fortress",
+     "skill_ja": "剣の要塞",
+     "skill_ko": "검의 요새",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Sylvia_3",
+     "name_zh_tw": "海軍上將",
+     "name_zh_cn": "海军队长",
+     "name_en": "Admiral",
+     "name_ja": "海軍隊長",
+     "name_ko": "해군 대장",
+     "skill_zh_tw": "制裁者",
+     "skill_zh_cn": "制裁者",
+     "skill_en": "The Punisher",
+     "skill_ja": "パニッシャー",
+     "skill_ko": "퍼니셔",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Sylvia_2",
+     "name_zh_tw": "劍后",
+     "name_zh_cn": "剑后",
+     "name_en": "The Sword Queen",
+     "name_ja": "剣后",
+     "name_ko": "검후",
+     "skill_zh_tw": "連花飛劍",
+     "skill_zh_cn": "连花飞剑",
+     "skill_en": "Continuous Blossom Flying Sword",
+     "skill_ja": "連華飛剣",
+     "skill_ko": "연화비검",
+     "sp": [
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Sylvia_4",
+     "name_zh_tw": "比基尼特務",
+     "name_zh_cn": "比基尼特工",
+     "name_en": "Bikini Agent",
+     "name_ja": "ビキニエージェント",
+     "name_ko": "비키니 에이전트",
+     "skill_zh_tw": "比基尼爆破女郎",
+     "skill_zh_cn": "比基尼爆破手",
+     "skill_en": "Bikini Blaster",
+     "skill_ja": "ビキニ・ブラスター",
+     "skill_ko": "비키니 블래스터",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Rubia",
+   "star": 5,
+   "element": "fire",
+   "costume": "Rubia_1",
+   "name_zh_tw": "露比雅",
+   "name_zh_cn": "露比雅",
+   "name_en": "Rubia",
+   "name_ja": "ルヴィア",
+   "name_ko": "루비아",
+   "costumes": [
+    {
+     "id": "Rubia_1",
+     "name_zh_tw": "沙漠之刺",
+     "name_zh_cn": "沙漠之刺",
+     "name_en": "Thorn of the Desert",
+     "name_ja": "砂漠の棘",
+     "name_ko": "사막의 가시",
+     "skill_zh_tw": "短劍之舞",
+     "skill_zh_cn": "短剑之舞",
+     "skill_en": "Dagger Dance",
+     "skill_ja": "ダガーダンス",
+     "skill_ko": "대거 댄스",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Rubia_2",
+     "name_zh_tw": "大海女帝",
+     "name_zh_cn": "大海女帝",
+     "name_en": "The Empress of the Ocean",
+     "name_ja": "海の女帝",
+     "name_ko": "바다의 여제",
+     "skill_zh_tw": "爆裂子彈",
+     "skill_zh_cn": "爆裂子弹",
+     "skill_en": "Break Bullet",
+     "skill_ja": "ブレイクバレット",
+     "skill_ko": "브레이크 불릿",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Rubia_3",
+     "name_zh_tw": "女僕代號C",
+     "name_zh_cn": "女仆代号C",
+     "name_en": "Maid Name C",
+     "name_ja": "メイドネームC",
+     "name_ko": "메이드네임 C",
+     "skill_zh_tw": "秘密服務",
+     "skill_zh_cn": "秘密服务",
+     "skill_en": "Secret Service",
+     "skill_ja": "シークレット・サービス",
+     "skill_ko": "시크릿 서비스",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Rubia_4",
+     "name_zh_tw": "女僕比基尼",
+     "name_zh_cn": "女仆比基尼",
+     "name_en": "Maid Bikini",
+     "name_ja": "メイドビキニ",
+     "name_ko": "메이드 비키니",
+     "skill_zh_tw": "極密特令",
+     "skill_zh_cn": "秘密指令",
+     "skill_en": "Secret Order",
+     "skill_ja": "シークレット・オーダー",
+     "skill_ko": "시크릿 오더",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Eclipse",
+   "star": 5,
+   "element": "dark",
+   "costume": "Eclipse_1",
+   "name_zh_tw": "伊柯利普斯",
+   "name_zh_cn": "伊柯利普斯",
+   "name_en": "Eclipse",
+   "name_ja": "エクリプス",
+   "name_ko": "이클립스",
+   "costumes": [
+    {
+     "id": "Eclipse_1",
+     "name_zh_tw": "空間魔女",
+     "name_zh_cn": "空间魔女",
+     "name_en": "Dimension Witch",
+     "name_ja": "空間の魔女",
+     "name_ko": "공간의 마녀",
+     "skill_zh_tw": "生機抽取",
+     "skill_zh_cn": "泰拉抽嗜",
+     "skill_en": "Terra Drain",
+     "skill_ja": "テラドレイン",
+     "skill_ko": "테라 드레인",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Eclipse_2",
+     "name_zh_tw": "惡夢兔女郎",
+     "name_zh_cn": "恶梦兔女郎",
+     "name_en": "Nightmare Bunny",
+     "name_ja": "ナイトメア・バニー",
+     "name_ko": "나이트메어 바니",
+     "skill_zh_tw": "食夢者",
+     "skill_zh_cn": "嗜梦者",
+     "skill_en": "Dream Eater",
+     "skill_ja": "ドリームイーター",
+     "skill_ko": "드림 이터",
+     "sp": [
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Eclipse_3",
+     "name_zh_tw": "海邊度假",
+     "name_zh_cn": "海滨度假",
+     "name_en": "Beach Vacation",
+     "name_ja": "ビーチバカンス",
+     "name_ko": "비치 바캉스",
+     "skill_zh_tw": "夏季巔峰",
+     "skill_zh_cn": "夏季巅峰",
+     "skill_en": "Summer Climax",
+     "skill_ja": "サマークライマックス",
+     "skill_ko": "서머 클라이막스",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": [
+      4,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Eclipse_4",
+     "name_zh_tw": "夢中的新娘",
+     "name_zh_cn": "梦中的新娘",
+     "name_en": "Dream Bride",
+     "name_ja": "夢の中の花嫁",
+     "name_ko": "꿈속의 신부",
+     "skill_zh_tw": "蜜月禮包",
+     "skill_zh_cn": "蜜月礼包",
+     "skill_en": "Honeymoon Getaway",
+     "skill_ja": "ハネムーンパッケージ",
+     "skill_ko": "허니문 패키지",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Teresse",
+   "star": 5,
+   "element": "water",
+   "costume": "Teresse_1",
+   "name_zh_tw": "泰瑞絲",
+   "name_zh_cn": "泰瑞丝",
+   "name_en": "Teresse",
+   "name_ja": "テレーゼ",
+   "name_ko": "테레제",
+   "costumes": [
+    {
+     "id": "Teresse_1",
+     "name_zh_tw": "破壞的天使",
+     "name_zh_cn": "毁灭天使",
+     "name_en": "Angel of Destruction",
+     "name_ja": "破壊の天使",
+     "name_ko": "파괴의 천사",
+     "skill_zh_tw": "狂暴扣殺",
+     "skill_zh_cn": "狂暴扣杀",
+     "skill_en": "Berserk Smash",
+     "skill_ja": "バーサクスマッシュ",
+     "skill_ko": "버서크 스매시",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Teresse_2",
+     "name_zh_tw": "保健社",
+     "name_zh_cn": "保健部",
+     "name_en": "Medical Club",
+     "name_ja": "保健委員",
+     "name_ko": "양호부",
+     "skill_zh_tw": "我，我來幫忙吧！",
+     "skill_zh_cn": "我、我来帮忙！",
+     "skill_en": "I-I'll Help!",
+     "skill_ja": "わ、私がお手伝いしますっ！",
+     "skill_ko": "제, 제가 도울게요!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Teresse_3",
+     "name_zh_tw": "海邊天使",
+     "name_zh_cn": "海滨天使",
+     "name_en": "Beachside Angel",
+     "name_ja": "ビーチの天使",
+     "name_ko": "해변의 천사",
+     "skill_zh_tw": "堂、堂堂正正地暴露！",
+     "skill_zh_cn": "堂、堂堂正正地暴露！",
+     "skill_en": "P-Proud to Show Skin!",
+     "skill_ja": "ど、堂々と肌を露わに！",
+     "skill_ko": "다, 당당하게 노출을!",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Liatris",
+   "star": 5,
+   "element": "fire",
+   "costume": "Liatris_1",
+   "name_zh_tw": "莉亞特里斯",
+   "name_zh_cn": "莉亚特里斯",
+   "name_en": "Liatris",
+   "name_ja": "リアトリス",
+   "name_ko": "리아트리스",
+   "costumes": [
+    {
+     "id": "Liatris_1",
+     "name_zh_tw": "羅戴夫之星",
+     "name_zh_cn": "罗戴夫之星",
+     "name_en": "Rodev's Star",
+     "name_ja": "ロデブの星",
+     "name_ko": "로데브의 별",
+     "skill_zh_tw": "空氣穿透",
+     "skill_zh_cn": "空气穿透",
+     "skill_en": "Air Piercing",
+     "skill_ja": "エアピアシング",
+     "skill_ko": "에어 피어싱",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Liatris_2",
+     "name_zh_tw": "霓虹跟蹤狂",
+     "name_zh_cn": "霓虹跟踪狂",
+     "name_en": "Neon Stalker",
+     "name_ja": "ネオン・ストーカー",
+     "name_ko": "네온 스토커",
+     "skill_zh_tw": "火焰噴射",
+     "skill_zh_cn": "火焰喷射",
+     "skill_en": "Fire Execution",
+     "skill_ja": "ファイア・エグゼキューション",
+     "skill_ko": "파이어 엑시큐션",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Liatris_3",
+     "name_zh_tw": "女僕代號R",
+     "name_zh_cn": "女仆代号R",
+     "name_en": "Maid Name R",
+     "name_ja": "メイドネームR",
+     "name_ko": "메이드네임 R",
+     "skill_zh_tw": "女僕愛♡火力",
+     "skill_zh_cn": "女仆之爱♡发射",
+     "skill_en": "Maid Love♡Fire",
+     "skill_ja": "メイド・ラブ♡ファイヤー",
+     "skill_ko": "메이드 러브♡파이어",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Alec",
+   "star": 5,
+   "element": "fire",
+   "costume": "Alec_1",
+   "name_zh_tw": "艾瑞克",
+   "name_zh_cn": "艾瑞克",
+   "name_en": "Alec",
+   "name_ja": "アレック",
+   "name_ko": "알렉",
+   "costumes": [
+    {
+     "id": "Alec_1",
+     "name_zh_tw": "毀滅之星",
+     "name_zh_cn": "毁灭之星",
+     "name_en": "The Destruction",
+     "name_ja": "破壊の星",
+     "name_ko": "파괴의 별",
+     "skill_zh_tw": "激憤一擊",
+     "skill_zh_cn": "激愤一击",
+     "skill_en": "Raging Strike",
+     "skill_ja": "激昂の一撃",
+     "skill_ko": "격분의 일격",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Alec_2",
+     "name_zh_tw": "劍之毀滅者",
+     "name_zh_cn": "破剑士",
+     "name_en": "Sword Breaker",
+     "name_ja": "ソードブレーカー",
+     "name_ko": "소드 브레이커",
+     "skill_zh_tw": "破劍擊",
+     "skill_zh_cn": "破剑攻击",
+     "skill_en": "Broken Sword Attack",
+     "skill_ja": "破剣撃",
+     "skill_ko": "파검격",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Seir",
+   "star": 5,
+   "element": "dark",
+   "costume": "Seir_1",
+   "name_zh_tw": "賽爾",
+   "name_zh_cn": "赛尔",
+   "name_en": "Seir",
+   "name_ja": "セイル",
+   "name_ko": "세이르",
+   "costumes": [
+    {
+     "id": "Seir_1",
+     "name_zh_tw": "惡魔之女",
+     "name_zh_cn": "恶魔之女",
+     "name_en": "Demon's Daughter",
+     "name_ja": "悪魔の娘",
+     "name_ko": "악마의 딸",
+     "skill_zh_tw": "保護本能",
+     "skill_zh_cn": "保护本能",
+     "skill_en": "Protective Instinct",
+     "skill_ja": "保護本能",
+     "skill_ko": "보호 본능",
+     "sp": [
+      3,
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Seir_2",
+     "name_zh_tw": "B級偶像",
+     "name_zh_cn": "B级偶像",
+     "name_en": "B-Rank Idol",
+     "name_ja": "B級アイドル",
+     "name_ko": "B급 아이돌",
+     "skill_zh_tw": "就是他欺負人！",
+     "skill_zh_cn": "那家伙欺负人！",
+     "skill_en": "He is Bullying Me!",
+     "skill_ja": "あの子がいじめるの！",
+     "skill_ko": "쟤가 괴롭혀요!",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Seir_3",
+     "name_zh_tw": "新進員工",
+     "name_zh_cn": "新进员工",
+     "name_en": "New Hire",
+     "name_ja": "新入社員",
+     "name_ko": "신입 사원",
+     "skill_zh_tw": "請、請簽下合約！",
+     "skill_zh_cn": "请、请签下合约！",
+     "skill_en": "P, please Sign the Contract!",
+     "skill_ja": "け、契約してくださぁいっ！",
+     "skill_ko": "계, 계약해주세요!",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Celia",
+   "star": 5,
+   "element": "dark",
+   "costume": "Celia_1",
+   "name_zh_tw": "西利亞",
+   "name_zh_cn": "西利亚",
+   "name_en": "Celia",
+   "name_ja": "セリア",
+   "name_ko": "셀리아",
+   "costumes": [
+    {
+     "id": "Celia_1",
+     "name_zh_tw": "詛咒之星",
+     "name_zh_cn": "诅咒之星",
+     "name_en": "The Curse",
+     "name_ja": "呪いの星",
+     "name_ko": "저주의 별",
+     "skill_zh_tw": "小丑們的默劇",
+     "skill_zh_cn": "小丑默剧",
+     "skill_en": "Miming Clowns",
+     "skill_ja": "ピエロの無言劇",
+     "skill_ko": "광대들의 무언극",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Celia_2",
+     "name_zh_tw": "大魔女的後裔",
+     "name_zh_cn": "大魔女后裔",
+     "name_en": "Descendant of the Great Witch",
+     "name_ja": "大魔女の末裔",
+     "name_ko": "대마녀의 후예",
+     "skill_zh_tw": "古代詛咒",
+     "skill_zh_cn": "远古诅咒",
+     "skill_en": "The Ancient Curse",
+     "skill_ja": "古代の呪い",
+     "skill_ko": "고대의 저주",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Celia_3",
+     "name_zh_tw": "化裝舞會兔女郎",
+     "name_zh_cn": "化妆舞会兔女郎",
+     "name_en": "Masquerade Bunny",
+     "name_ja": "マスカレイド・バニー",
+     "name_ko": "마스커레이드 바니",
+     "skill_zh_tw": "各位乾杯",
+     "skill_zh_cn": "举杯畅饮",
+     "skill_en": "Cheers for All",
+     "skill_ja": "チアーズ・フォー・オール",
+     "skill_ko": "치얼스 포 올",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Anastasia",
+   "star": 5,
+   "element": "fire",
+   "costume": "Anastasia_1",
+   "name_zh_tw": "安娜塔西亞",
+   "name_zh_cn": "安娜塔西亚",
+   "name_en": "Anastasia",
+   "name_ja": "アナスタシア",
+   "name_ko": "아나스타샤",
+   "costumes": [
+    {
+     "id": "Anastasia_1",
+     "name_zh_tw": "和藹的女僕",
+     "name_zh_cn": "和善女仆",
+     "name_en": "Gentle Maid",
+     "name_ja": "優しきメイド",
+     "name_ko": "상냥한 메이드",
+     "skill_zh_tw": "集中砲擊",
+     "skill_zh_cn": "集中炮击",
+     "skill_en": "Cluster Bombardment",
+     "skill_ja": "集中砲撃",
+     "skill_ko": "집중 포격",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Anastasia_2",
+     "name_zh_tw": "火之塗鴉",
+     "name_zh_cn": "热火涂鸦",
+     "name_en": "Fire Graffiti",
+     "name_ja": "ファイアグラフィティ",
+     "name_ko": "파이어 그라피티",
+     "skill_zh_tw": "五連擊",
+     "skill_zh_cn": "扫射，扫射，扫射！",
+     "skill_en": "Burst, Burst, Burst!",
+     "skill_ja": "乱射、乱射、乱射！",
+     "skill_ko": "난사, 난사, 난사!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Lecliss",
+   "star": 5,
+   "element": "wind",
+   "costume": "Lecliss_1",
+   "name_zh_tw": "萊克莉斯",
+   "name_zh_cn": "莱克莉斯",
+   "name_en": "Lecliss",
+   "name_ja": "レクリス",
+   "name_ko": "레클리스",
+   "costumes": [
+    {
+     "id": "Lecliss_1",
+     "name_zh_tw": "殺人娃娃",
+     "name_zh_cn": "杀人娃娃",
+     "name_en": "Killer Doll",
+     "name_ja": "殺人人形",
+     "name_ko": "살인 인형",
+     "skill_zh_tw": "詛咒複製品",
+     "skill_zh_cn": "诅咒复制品",
+     "skill_en": "Curse Replica",
+     "skill_ja": "カースレプリカ",
+     "skill_ko": "커스 레플리카",
+     "sp": [
+      4,
+      3,
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Lecliss_2",
+     "name_zh_tw": "安卓女王",
+     "name_zh_cn": "机械人女王",
+     "name_en": "Android Queen",
+     "name_ja": "アンドロイドクイーン",
+     "name_ko": "안드로이드 퀸",
+     "skill_zh_tw": "自動防禦模式",
+     "skill_zh_cn": "自动防御模式",
+     "skill_en": "Auto Defense Mode",
+     "skill_ja": "オートディフェンスモード",
+     "skill_ko": "오토 디펜스 모드",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Rafina",
+   "star": 5,
+   "element": "water",
+   "costume": "Rafina_1",
+   "name_zh_tw": "拉菲娜",
+   "name_zh_cn": "拉菲娜",
+   "name_en": "Rafina",
+   "name_ja": "ラフィーナ",
+   "name_ko": "라피나",
+   "costumes": [
+    {
+     "id": "Rafina_1",
+     "name_zh_tw": "鋼鐵引擎",
+     "name_zh_cn": "钢铁引擎",
+     "name_en": "Steel Engine",
+     "name_ja": "鋼のエンジン",
+     "name_ko": "강철엔진",
+     "skill_zh_tw": "機械潛水",
+     "skill_zh_cn": "机械潜水",
+     "skill_en": "Mechanical Dive",
+     "skill_ja": "メカニカルダイブ",
+     "skill_ko": "메카니컬 다이브",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Rafina_2",
+     "name_zh_tw": "代號A",
+     "name_zh_cn": "代号A",
+     "name_en": "Code Name A",
+     "name_ja": "コードネームA",
+     "name_ko": "코드네임 A",
+     "skill_zh_tw": "機械呼喚",
+     "skill_zh_cn": "机械召唤",
+     "skill_en": "Machina Call",
+     "skill_ja": "マキナコール",
+     "skill_ko": "마키나 콜",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Rafina_3",
+     "name_zh_tw": "遊戲社",
+     "name_zh_cn": "游戏社",
+     "name_en": "Game Club",
+     "name_ja": "ゲーム部",
+     "name_ko": "게임부",
+     "skill_zh_tw": "網路忍者出擊！",
+     "skill_zh_cn": "虚拟忍者出击！",
+     "skill_en": "Cyber Ninja, Deploy!",
+     "skill_ja": "サイバーニンジャ出撃ッ！",
+     "skill_ko": "사이버 닌자 출격!",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Elise",
+   "star": 5,
+   "element": "fire",
+   "costume": "Elise_1",
+   "name_zh_tw": "愛麗潔",
+   "name_zh_cn": "爱丽洁",
+   "name_en": "Elise",
+   "name_ja": "エリーゼ",
+   "name_ko": "엘리제",
+   "costumes": [
+    {
+     "id": "Elise_1",
+     "name_zh_tw": "可愛的小姐",
+     "name_zh_cn": "可爱小姐",
+     "name_en": "Lovely Lady",
+     "name_ja": "愛しいレディ",
+     "name_ko": "사랑스러운 아가씨",
+     "skill_zh_tw": "死亡結局的愛",
+     "skill_zh_cn": "赴死之爱",
+     "skill_en": "Death Ending Love",
+     "skill_ja": "デス・エンド・ラブ",
+     "skill_ko": "데스 엔딩 러브",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Elise_2",
+     "name_zh_tw": "代號O",
+     "name_zh_cn": "代号O",
+     "name_en": "Code Name O",
+     "name_ja": "コードネーム O",
+     "name_ko": "코드네임 O",
+     "skill_zh_tw": "慎重地。。。砰！",
+     "skill_zh_cn": "慎重地…砰！",
+     "skill_en": "Steady... Bang!",
+     "skill_ja": "慎重に…バン！",
+     "skill_ko": "신중하게… 빵!",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      2,
+      2,
+      2
+     ]
+    },
+    {
+     "id": "Elise_3",
+     "name_zh_tw": "天真的小姐",
+     "name_zh_cn": "稚心佳人",
+     "name_en": "Naive Lady",
+     "name_ja": "ナイーヴ・レディ",
+     "name_ko": "나이브 레이디",
+     "skill_zh_tw": "我也想贏嘛！",
+     "skill_zh_cn": "我也想赢嘛！",
+     "skill_en": "I Wanna Win!",
+     "skill_ja": "私だって勝ちたいもん！",
+     "skill_ko": "나도 이기고 싶다구!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Helena",
+   "star": 5,
+   "element": "light",
+   "costume": "Helena_1",
+   "name_zh_tw": "海倫娜",
+   "name_zh_cn": "海伦娜",
+   "name_en": "Helena",
+   "name_ja": "ヘレナ",
+   "name_ko": "헬레나",
+   "costumes": [
+    {
+     "id": "Helena_1",
+     "name_zh_tw": "頂尖偶像",
+     "name_zh_cn": "顶尖偶像",
+     "name_en": "Top Idol",
+     "name_ja": "トップアイドル",
+     "name_ko": "톱 아이돌",
+     "skill_zh_tw": "一同高歌！",
+     "skill_zh_cn": "一同高歌！",
+     "skill_en": "Let's Sing Together!",
+     "skill_ja": "一緒に歌いましょう！",
+     "skill_ko": "함께 노래해요!",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Helena_2",
+     "name_zh_tw": "B級偶像",
+     "name_zh_cn": "B级偶像",
+     "name_en": "B-Rank Idol",
+     "name_ja": "B級アイドル",
+     "name_ko": "B급 아이돌",
+     "skill_zh_tw": "我會支持你！",
+     "skill_zh_cn": "为你加油！",
+     "skill_en": "I'm rooting for you!",
+     "skill_ja": "応援します！",
+     "skill_ko": "응원할게요!",
+     "sp": [
+      3,
+      2,
+      1
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Helena_3",
+     "name_zh_tw": "客棧暖陽",
+     "name_zh_cn": "客栈晴晖",
+     "name_en": "Sunny Inn Hand",
+     "name_ja": "客桟の陽光",
+     "name_ko": "객잔의 햇살",
+     "skill_zh_tw": "溫柔地抱緊你！",
+     "skill_zh_cn": "让我给你一个温暖的拥抱吧！",
+     "skill_en": "A Big, Warm Hug!",
+     "skill_ja": "暖かく抱きしめてあげますっ！",
+     "skill_ko": "따스하게 안아드릴게요!",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Eleaneer",
+   "star": 5,
+   "element": "dark",
+   "costume": "Eleaneer_1",
+   "name_zh_tw": "艾尼爾",
+   "name_zh_cn": "艾尼尔",
+   "name_en": "Eleaneer",
+   "name_ja": "エレニール",
+   "name_ko": "에레니르",
+   "costumes": [
+    {
+     "id": "Eleaneer_1",
+     "name_zh_tw": "貫穿的魔弓",
+     "name_zh_cn": "穿透魔弓",
+     "name_en": "Piercing Magic Bow",
+     "name_ja": "貫く魔弓",
+     "name_ko": "꿰뚫는 마궁",
+     "skill_zh_tw": "三重箭矢",
+     "skill_zh_cn": "三重箭矢",
+     "skill_en": "Triple Arrow",
+     "skill_ja": "三重の矢",
+     "skill_ko": "삼중 화살",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Eleaneer_2",
+     "name_zh_tw": "B級偶像",
+     "name_zh_cn": "B级偶像",
+     "name_en": "B-Rank Idol",
+     "name_ja": "B級アイドル",
+     "name_ko": "B급 아이돌",
+     "skill_zh_tw": "做不下去了！",
+     "skill_zh_cn": "真离谱！",
+     "skill_en": "Sick and Tired of This!",
+     "skill_ja": "やってらんない！",
+     "skill_ko": "못해먹겠네!",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Eleaneer_3",
+     "name_zh_tw": "酷魅兔女郎",
+     "name_zh_cn": "夜色流影兔女郎",
+     "name_en": "Shadow Bunny",
+     "name_ja": "シャドウ・バニー",
+     "name_ko": "쉐도우 바니",
+     "skill_zh_tw": "灰色暴風",
+     "skill_zh_cn": "灰烬风暴",
+     "skill_en": "Ashen Storm",
+     "skill_ja": "灰色の嵐",
+     "skill_ko": "잿빛 폭풍",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Angelica",
+   "star": 5,
+   "element": "light",
+   "costume": "Angelica_1",
+   "name_zh_tw": "安潔莉卡",
+   "name_zh_cn": "安洁莉卡",
+   "name_en": "Angelica",
+   "name_ja": "アンジェリカ",
+   "name_ko": "안젤리카",
+   "costumes": [
+    {
+     "id": "Angelica_2",
+     "name_zh_tw": "泳池派對",
+     "name_zh_cn": "泳池派对",
+     "name_en": "Pool Party",
+     "name_ja": "プールパーティ",
+     "name_ko": "풀 파티",
+     "skill_zh_tw": "神聖鞦韆",
+     "skill_zh_cn": "神圣挥击",
+     "skill_en": "Sacred Swing",
+     "skill_ja": "セイクリッドスウィング",
+     "skill_ko": "세이크리드 스윙",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Angelica_3",
+     "name_zh_tw": "霓虹救星",
+     "name_zh_cn": "霓虹救星",
+     "name_en": "Neon Savior",
+     "name_ja": "ネオン・セイヴァー",
+     "name_ko": "네온 세이비어",
+     "skill_zh_tw": "約爾文反轉模式",
+     "skill_zh_cn": "约尔门逆转模式",
+     "skill_en": "Jormun Reverse Mode",
+     "skill_ja": "ヨルムン・リバースモード",
+     "skill_ko": "요르문 리버스 모드",
+     "sp": [
+      6,
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Angelica_1",
+     "name_zh_tw": "墮落之星",
+     "name_zh_cn": "堕落之星",
+     "name_en": "The Fallen",
+     "name_ja": "堕落の星",
+     "name_ko": "타락의 별",
+     "skill_zh_tw": "腐化的神罰",
+     "skill_zh_cn": "堕落神罚",
+     "skill_en": "Corrupted Divine Retribution",
+     "skill_ja": "堕落した神罰",
+     "skill_ko": "타락한 신벌",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Glacia",
+   "star": 5,
+   "element": "water",
+   "costume": "Glacia_1",
+   "name_zh_tw": "克蕾西亞",
+   "name_zh_cn": "克蕾西亚",
+   "name_en": "Glacia",
+   "name_ja": "グレイシア",
+   "name_ko": "글레이시아",
+   "costumes": [
+    {
+     "id": "Glacia_1",
+     "name_zh_tw": "愛麗絲",
+     "name_zh_cn": "爱丽丝",
+     "name_en": "Alice",
+     "name_ja": "アリス",
+     "name_ko": "앨리스",
+     "skill_zh_tw": "永恆茶派對",
+     "skill_zh_cn": "永恒茶派对",
+     "skill_en": "Eternal Tea Party",
+     "skill_ja": "永遠のティーパーティ",
+     "skill_ko": "영원한 티파티",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Glacia_2",
+     "name_zh_tw": "糾察隊",
+     "name_zh_cn": "纪律部",
+     "name_en": "Disciplinary Committee",
+     "name_ja": "風紀委員会",
+     "name_ko": "선도부",
+     "skill_zh_tw": "校規不得違反！",
+     "skill_zh_cn": "绝对校规！",
+     "skill_en": "Rules Are Non-Negotiable!",
+     "skill_ja": "校則は絶対よ！",
+     "skill_ko": "교칙은 절대적이야!",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Glacia_3",
+     "name_zh_tw": "天守繼承者",
+     "name_zh_cn": "天守传人",
+     "name_en": "Heavenly Guardian Successor",
+     "name_ja": "天守の継承者",
+     "name_ko": "천수의 계승자",
+     "skill_zh_tw": "真龍玄影",
+     "skill_zh_cn": "真龙现影",
+     "skill_en": "True Dragon Manifest",
+     "skill_ja": "真龍現影",
+     "skill_ko": "진룡현영",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Ventana",
+   "star": 5,
+   "element": "light",
+   "costume": "Ventana_1",
+   "name_zh_tw": "班塔納",
+   "name_zh_cn": "班塔纳",
+   "name_en": "Ventana",
+   "name_ja": "ヴェンタナ",
+   "name_ko": "벤타나",
+   "costumes": [
+    {
+     "id": "Ventana_1",
+     "name_zh_tw": "白雪公主",
+     "name_zh_cn": "白雪公主",
+     "name_en": "Snow White",
+     "name_ja": "スノーホワイト",
+     "name_ko": "백설",
+     "skill_zh_tw": "童話結束",
+     "skill_zh_cn": "童话结局",
+     "skill_en": "End of Fairytale",
+     "skill_ja": "エンド・オブ・フェアリーテイル",
+     "skill_ko": "엔드 오브 페어리테일",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Ventana_2",
+     "name_zh_tw": "回歸偶像",
+     "name_zh_cn": "回归偶像",
+     "name_en": "Comeback Idol",
+     "name_ja": "カムバックアイドル",
+     "name_ko": "컴백 아이돌",
+     "skill_zh_tw": "偶像兜風！",
+     "skill_zh_cn": "偶像大爆冲！",
+     "skill_en": "Idol Drive!",
+     "skill_ja": "アイドル・ドライブ！",
+     "skill_ko": "아이돌 드라이브!",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Ventana_3",
+     "name_zh_tw": "溫泉修行者",
+     "name_zh_cn": "温泉修行者",
+     "name_en": "Onsen Practitioner",
+     "name_ja": "温泉修行人",
+     "name_ko": "온천 수행자",
+     "skill_zh_tw": "毛巾劍心流集中突破",
+     "skill_zh_cn": "毛巾剑心流集中突破",
+     "skill_en": "Towel Blade Style: Point Breakthrough",
+     "skill_ja": "タオル剣心流「一点突破」",
+     "skill_ko": "수건검심류 일점돌파",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Diana",
+   "star": 5,
+   "element": "wind",
+   "costume": "Diana_1",
+   "name_zh_tw": "黛安娜",
+   "name_zh_cn": "黛安娜",
+   "name_en": "Diana",
+   "name_ja": "ディアナ",
+   "name_ko": "디아나",
+   "costumes": [
+    {
+     "id": "Diana_1",
+     "name_zh_tw": "未知的探究者",
+     "name_zh_cn": "未知探究者",
+     "name_en": "Adventurer of the Unknown",
+     "name_ja": "未知の探求者",
+     "name_ko": "미지의 탐구자",
+     "skill_zh_tw": "元素逆轉",
+     "skill_zh_cn": "元素逆转",
+     "skill_en": "Elemental Reverse",
+     "skill_ja": "エレメンタルリバース",
+     "skill_ko": "엘리멘탈 리버스",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Diana_2",
+     "name_zh_tw": "反烏托邦",
+     "name_zh_cn": "反乌托邦",
+     "name_en": "Anti-dystopia",
+     "name_ja": "アンチ・ディストピア",
+     "name_ko": "안티 디스토피아",
+     "skill_zh_tw": "香檳淋浴",
+     "skill_zh_cn": "香槟浴",
+     "skill_en": "Champagne Shower",
+     "skill_ja": "シャンパンシャワー",
+     "skill_ko": "샴페인 샤워",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Diana_3",
+     "name_zh_tw": "魔法革新者",
+     "name_zh_cn": "魔法匠心",
+     "name_en": "Magical Innovator",
+     "name_ja": "マジカル・イノベーター",
+     "name_ko": "매지컬 이노베이터",
+     "skill_zh_tw": "魔法領域──展開！",
+     "skill_zh_cn": "开启魔法结界！",
+     "skill_en": "Magical Field Expansion",
+     "skill_ja": "マジカルフィールド、展開！",
+     "skill_ko": "매지컬 필드, 전개",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Zenith",
+   "star": 5,
+   "element": "wind",
+   "costume": "Zenith_1",
+   "name_zh_tw": "傑尼斯",
+   "name_zh_cn": "杰尼斯",
+   "name_en": "Zenith",
+   "name_ja": "ジェニス",
+   "name_ko": "제니스",
+   "costumes": [
+    {
+     "id": "Zenith_1",
+     "name_zh_tw": "羅賓漢",
+     "name_zh_cn": "罗宾汉",
+     "name_en": "Robin Hood",
+     "name_ja": "ロビンフッド",
+     "name_ko": "로빈 후드",
+     "skill_zh_tw": "瞄準蘋果",
+     "skill_zh_cn": "瞄准苹果",
+     "skill_en": "Aim the Apple",
+     "skill_ja": "エイム・ジ・アップル",
+     "skill_ko": "에임 디 애플",
+     "sp": [
+      2,
+      1,
+      0
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Zenith_2",
+     "name_zh_tw": "水上守護者",
+     "name_zh_cn": "水上守护者",
+     "name_en": "Poolside Guardian",
+     "name_ja": "水遊びの守護者",
+     "name_ko": "물놀이 수호자",
+     "skill_zh_tw": "違反規定！",
+     "skill_zh_cn": "违反规定！",
+     "skill_en": "Foul Play!",
+     "skill_ja": "ルール違反です！",
+     "skill_ko": "규정 위반입니다!",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Yuri",
+   "star": 5,
+   "element": "light",
+   "costume": "Yuri_1",
+   "name_zh_tw": "尤里",
+   "name_zh_cn": "尤里",
+   "name_en": "Yuri",
+   "name_ja": "ユリ",
+   "name_ko": "유리",
+   "costumes": [
+    {
+     "id": "Yuri_1",
+     "name_zh_tw": "白雷",
+     "name_zh_cn": "白雷",
+     "name_en": "Whitebolt",
+     "name_ja": "白雷",
+     "name_ko": "백뢰",
+     "skill_zh_tw": "變成閃電",
+     "skill_zh_cn": "变身闪电",
+     "skill_en": "Becoming Lightning",
+     "skill_ja": "稲妻となりて",
+     "skill_ko": "번개가 되어",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Yuri_2",
+     "name_zh_tw": "回歸偶像",
+     "name_zh_cn": "回归偶像",
+     "name_en": "Comeback Idol",
+     "name_ja": "カムバックアイドル",
+     "name_ko": "컴백 아이돌",
+     "skill_zh_tw": "撲通撲通… 砰！",
+     "skill_zh_cn": "扑通扑通…砰！",
+     "skill_en": "Fluttering Heart... Bang!",
+     "skill_ja": "ワクワク…ドーン！",
+     "skill_ko": "두근두근...팡!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Dalvi",
+   "star": 5,
+   "element": "wind",
+   "costume": "Dalvi_1",
+   "name_zh_tw": "達非",
+   "name_zh_cn": "达非",
+   "name_en": "Dalvi",
+   "name_ja": "キュウビ",
+   "name_ko": "달비",
+   "costumes": [
+    {
+     "id": "Dalvi_1",
+     "name_zh_tw": "明月",
+     "name_zh_cn": "明月",
+     "name_en": "Bright Moon",
+     "name_ja": "明月",
+     "name_ko": "명월",
+     "skill_zh_tw": "月夜豪談",
+     "skill_zh_cn": "月夜豪谈",
+     "skill_en": "Moonlit Fox's Tale",
+     "skill_ja": "月夜狐談",
+     "skill_ko": "월야호담",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Dalvi_2",
+     "name_zh_tw": "暑假",
+     "name_zh_cn": "暑假",
+     "name_en": "Summer Vacation",
+     "name_ja": "サマーバカンス",
+     "name_ko": "여름휴가",
+     "skill_zh_tw": "妖力風暴",
+     "skill_zh_cn": "妖力风暴",
+     "skill_en": "Spirit Storm",
+     "skill_ja": "妖力の嵐",
+     "skill_ko": "요력 폭풍",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Dalvi_3",
+     "name_zh_tw": "詭計戀人",
+     "name_zh_cn": "机智恋人",
+     "name_en": "Tricky Lover",
+     "name_ja": "トリッキー・ラヴァー",
+     "name_ko": "트릭키 러버",
+     "skill_zh_tw": "遊戲就到此為止吧？",
+     "skill_zh_cn": "这场闹剧，也该收场了吧？",
+     "skill_en": "Playtime is Over",
+     "skill_ja": "遊びはここまでにしよか",
+     "skill_ko": "장난은 여기까지만 할까?",
+     "sp": [
+      7,
+      6,
+      5
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Nartas",
+   "star": 5,
+   "element": "dark",
+   "costume": "Nartas_1",
+   "name_zh_tw": "納羅達斯",
+   "name_zh_cn": "纳罗达斯",
+   "name_en": "Nartas",
+   "name_ja": "ナルタス",
+   "name_ko": "나르타스",
+   "costumes": [
+    {
+     "id": "Nartas_1",
+     "name_zh_tw": "無名道士",
+     "name_zh_cn": "无名道士",
+     "name_en": "Anonymous Sage",
+     "name_ja": "名も無き道士",
+     "name_ko": "무명도사",
+     "skill_zh_tw": "半妖神掌",
+     "skill_zh_cn": "半妖神掌",
+     "skill_en": "Half-Demon Divine Palm",
+     "skill_ja": "半妖神将",
+     "skill_ko": "반요신장",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Granhildr",
+   "star": 5,
+   "element": "light",
+   "costume": "Granhildr_1",
+   "name_zh_tw": "葛蘭西特",
+   "name_zh_cn": "格兰希特",
+   "name_en": "Granhildr",
+   "name_ja": "グランヒルト",
+   "name_ko": "그란힐트",
+   "costumes": [
+    {
+     "id": "Granhildr_2",
+     "name_zh_tw": "回歸偶像",
+     "name_zh_cn": "回归偶像",
+     "name_en": "Comeback Idol",
+     "name_ja": "カムバックアイドル",
+     "name_ko": "컴백 아이돌",
+     "skill_zh_tw": "回歸聚光燈",
+     "skill_zh_cn": "回归聚光灯",
+     "skill_en": "Comeback Spotlight",
+     "skill_ja": "カムバックスポットライト",
+     "skill_ko": "컴백 스포트라이트",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Granhildr_1",
+     "name_zh_tw": "虛無之星",
+     "name_zh_cn": "虚无之星",
+     "name_en": "The Void",
+     "name_ja": "虚無の星",
+     "name_ko": "허무의 별",
+     "skill_zh_tw": "女神的守護",
+     "skill_zh_cn": "女神庇护",
+     "skill_en": "Goddess' Protection",
+     "skill_ja": "女神の守護",
+     "skill_ko": "여신의 수호",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Granhildr_3",
+     "name_zh_tw": "惡作劇幽靈",
+     "name_zh_cn": "恶作剧幽灵",
+     "name_en": "Boo Ghost",
+     "name_ja": "サプライズゴースト",
+     "name_ko": "깜짝 유령",
+     "skill_zh_tw": "呀吼，嚇到了吧？",
+     "skill_zh_cn": "呀吼，吓到了吧？",
+     "skill_en": "Boo! I Scared You!",
+     "skill_ja": "ばぁっ、驚いたか？",
+     "skill_ko": "까꿍, 놀랐지?",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Granhildr_4",
+     "name_zh_tw": "戰地醫護兵",
+     "name_zh_cn": "战地医疗兵",
+     "name_en": "Combat Medic",
+     "name_ja": "コンバット・メディック",
+     "name_ko": "컴뱃 메딕",
+     "skill_zh_tw": "猛藥處方",
+     "skill_zh_cn": "猛药处方",
+     "skill_en": "Drastic Measures",
+     "skill_ja": "荒療治",
+     "skill_ko": "극약 처방",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Refithea",
+   "star": 5,
+   "element": "light",
+   "costume": "Refithea_1",
+   "name_zh_tw": "芮彼泰雅",
+   "name_zh_cn": "芮彼泰雅",
+   "name_en": "Refithea",
+   "name_ja": "レピテア",
+   "name_ko": "레피테아",
+   "costumes": [
+    {
+     "id": "Refithea_2",
+     "name_zh_tw": "純白的祝福",
+     "name_zh_cn": "纯白祝福",
+     "name_en": "Pure White Blessing",
+     "name_ja": "純白の祝福",
+     "name_ko": "새하얀 축복",
+     "skill_zh_tw": "讓我們一起變幸福？！",
+     "skill_zh_cn": "一起走向幸福！",
+     "skill_en": "Let's Be Happy Together!",
+     "skill_ja": "一緒に幸せになろっ！",
+     "skill_ko": "우리 함께 행복해지자!",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Refithea_1",
+     "name_zh_tw": "貪婪之星",
+     "name_zh_cn": "贪婪之星",
+     "name_en": "The Gluttonous",
+     "name_ja": "貪欲の星",
+     "name_ko": "탐욕의 별",
+     "skill_zh_tw": "葛洛堤表演時間！",
+     "skill_zh_cn": "葛洛堤的演出！",
+     "skill_en": "Glutti Showtime!",
+     "skill_ja": "グラティ・ショータイム！",
+     "skill_ko": "글러티 쇼타임!",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Refithea_3",
+     "name_zh_tw": "水上精靈",
+     "name_zh_cn": "水上精灵",
+     "name_en": "Poolside Fairy",
+     "name_ja": "水遊びの妖精",
+     "name_ko": "물놀이 요정",
+     "skill_zh_tw": "水槍大戰時間！",
+     "skill_zh_cn": "水枪大战时间！",
+     "skill_en": "Water Fight!",
+     "skill_ja": "水鉄砲バトルの時間！",
+     "skill_ko": "물총놀이 시간!",
+     "sp": [
+      7,
+      6
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Loen",
+   "star": 5,
+   "element": "fire",
+   "costume": "Loen_1",
+   "name_zh_tw": "羅安",
+   "name_zh_cn": "罗安",
+   "name_en": "Loen",
+   "name_ja": "ロエン",
+   "name_ko": "로엔",
+   "costumes": [
+    {
+     "id": "Loen_1",
+     "name_zh_tw": "最後希望",
+     "name_zh_cn": "最后的希望",
+     "name_en": "Last Hope",
+     "name_ja": "最後の希望",
+     "name_ko": "마지막 희망",
+     "skill_zh_tw": "業火降臨",
+     "skill_zh_cn": "业火降临",
+     "skill_en": "Descending Inferno",
+     "skill_ja": "業火降臨",
+     "skill_ko": "업화 강림",
+     "sp": [
+      5
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Loen_2",
+     "name_zh_tw": "田徑社社員",
+     "name_zh_cn": "田径社社员",
+     "name_en": "Track and Field Team",
+     "name_ja": "陸上部 部員",
+     "name_ko": "육상부 부원",
+     "skill_zh_tw": "爆裂潛水",
+     "skill_zh_cn": "爆裂潜水",
+     "skill_en": "Explosive Dive!",
+     "skill_ja": "爆裂ダイブ！",
+     "skill_ko": "폭렬 다이브!",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Loen_3",
+     "name_zh_tw": "名人兔女郎",
+     "name_zh_cn": "名人兔女郎",
+     "name_en": "Celebrity Bunny",
+     "name_ja": "セレブリティ・バニー",
+     "name_ko": "셀레브리티 바니",
+     "skill_zh_tw": "EMP閃光",
+     "skill_zh_cn": "EMP闪光",
+     "skill_en": "EMP Flash",
+     "skill_ja": "EMPフラッシュ",
+     "skill_ko": "EMP 플래시",
+     "sp": [
+      7,
+      6
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Roxy",
+   "star": 5,
+   "element": "water",
+   "costume": "Roxy_1",
+   "name_zh_tw": "洛琪希",
+   "name_zh_cn": "洛琪希",
+   "name_en": "Roxy",
+   "name_ja": "ロキシー",
+   "name_ko": "록시",
+   "costumes": [
+    {
+     "id": "Roxy_1",
+     "name_zh_tw": "受尊敬的師傅",
+     "name_zh_cn": "受尊敬的师傅",
+     "name_en": "Respected Master",
+     "name_ja": "尊敬される師匠",
+     "name_ko": "존경받는 스승",
+     "skill_zh_tw": "豪雷積層雲",
+     "skill_zh_cn": "豪雷积层云",
+     "skill_en": "Cumulonimbus",
+     "skill_ja": "キュムロニンバス",
+     "skill_ko": "큐멀로님버스",
+     "sp": [
+      7,
+      6
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Roxy_2",
+     "name_zh_tw": "洩露的慾望",
+     "name_zh_cn": "泄露的欲望",
+     "name_en": "Emerging Desire",
+     "name_ja": "漏れ出る欲望",
+     "name_ko": "새어 나온 욕망",
+     "skill_zh_tw": "寂靜的夜晚",
+     "skill_zh_cn": "寂静的夜晚",
+     "skill_en": "Silent Night",
+     "skill_ja": "静かな夜",
+     "skill_ko": "고요한 밤",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Eris",
+   "star": 5,
+   "element": "fire",
+   "costume": "Eris_1",
+   "name_zh_tw": "艾莉絲",
+   "name_zh_cn": "艾莉丝",
+   "name_en": "Eris",
+   "name_ja": "エリス",
+   "name_ko": "에리스",
+   "costumes": [
+    {
+     "id": "Eris_1",
+     "name_zh_tw": "受祝福的冒險家",
+     "name_zh_cn": "受祝福的冒险家",
+     "name_en": "Esteemed Adventurer",
+     "name_ja": "有望な冒険家",
+     "name_ko": "촉망받는 모험가",
+     "skill_zh_tw": "紅色閃光",
+     "skill_zh_cn": "红色闪光",
+     "skill_en": "Crimson Flash",
+     "skill_ja": "赤き閃光",
+     "skill_ko": "붉은 섬광",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Eris_2",
+     "name_zh_tw": "只屬於你的貓咪",
+     "name_zh_cn": "只属于你的猫咪",
+     "name_en": "Your Very Own Cat",
+     "name_ja": "あなただけの猫",
+     "name_ko": "당신만의 고양이",
+     "skill_zh_tw": "德路迪亞族秘技",
+     "skill_zh_cn": "德路迪亚族秘技",
+     "skill_en": "Doldia Tribe's Secret Technique",
+     "skill_ja": "ドルディア族の秘技",
+     "skill_ko": "돌디어족 비기",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Venaka",
+   "star": 5,
+   "element": "wind",
+   "costume": "Venaka_2",
+   "name_zh_tw": "貝那卡",
+   "name_zh_cn": "贝那卡",
+   "name_en": "Venaka",
+   "name_ja": "ベナカ",
+   "name_ko": "베나카",
+   "costumes": [
+    {
+     "id": "Venaka_1",
+     "name_zh_tw": "DJ",
+     "name_zh_cn": "DJ",
+     "name_en": "DJ",
+     "name_ja": "DJ",
+     "name_ko": "DJ",
+     "skill_zh_tw": "起立，音樂開始！",
+     "skill_zh_cn": "站起来，音乐响起！",
+     "skill_en": "Stand Up, Music On!",
+     "skill_ja": "スタンダップ、ミュージック・オン！",
+     "skill_ko": "스탠드 업, 뮤직 온!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Venaka_2",
+     "name_zh_tw": "風之舞姬",
+     "name_zh_cn": "风之舞姬",
+     "name_en": "Wind Dancer",
+     "name_ja": "風の踊り子",
+     "name_ko": "바람의 무희",
+     "skill_zh_tw": "清風之舞",
+     "skill_zh_cn": "清风之舞",
+     "skill_en": "Zephyr's Waltz",
+     "skill_ja": "そよ風の舞い",
+     "skill_ko": "산들바람의 춤",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Nebris",
+   "star": 5,
+   "element": "wind",
+   "costume": "Nebris_2",
+   "name_zh_tw": "內布利斯",
+   "name_zh_cn": "内布利斯",
+   "name_en": "Nebris",
+   "name_ja": "ネブリス",
+   "name_ko": "네브리스",
+   "costumes": [
+    {
+     "id": "Nebris_1",
+     "name_zh_tw": "鬆散的救生員",
+     "name_zh_cn": "松散的救生员",
+     "name_en": "Laid-back Lifeguard",
+     "name_ja": "ユルいライフガード",
+     "name_ko": "느슨한 라이프 가드",
+     "skill_zh_tw": "是你先開始的？",
+     "skill_zh_cn": "是你先开始的？",
+     "skill_en": "You Started It!",
+     "skill_ja": "始めたのはキミだからね？",
+     "skill_ko": "네가 먼저 시작했다?",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Nebris_2",
+     "name_zh_tw": "迷宮的門衛",
+     "name_zh_cn": "迷宫的门卫",
+     "name_en": "Labyrinth Gatekeeper",
+     "name_ja": "迷宮の門番",
+     "name_ko": "미궁의 문지기",
+     "skill_zh_tw": "門衛的權能",
+     "skill_zh_cn": "门卫的权能",
+     "skill_en": "Gatekeeper's Power",
+     "skill_ja": "門番の権能",
+     "skill_ko": "문지기의 권능",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Nebris_3",
+     "name_zh_tw": "新進員工",
+     "name_zh_cn": "新进员工",
+     "name_en": "New Hire",
+     "name_ja": "新入社員",
+     "name_ko": "신입 사원",
+     "skill_zh_tw": "要不要認真試試呢？",
+     "skill_zh_cn": "要不要认真试试呢？",
+     "skill_en": "Let Me Give It a Go",
+     "skill_ja": "本気でやってみよっかなぁ？",
+     "skill_ko": "진심으로 해볼까나?",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SacredJustia",
+   "star": 5,
+   "element": "light",
+   "costume": "SacredJustia_1",
+   "name_zh_tw": "神聖悠絲緹亞",
+   "name_zh_cn": "神圣悠丝缇亚",
+   "name_en": "Sacred Justia",
+   "name_ja": "神聖ユースティア",
+   "name_ko": "신성 유스티아",
+   "costumes": [
+    {
+     "id": "SacredJustia_1",
+     "name_zh_tw": "找回的命運",
+     "name_zh_cn": "找回的命运",
+     "name_en": "Reclaimed Destiny",
+     "name_ja": "取り戻せし運命",
+     "name_ko": "되찾은 운명",
+     "skill_zh_tw": "忠實之劍",
+     "skill_zh_cn": "信实之剑",
+     "skill_en": "Sword of Fidelity",
+     "skill_ja": "信心の剣",
+     "skill_ko": "신실의 검",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Levia",
+   "star": 5,
+   "element": "fire",
+   "costume": "Levia_2",
+   "name_zh_tw": "萊維亞",
+   "name_zh_cn": "莱维亚",
+   "name_en": "Levia",
+   "name_ja": "レヴィア",
+   "name_ko": "레비아",
+   "costumes": [
+    {
+     "id": "Levia_1",
+     "name_zh_tw": "田徑社社長",
+     "name_zh_cn": "田径社社长",
+     "name_en": "Track and Field Captain",
+     "name_ja": "陸上部 部長",
+     "name_ko": "육상부 부장",
+     "skill_zh_tw": "爆裂猛衝",
+     "skill_zh_cn": "爆裂猛冲",
+     "skill_en": "Explosive Rush!",
+     "skill_ja": "爆裂ラッシュ！",
+     "skill_ko": "폭렬 러쉬!",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Levia_2",
+     "name_zh_tw": "忌妒之夜",
+     "name_zh_cn": "猜忌之夜",
+     "name_en": "Night of Jealousy",
+     "name_ja": "嫉妬の夜",
+     "name_ko": "시기의 밤",
+     "skill_zh_tw": "塔爾塔羅斯之門",
+     "skill_zh_cn": "塔尔塔罗斯之门",
+     "skill_en": "Gates of Tartarus",
+     "skill_ja": "タルタロスの門",
+     "skill_ko": "타르타로스의 문",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Levia_3",
+     "name_zh_tw": "過熱",
+     "name_zh_cn": "过热",
+     "name_en": "Overheat",
+     "name_ja": "オーバーヒート",
+     "name_ko": "오버히트",
+     "skill_zh_tw": "野獸超速",
+     "skill_zh_cn": "野兽超速",
+     "skill_en": "Beast Overdrive",
+     "skill_ja": "ビースト・オーバードライブ",
+     "skill_ko": "비스트 오버드라이브",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Morpeah",
+   "star": 5,
+   "element": "water",
+   "costume": "Morpeah_3",
+   "name_zh_tw": "墨菲亞",
+   "name_zh_cn": "墨菲亚",
+   "name_en": "Morpeah",
+   "name_ja": "モルフェア",
+   "name_ko": "모르페아",
+   "costumes": [
+    {
+     "id": "Morpeah_1",
+     "name_zh_tw": "海邊度假",
+     "name_zh_cn": "海滨度假",
+     "name_en": "Beach Vacation",
+     "name_ja": "ビーチバカンス",
+     "name_ko": "비치 바캉스",
+     "skill_zh_tw": "反派假面",
+     "skill_zh_cn": "反派假面",
+     "skill_en": "Villain Persona",
+     "skill_ja": "ペルソナ・オブ・ヴィラン",
+     "skill_ko": "페르소나 오브 빌런",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Morpeah_2",
+     "name_zh_tw": "白日夢兔女郎",
+     "name_zh_cn": "白日梦兔女郎",
+     "name_en": "Daydream Bunny",
+     "name_ja": "デイドリーム・バニー",
+     "name_ko": "데이드림 바니",
+     "skill_zh_tw": "白日夢召喚",
+     "skill_zh_cn": "白日梦召唤",
+     "skill_en": "Daydream's Call",
+     "skill_ja": "デイドリーム・コール",
+     "skill_ko": "데이드림 콜",
+     "sp": [
+      3,
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Morpeah_3",
+     "name_zh_tw": "使者",
+     "name_zh_cn": "使徒",
+     "name_en": "Apostle",
+     "name_ja": "使徒",
+     "name_ko": "사도",
+     "skill_zh_tw": "黑暗號令",
+     "skill_zh_cn": "黑暗密令",
+     "skill_en": "Black Order",
+     "skill_ja": "ブラック・オーダー",
+     "skill_ko": "블랙 오더",
+     "sp": [
+      3,
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Michaela",
+   "star": 5,
+   "element": "light",
+   "costume": "Michaela_3",
+   "name_zh_tw": "米卡埃拉",
+   "name_zh_cn": "米卡艾拉",
+   "name_en": "Michaela",
+   "name_ja": "ミカエラ",
+   "name_ko": "미카엘라",
+   "costumes": [
+    {
+     "id": "Michaela_1",
+     "name_zh_tw": "海邊正義",
+     "name_zh_cn": "海滨正义",
+     "name_en": "Beachside Justice",
+     "name_ja": "浜辺の正義",
+     "name_ko": "해변의 정의",
+     "skill_zh_tw": "暴露即是正義",
+     "skill_zh_cn": "暴露即是正义",
+     "skill_en": "Justice Reveals",
+     "skill_ja": "露出こそ正義です",
+     "skill_ko": "노출이 곧 정의입니다",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Michaela_2",
+     "name_zh_tw": "簽名女王",
+     "name_zh_cn": "签名女王",
+     "name_en": "Queen of Signatures",
+     "name_ja": "サインの女王",
+     "name_ko": "서명의 여왕",
+     "skill_zh_tw": "火力讚美",
+     "skill_zh_cn": "火力赞美",
+     "skill_en": "Praise the Fire",
+     "skill_ja": "火力賛美",
+     "skill_ko": "화력 찬미",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Michaela_3",
+     "name_zh_tw": "神聖者",
+     "name_zh_cn": "神圣者",
+     "name_en": "Acting Archbishop",
+     "name_ja": "大主教代行",
+     "name_ko": "거룩한 자",
+     "skill_zh_tw": "流血的聖痕",
+     "skill_zh_cn": "流血的圣痕",
+     "skill_en": "Bleeding Stigmata",
+     "skill_ja": "流血せし聖痕",
+     "skill_ko": "피 흘리는 성흔",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Yomi",
+   "star": 5,
+   "element": "wind",
+   "costume": "Yomi_1",
+   "name_zh_tw": "詠",
+   "name_zh_cn": "咏",
+   "name_en": "Yomi",
+   "name_ja": "詠",
+   "name_ko": "요미",
+   "costumes": [
+    {
+     "id": "Yomi_1",
+     "name_zh_tw": "溫和的破壞者",
+     "name_zh_cn": "温和的破坏者",
+     "name_en": "Gentle Destroyer",
+     "name_ja": "穏やかな破壊者",
+     "name_ko": "온화한 파괴자",
+     "skill_zh_tw": "西格蒙德",
+     "skill_zh_cn": "西格蒙德",
+     "skill_en": "Sigmund",
+     "skill_ja": "シグムンド",
+     "skill_ko": "시그문드",
+     "sp": [
+      7,
+      6
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Yozakura",
+   "star": 5,
+   "element": "wind",
+   "costume": "Yozakura_1",
+   "name_zh_tw": "夜櫻",
+   "name_zh_cn": "夜樱",
+   "name_en": "Yozakura",
+   "name_ja": "夜桜",
+   "name_ko": "요자쿠라",
+   "costumes": [
+    {
+     "id": "Yozakura_1",
+     "name_zh_tw": "信念之拳",
+     "name_zh_cn": "信念之拳",
+     "name_en": "Fist of Conviction",
+     "name_ja": "信念の拳",
+     "name_ko": "신념의 주먹",
+     "skill_zh_tw": "地獄極樂萬手拳",
+     "skill_zh_cn": "地狱极乐万手拳",
+     "skill_en": "10,000 Palm Fists of Paradise Hell",
+     "skill_ja": "地獄極楽万手拳",
+     "skill_ko": "지옥극락만수권",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Hikage",
+   "star": 5,
+   "element": "wind",
+   "costume": "Hikage_1",
+   "name_zh_tw": "日影",
+   "name_zh_cn": "日影",
+   "name_en": "Hikage",
+   "name_ja": "日影",
+   "name_ko": "히카게",
+   "costumes": [
+    {
+     "id": "Hikage_1",
+     "name_zh_tw": "和藹的無情",
+     "name_zh_cn": "和蔼的无情",
+     "name_en": "Kind Ruthlessness",
+     "name_ja": "優しき無情",
+     "name_ko": "상냥한 무정",
+     "skill_zh_tw": "切割",
+     "skill_zh_cn": "切割",
+     "skill_en": "Gouging",
+     "skill_ja": "えぐる",
+     "skill_ko": "도려내기",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Yumi",
+   "star": 5,
+   "element": "water",
+   "costume": "Yumi_1",
+   "name_zh_tw": "雪泉",
+   "name_zh_cn": "雪泉",
+   "name_en": "Yumi",
+   "name_ja": "雪泉",
+   "name_ko": "유미",
+   "costumes": [
+    {
+     "id": "Yumi_1",
+     "name_zh_tw": "雪花之舞",
+     "name_zh_cn": "雪花之舞",
+     "name_en": "Dancing Snowflake",
+     "name_ja": "雪花の舞",
+     "name_ko": "눈꽃의 춤",
+     "skill_zh_tw": "樹冰扇",
+     "skill_zh_cn": "树冰扇",
+     "skill_en": "Ice Pillar Fan",
+     "skill_ja": "樹氷扇",
+     "skill_ko": "수빙선",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Luvencia",
+   "star": 5,
+   "element": "dark",
+   "costume": "Luvencia_1",
+   "name_zh_tw": "盧班希亞",
+   "name_zh_cn": "卢班希亚",
+   "name_en": "Luvencia",
+   "name_ja": "ルベンシア",
+   "name_ko": "루벤시아",
+   "costumes": [
+    {
+     "id": "Luvencia_1",
+     "name_zh_tw": "印鑑掠奪者",
+     "name_zh_cn": "印鉴掠夺者",
+     "name_en": "Deal Snatcher",
+     "name_ja": "契約奪取者",
+     "name_ko": "인감 탈취자",
+     "skill_zh_tw": "終極爆破者",
+     "skill_zh_cn": "终极爆破者",
+     "skill_en": "Finish Blaster",
+     "skill_ja": "フィニッシュブラスター",
+     "skill_ko": "피니쉬 블래스터",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Luvencia_2",
+     "name_zh_tw": "野犬",
+     "name_zh_cn": "野犬",
+     "name_en": "Wild Dog",
+     "name_ja": "ワイルドドッグ",
+     "name_ko": "와일드독",
+     "skill_zh_tw": "狂野撕咬R-3",
+     "skill_zh_cn": "狂野撕咬R-3",
+     "skill_en": "Wildbyte R-3",
+     "skill_ja": "ワイルドバイトR-3",
+     "skill_ko": "와일드바이트 R-3",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Luvencia_3",
+     "name_zh_tw": "海洋先鋒",
+     "name_zh_cn": "海洋先锋",
+     "name_en": "Ocean Vanguard",
+     "name_ja": "オーシャン・ヴァンガード",
+     "name_ko": "오션 뱅가드",
+     "skill_zh_tw": "超頻奔襲狂射",
+     "skill_zh_cn": "超频奔袭射击",
+     "skill_en": "Overclocked Run N' Gun",
+     "skill_ja": "オーバークロック・ラン＆ガン",
+     "skill_ko": "오버클럭 런앤건",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": [
+      3,
+      2,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Liberta",
+   "star": 5,
+   "element": "fire",
+   "costume": "Liberta_2",
+   "name_zh_tw": "黎維塔",
+   "name_zh_cn": "黎维塔",
+   "name_en": "Liberta",
+   "name_ja": "リベルタ",
+   "name_ko": "리베르타",
+   "costumes": [
+    {
+     "id": "Liberta_1",
+     "name_zh_tw": "溫泉管理者",
+     "name_zh_cn": "温泉管理员",
+     "name_en": "Onsen Manager",
+     "name_ja": "温泉管理人",
+     "name_ko": "온천 관리인",
+     "skill_zh_tw": "來自鬼怪的保護～",
+     "skill_zh_cn": "来自鬼怪的加护~",
+     "skill_en": "It's the Protection of the Oni!",
+     "skill_ja": "鬼さんのご加護ですよ～",
+     "skill_ko": "도깨비님의 가호랍니다~",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Liberta_2",
+     "name_zh_tw": "暗黑聖女",
+     "name_zh_cn": "暗黑圣女",
+     "name_en": "Dark Saintess",
+     "name_ja": "暗黒聖女",
+     "name_ko": "암흑 성녀",
+     "skill_zh_tw": "雙面祈禱",
+     "skill_zh_cn": "双面祈祷",
+     "skill_en": "Prayer of Duality",
+     "skill_ja": "両面の祈り",
+     "skill_ko": "양면의 기도",
+     "sp": [
+      3,
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Liberta_3",
+     "name_zh_tw": "奇蹟玫瑰",
+     "name_zh_cn": "奇迹玫瑰",
+     "name_en": "Miracle Rose",
+     "name_ja": "ミラクル・ローズ",
+     "name_ko": "미라클 로즈",
+     "skill_zh_tw": "玫瑰☆靈魂增幅",
+     "skill_zh_cn": "玫瑰☆灵魂赋能",
+     "skill_en": "Rose☆Soul Empower",
+     "skill_ja": "ローズ☆ソウルエンパワー",
+     "skill_ko": "로즈☆소울 엠파워",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Blade",
+   "star": 5,
+   "element": "dark",
+   "costume": "Blade_1",
+   "name_zh_tw": "布萊德",
+   "name_zh_cn": "布莱德",
+   "name_en": "Blade",
+   "name_ja": "ブレイド",
+   "name_ko": "블레이드",
+   "costumes": [
+    {
+     "id": "Blade_1",
+     "name_zh_tw": "使者",
+     "name_zh_cn": "使徒",
+     "name_en": "Apostle",
+     "name_ja": "使徒",
+     "name_ko": "사도",
+     "skill_zh_tw": "深淵凝視",
+     "skill_zh_cn": "深渊凝视",
+     "skill_en": "Abyssal Gaze",
+     "skill_ja": "深淵の凝視",
+     "skill_ko": "심연의 응시",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Blade_2",
+     "name_zh_tw": "小公主",
+     "name_zh_cn": "小公主",
+     "name_en": "Young Lady",
+     "name_ja": "公女",
+     "name_ko": "소공녀",
+     "skill_zh_tw": "冷酷的熱情",
+     "skill_zh_cn": "冷酷的热情",
+     "skill_en": "Ruthless Fervor",
+     "skill_ja": "冷徹な情熱",
+     "skill_ko": "냉혹한 열의",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Blade_3",
+     "name_zh_tw": "溫泉劍客",
+     "name_zh_cn": "温泉剑客",
+     "name_en": "Onsen Swordfighter",
+     "name_ja": "温泉剣客",
+     "name_ko": "온천 검객",
+     "skill_zh_tw": "落月一閃",
+     "skill_zh_cn": "皎月流辉",
+     "skill_en": "Moonfall Slash",
+     "skill_ja": "落月一閃",
+     "skill_ko": "낙월일섬",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Wilhelmina",
+   "star": 5,
+   "element": "water",
+   "costume": "Wilhelmina_1",
+   "name_zh_tw": "威廉明娜",
+   "name_zh_cn": "威廉明娜",
+   "name_en": "Wilhelmina",
+   "name_ja": "ウィルヘルミナ",
+   "name_ko": "빌헬미나",
+   "costumes": [
+    {
+     "id": "Wilhelmina_1",
+     "name_zh_tw": "鋼鐵君主",
+     "name_zh_cn": "钢铁君主",
+     "name_en": "Iron Monarch",
+     "name_ja": "鋼の君主",
+     "name_ko": "강철의 군주",
+     "skill_zh_tw": "朕即是貝倫",
+     "skill_zh_cn": "朕即是贝伦",
+     "skill_en": "I am Beirun",
+     "skill_ja": "我こそがベイルーンである",
+     "skill_ko": "짐이 곧 베이룬이다",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Wilhelmina_2",
+     "name_zh_tw": "水上樂園女王",
+     "name_zh_cn": "水上乐园女王",
+     "name_en": "Water Park Queen",
+     "name_ja": "ウォーターパークの女王",
+     "name_ko": "워터파크의 여왕",
+     "skill_zh_tw": "劃破浪潮",
+     "skill_zh_cn": "划破浪潮",
+     "skill_en": "Wave Breaker",
+     "skill_ja": "波切り",
+     "skill_ko": "파도 가르기",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Wilhelmina_3",
+     "name_zh_tw": "冰雪女王",
+     "name_zh_cn": "银雪凝光女王",
+     "name_en": "Frozen Queen",
+     "name_ja": "フローズン・クイーン",
+     "name_ko": "프로즌 퀸",
+     "skill_zh_tw": "凝結意志",
+     "skill_zh_cn": "冰封意志",
+     "skill_en": "Frozen Resolve",
+     "skill_ja": "凍てついた意志",
+     "skill_ko": "얼어붙은 의지",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GoblinSlayer",
+   "star": 5,
+   "element": "fire",
+   "costume": "GoblinSlayer_1",
+   "name_zh_tw": "哥布林殺手",
+   "name_zh_cn": "哥布林杀手",
+   "name_en": "Goblin Slayer",
+   "name_ja": "ゴブリンスレイヤー",
+   "name_ko": "고블린 슬레이어",
+   "costumes": [
+    {
+     "id": "GoblinSlayer_1",
+     "name_zh_tw": "小鬼殺手",
+     "name_zh_cn": "小鬼杀手",
+     "name_en": "Orcbolg",
+     "name_ja": "小鬼を殺す者",
+     "name_ko": "소귀 살해자",
+     "skill_zh_tw": "把哥布林全部殺光",
+     "skill_zh_cn": "把哥布林全部杀光",
+     "skill_en": "Goblin Annihilation",
+     "skill_ja": "ゴブリン共は皆殺しだ",
+     "skill_ko": "고블린은 몰살이다",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Priestess",
+   "star": 5,
+   "element": "light",
+   "costume": "Priestess_1",
+   "name_zh_tw": "女神官",
+   "name_zh_cn": "女神官",
+   "name_en": "Priestess",
+   "name_ja": "女神官",
+   "name_ko": "여신관",
+   "costumes": [
+    {
+     "id": "Priestess_1",
+     "name_zh_tw": "地母神的祭司",
+     "name_zh_cn": "地母神的祭司",
+     "name_en": "Earth Mother Believer",
+     "name_ja": "地母神の愛娘",
+     "name_ko": "지모신의 사제",
+     "skill_zh_tw": "聖光",
+     "skill_zh_cn": "圣光",
+     "skill_en": "Holy Light",
+     "skill_ja": "《聖光（ホーリーライト）》",
+     "skill_ko": "홀리 라이트",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "HighElfArcher",
+   "star": 5,
+   "element": "wind",
+   "costume": "HighElfArcher_1",
+   "name_zh_tw": "妖精弓手",
+   "name_zh_cn": "妖精弓手",
+   "name_en": "High Elf Archer",
+   "name_ja": "妖精弓手",
+   "name_ko": "엘프 궁수",
+   "costumes": [
+    {
+     "id": "HighElfArcher_1",
+     "name_zh_tw": "星風之女",
+     "name_zh_cn": "星风之女",
+     "name_en": "Daughter of Starwind",
+     "name_ja": "星風の娘",
+     "name_ko": "별바람의 딸",
+     "skill_zh_tw": "上森人式弓術",
+     "skill_zh_cn": "上森人式弓术",
+     "skill_en": "High Elf Archery",
+     "skill_ja": "上森人式弓術",
+     "skill_ko": "하이엘프식 궁술",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "SwordMaiden",
+   "star": 5,
+   "element": "light",
+   "costume": "SwordMaiden_1",
+   "name_zh_tw": "劍之聖女",
+   "name_zh_cn": "剑之圣女",
+   "name_en": "Sword Maiden",
+   "name_ja": "剣の乙女",
+   "name_ko": "검의 처녀",
+   "costumes": [
+    {
+     "id": "SwordMaiden_1",
+     "name_zh_tw": "至高神的大主教",
+     "name_zh_cn": "至高神的大主教",
+     "name_en": "Supreme God Archbishop",
+     "name_ja": "至高神の大司教",
+     "name_ko": "지고신의 대주교",
+     "skill_zh_tw": "聖擊",
+     "skill_zh_cn": "圣击",
+     "skill_en": "Holy Smite",
+     "skill_ja": "《聖撃（ホーリースマイト）》",
+     "skill_ko": "홀리 스마이트",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Olivier",
+   "star": 5,
+   "element": "light",
+   "costume": "Olivier_2",
+   "name_zh_tw": "奧利維爾",
+   "name_zh_cn": "奥利维耶",
+   "name_en": "Olivier",
+   "name_ja": "オリビエ",
+   "name_ko": "올리비에",
+   "costumes": [
+    {
+     "id": "Olivier_1",
+     "name_zh_tw": "墮落之翼",
+     "name_zh_cn": "堕落之翼",
+     "name_en": "Fallen Wings",
+     "name_ja": "堕ちた翼",
+     "name_ko": "타락한 날개",
+     "skill_zh_tw": "滅惡聖光",
+     "skill_zh_cn": "灭恶圣光",
+     "skill_en": "Purging Flash",
+     "skill_ja": "滅悪の閃光",
+     "skill_ko": "멸악의 섬광",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Olivier_2",
+     "name_zh_tw": "忠實之翼",
+     "name_zh_cn": "信实之翼",
+     "name_en": "Faithful Wings",
+     "name_ja": "信心の翼",
+     "name_ko": "신실의 날개",
+     "skill_zh_tw": "虔誠聖光",
+     "skill_zh_cn": "虔诚圣光",
+     "skill_en": "Faithful Flash",
+     "skill_ja": "真実の閃光",
+     "skill_ko": "신실의 섬광",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Olivier_3",
+     "name_zh_tw": "使者",
+     "name_zh_cn": "使徒",
+     "name_en": "Apostle",
+     "name_ja": "使徒",
+     "name_ko": "사도",
+     "skill_zh_tw": "無法違抗的命令",
+     "skill_zh_cn": "难违之命",
+     "skill_en": "Unbreakable Command",
+     "skill_ja": "抗えぬ命令",
+     "skill_ko": "거스를 수 없는 명령",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Olivier_4",
+     "name_zh_tw": "引退的傳奇",
+     "name_zh_cn": "传奇退役",
+     "name_en": "Retired Legend",
+     "name_ja": "伝説のOG",
+     "name_ko": "은퇴한 전설",
+     "skill_zh_tw": "嗶哩砰☆閃耀陣雨～！",
+     "skill_zh_cn": "魔法☆洗礼~！",
+     "skill_en": "Sparkle☆Shower!",
+     "skill_ja": "ポロロン☆シャワーッ！",
+     "skill_ko": "뾰로롱☆샤워~!",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Sonya",
+   "star": 5,
+   "element": "dark",
+   "costume": "Sonya_1",
+   "name_zh_tw": "索妮亞",
+   "name_zh_cn": "索尼娅",
+   "name_en": "Sonya",
+   "name_ja": "ソーニャ",
+   "name_ko": "소냐",
+   "costumes": [
+    {
+     "id": "Sonya_1",
+     "name_zh_tw": "潛藏的夢",
+     "name_zh_cn": "潜藏的梦",
+     "name_en": "Shadowed Dream",
+     "name_ja": "深裏の夢",
+     "name_ko": "이면의 꿈",
+     "skill_zh_tw": "塔妮亞，這是屬於妳的時刻",
+     "skill_zh_cn": "轮到你了，塔纳",
+     "skill_en": "It's Your Time, Tanya",
+     "skill_ja": "あなたの時間だよ、ターニャ",
+     "skill_ko": "너의 시간이야, 타냐",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Sonya_2",
+     "name_zh_tw": "賣南瓜的少女",
+     "name_zh_cn": "卖南瓜的少女",
+     "name_en": "Little Pumpkin Girl",
+     "name_ja": "かぼちゃ売りの少女",
+     "name_ko": "호박팔이 소녀",
+     "skill_zh_tw": "嘻嘻，塔妮亞登場！",
+     "skill_zh_cn": "嘻嘻，索尼娅登场！",
+     "skill_en": "Hehe, It's Tanya Time!",
+     "skill_ja": "くすくす、ターニャのお出ましだよっ！",
+     "skill_ko": "킥킥, 타냐 등장!",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Tyr",
+   "star": 5,
+   "element": "wind",
+   "costume": "Tyr_1",
+   "name_zh_tw": "提爾",
+   "name_zh_cn": "提尔",
+   "name_en": "Tyr",
+   "name_ja": "ティル",
+   "name_ko": "티르",
+   "costumes": [
+    {
+     "id": "Tyr_1",
+     "name_zh_tw": "星光守護者",
+     "name_zh_cn": "星光守护者",
+     "name_en": "Starlight Guardian",
+     "name_ja": "星光の守護者",
+     "name_ko": "별빛의 수호자",
+     "skill_zh_tw": "只要能守護",
+     "skill_zh_cn": "义无反顾",
+     "skill_en": "If Only I Could Protect",
+     "skill_ja": "護れるのならば",
+     "skill_ko": "지킬 수만 있다면",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Tyr_2",
+     "name_zh_tw": "軟萌兔女郎",
+     "name_zh_cn": "澄心无邪兔女郎",
+     "name_en": "Innocent Bunny",
+     "name_ja": "イノセント・バニー",
+     "name_ko": "이노센트 바니",
+     "skill_zh_tw": "我會鼓起勇氣的！",
+     "skill_zh_cn": "勇往直前！",
+     "skill_en": "I'll Be Brave",
+     "skill_ja": "勇気を出します！",
+     "skill_ko": "용기를 낼 거예요!",
+     "sp": [
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Darian",
+   "star": 5,
+   "element": "water",
+   "costume": "Darian_1",
+   "name_zh_tw": "達麗安",
+   "name_zh_cn": "达丽安",
+   "name_en": "Darian",
+   "name_ja": "ダリアン",
+   "name_ko": "다리안",
+   "costumes": [
+    {
+     "id": "Darian_1",
+     "name_zh_tw": "啟示之夢",
+     "name_zh_cn": "启示之梦",
+     "name_en": "Prophetic Dream",
+     "name_ja": "啓示の夢",
+     "name_ko": "계시의 꿈",
+     "skill_zh_tw": "為了母親的夢想",
+     "skill_zh_cn": "为了母亲的梦想",
+     "skill_en": "For Mother's Dream",
+     "skill_ja": "母の夢の為に",
+     "skill_ko": "어머니의 꿈을 위하여",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "Darian_2",
+     "name_zh_tw": "苦甜兔女郎",
+     "name_zh_cn": "半糖余韵兔女郎",
+     "name_en": "Bittersweet Bunny",
+     "name_ja": "ビタースウィート・バニー",
+     "name_ko": "비터스윗 바니",
+     "skill_zh_tw": "雪之花",
+     "skill_zh_cn": "雪之花",
+     "skill_en": "Snow Flower",
+     "skill_ja": "雪の華",
+     "skill_ko": "눈의 꽃",
+     "sp": [
+      7,
+      6
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Granadair",
+   "star": 5,
+   "element": "water",
+   "costume": "Granadair_1",
+   "name_zh_tw": "葛拉娜德",
+   "name_zh_cn": "葛拉娜德",
+   "name_en": "Granadair",
+   "name_ja": "グラナデ",
+   "name_ko": "그라나데",
+   "costumes": [
+    {
+     "id": "Granadair_1",
+     "name_zh_tw": "葛洛堤女王",
+     "name_zh_cn": "葛洛堤的女王",
+     "name_en": "Queen of Gluttis",
+     "name_ja": "グラティの女王",
+     "name_ko": "글러티의 여왕",
+     "skill_zh_tw": "魔力集束",
+     "skill_zh_cn": "法力凝聚",
+     "skill_en": "Mana Convergence",
+     "skill_ja": "マナ収束",
+     "skill_ko": "마나 집속",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Granadair_2",
+     "name_zh_tw": "淨化巫女",
+     "name_zh_cn": "净化巫女",
+     "name_en": "Shrine Maiden of Purification",
+     "name_ja": "浄化の巫女",
+     "name_ko": "정화의 무녀",
+     "skill_zh_tw": "淨化的祝福",
+     "skill_zh_cn": "净化祝福",
+     "skill_en": "Blessing of Purification",
+     "skill_ja": "浄化の祝福",
+     "skill_ko": "정화의 축복",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Palette",
+   "star": 5,
+   "element": "dark",
+   "costume": "Palette_1",
+   "name_zh_tw": "帕萊特",
+   "name_zh_cn": "帕莱特",
+   "name_en": "Palette",
+   "name_ja": "パレット",
+   "name_ko": "팔레트",
+   "costumes": [
+    {
+     "id": "Palette_1",
+     "name_zh_tw": "恐懼之夢",
+     "name_zh_cn": "惊悚之梦",
+     "name_en": "Shattered Dream",
+     "name_ja": "恐怖の夢",
+     "name_ko": "공포의 꿈",
+     "skill_zh_tw": "讓你見識我的傑作…！",
+     "skill_zh_cn": "让你见识真正的杰作…！",
+     "skill_en": "My Masterpiece...!",
+     "skill_ja": "傑作を見せてあげる…！",
+     "skill_ko": "걸작을 보여줄게...!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Palette_2",
+     "name_zh_tw": "奇蹟紫羅蘭",
+     "name_zh_cn": "奇迹紫罗兰",
+     "name_en": "Miracle Violet",
+     "name_ja": "ミラクル・ヴァイオレット",
+     "name_ko": "미라클 바이올렛",
+     "skill_zh_tw": "紫羅蘭☆極速突擊",
+     "skill_zh_cn": "紫罗兰☆极限突袭",
+     "skill_en": "Violet☆Ultra Rush",
+     "skill_ja": "ヴァイオレット☆ウルトララッシュ",
+     "skill_ko": "바이올렛☆울트라 러시",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Mamonir",
+   "star": 5,
+   "element": "water",
+   "costume": "Mamonir_1",
+   "name_zh_tw": "馬莫尼勒",
+   "name_zh_cn": "马莫尼勒",
+   "name_en": "Mamonir",
+   "name_ja": "マモニル",
+   "name_ko": "마모니르",
+   "costumes": [
+    {
+     "id": "Mamonir_1",
+     "name_zh_tw": "死亡之夜",
+     "name_zh_cn": "玄夜",
+     "name_en": "Night of Death",
+     "name_ja": "終焉の夜",
+     "name_ko": "죽음의 밤",
+     "skill_zh_tw": "上吧！奧克托比烏斯！",
+     "skill_zh_cn": "去吧，奥克托比乌斯！",
+     "skill_en": "Go, Octovius!",
+     "skill_ja": "行こう、オクトビウス！",
+     "skill_ko": "가자, 옥토비우스!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Mamonir_2",
+     "name_zh_tw": "奇蹟海洋",
+     "name_zh_cn": "奇迹海洋",
+     "name_en": "Miracle Marine",
+     "name_ja": "ミラクル・マリン",
+     "name_ko": "미라클 마린",
+     "skill_zh_tw": "海洋☆深海耐性",
+     "skill_zh_cn": "海洋☆深度意志",
+     "skill_en": "Marine☆Deep Endure",
+     "skill_ja": "マリン☆ディープエンデュア",
+     "skill_ko": "마린☆딥 엔듀어",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Ikaruga",
+   "star": 5,
+   "element": "fire",
+   "costume": "Ikaruga_1",
+   "name_zh_tw": "斑鳩",
+   "name_zh_cn": "斑鸠",
+   "name_en": "Ikaruga",
+   "name_ja": "斑鳩",
+   "name_ko": "이카루가",
+   "costumes": [
+    {
+     "id": "Ikaruga_1",
+     "name_zh_tw": "清廉之焰",
+     "name_zh_cn": "纯净之焰",
+     "name_en": "Noble Flame",
+     "name_ja": "清廉の炎",
+     "name_ko": "청렴한 불꽃",
+     "skill_zh_tw": "飛燕鳳閃･壹式",
+     "skill_zh_cn": "飞燕凤闪·一式",
+     "skill_en": "Hien Hōsen: Mode One",
+     "skill_ja": "飛燕鳳閃・一式",
+     "skill_ko": "비연봉섬 일식",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Nekyndalia",
+   "star": 5,
+   "element": "wind",
+   "costume": "Nekyndalia_1",
+   "name_zh_tw": "涅肯達莉亞",
+   "name_zh_cn": "内肯达莉亚",
+   "name_en": "Nekyndalia",
+   "name_ja": "ネケンダリア",
+   "name_ko": "네켄달리아",
+   "costumes": [
+    {
+     "id": "Nekyndalia_1",
+     "name_zh_tw": "致命之眼",
+     "name_zh_cn": "神枪手",
+     "name_en": "Deadeye",
+     "name_ja": "デッドアイ",
+     "name_ko": "데드아이",
+     "skill_zh_tw": "致命界線",
+     "skill_zh_cn": "致命战线",
+     "skill_en": "Fatal Line",
+     "skill_ja": "フェイタルライン",
+     "skill_ko": "페이탈 라인",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "official_Nekyndalia_f96c6f42",
+     "temporary": true,
+     "name_zh_tw": "殘破木乃伊",
+     "name_zh_cn": "残破木乃伊",
+     "name_en": "Unraveling Mummy",
+     "name_ja": "ゆるゆるミイラ",
+     "name_ko": "헐거운 미라",
+     "skill_zh_tw": "",
+     "skill_zh_cn": "",
+     "skill_en": "",
+     "skill_ja": "",
+     "skill_ko": "",
+     "sp": [],
+     "burst_sp": [],
+     "notice": "01M43YMWP6D2BARYD15JKCKR13",
+     "announced": "2026-10-06"
+    }
+   ]
+  },
+  {
+   "id": "Aquila",
+   "star": 5,
+   "element": "fire",
+   "costume": "Aquila_1",
+   "name_zh_tw": "阿奇拉",
+   "name_zh_cn": "阿奇拉",
+   "name_en": "Aquila",
+   "name_ja": "アクィラ",
+   "name_ko": "아킬라",
+   "costumes": [
+    {
+     "id": "Aquila_1",
+     "name_zh_tw": "戰場猛獸",
+     "name_zh_cn": "战场猛兽",
+     "name_en": "Savage Warrior",
+     "name_ja": "戦場の野獣",
+     "name_ko": "전장의 야수",
+     "skill_zh_tw": "戰場的狂喜",
+     "skill_zh_cn": "战场狂喜",
+     "skill_en": "Thrill of Battle",
+     "skill_ja": "戦場の愉悦",
+     "skill_ko": "전장의 희열",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "KyoukaUzen",
+   "star": 5,
+   "element": "light",
+   "costume": "KyoukaUzen_1",
+   "name_zh_tw": "羽前京香",
+   "name_zh_cn": "羽前京香",
+   "name_en": "Kyouka Uzen",
+   "name_ja": "羽前京香",
+   "name_ko": "우젠 쿄카",
+   "costumes": [
+    {
+     "id": "KyoukaUzen_1",
+     "name_zh_tw": "無窮之鎖",
+     "name_zh_cn": "无穷之锁",
+     "name_en": "Eternal Chains",
+     "name_ja": "無窮の鎖",
+     "name_ko": "무한의 사슬",
+     "skill_zh_tw": "屈服的時間到了！",
+     "skill_zh_cn": "受死吧！",
+     "skill_en": "Time to Submit!",
+     "skill_ja": "屈服の時間だ",
+     "skill_ko": "굴복의 시간이다!",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "TenkaIzumo",
+   "star": 5,
+   "element": "dark",
+   "costume": "TenkaIzumo_1",
+   "name_zh_tw": "出雲天花",
+   "name_zh_cn": "出云天花",
+   "name_en": "Tenka Izumo",
+   "name_ja": "出雲天花",
+   "name_ko": "이즈모 텐카",
+   "costumes": [
+    {
+     "id": "TenkaIzumo_1",
+     "name_zh_tw": "天御鳥命",
+     "name_zh_cn": "天御鸟命",
+     "name_en": "Ame-no-Mitori",
+     "name_ja": "天御鳥命",
+     "name_ko": "아메노미토리",
+     "skill_zh_tw": "位置，非常好。",
+     "skill_zh_cn": "位置，刚刚好",
+     "skill_en": "Right Where I Want You!",
+     "skill_ja": "位置バッチリ",
+     "skill_ko": "위치, 딱 좋아",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "RenYamashiro",
+   "star": 5,
+   "element": "light",
+   "costume": "RenYamashiro_1",
+   "name_zh_tw": "山城戀",
+   "name_zh_cn": "山城恋",
+   "name_en": "Ren Yamashiro",
+   "name_ja": "山城恋",
+   "name_ko": "야마시로 렌",
+   "costumes": [
+    {
+     "id": "RenYamashiro_1",
+     "name_zh_tw": "無限宇宙之全一",
+     "name_zh_cn": "无限宇宙之全一",
+     "name_en": "Lord of the Cosmos",
+     "name_ja": "無限宇宙の全一",
+     "name_ko": "무한우주의 전일",
+     "skill_zh_tw": "我來好好教訓你",
+     "skill_zh_cn": "让我好好管教你",
+     "skill_en": "Time for Discipline!",
+     "skill_ja": "躾けてあげる",
+     "skill_ko": "훈육해 줄게",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": [
+      1,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "Lisianne",
+   "star": 4,
+   "element": "wind",
+   "costume": "Lisianne_1",
+   "name_zh_tw": "莉西安",
+   "name_zh_cn": "莉西安",
+   "name_en": "Lisianne",
+   "name_ja": "リシアンヌ",
+   "name_ko": "리시안느",
+   "costumes": [
+    {
+     "id": "Lisianne_1",
+     "name_zh_tw": "流浪神職人員",
+     "name_zh_cn": "流浪神职者",
+     "name_en": "Wandering Priest",
+     "name_ja": "放浪の聖職者",
+     "name_ko": "방랑 성직자",
+     "skill_zh_tw": "治癒的祈禱",
+     "skill_zh_cn": "治愈祈祷",
+     "skill_en": "Prayer for Healing",
+     "skill_ja": "治癒の祈り",
+     "skill_ko": "치유의 기도",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Bernie",
+   "star": 4,
+   "element": "wind",
+   "costume": "Bernie_1",
+   "name_zh_tw": "維爾尼",
+   "name_zh_cn": "维尔尼",
+   "name_en": "Bernie",
+   "name_ja": "ベルニー",
+   "name_ko": "베르니",
+   "costumes": [
+    {
+     "id": "Bernie_1",
+     "name_zh_tw": "義賊少女",
+     "name_zh_cn": "侠盗少女",
+     "name_en": "Righteous Raider Girl",
+     "name_ja": "義賊少女",
+     "name_ko": "의적 소녀",
+     "skill_zh_tw": "SP抽取",
+     "skill_zh_cn": "抽嗜短剑",
+     "skill_en": "Drain Dagger",
+     "skill_ja": "ドレインダガー",
+     "skill_ko": "드레인 대거",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Layla",
+   "star": 4,
+   "element": "light",
+   "costume": "Layla_1",
+   "name_zh_tw": "蕾拉",
+   "name_zh_cn": "蕾拉",
+   "name_en": "Layla",
+   "name_ja": "レイラ",
+   "name_ko": "레일라",
+   "costumes": [
+    {
+     "id": "Layla_1",
+     "name_zh_tw": "創造的鐵砧",
+     "name_zh_cn": "创造铁砧",
+     "name_en": "Anvil of Creation",
+     "name_ja": "想像の金床",
+     "name_ko": "창조의 모루",
+     "skill_zh_tw": "破壞之鐵砧",
+     "skill_zh_cn": "毁灭铁砧",
+     "skill_en": "Anvil of Destruction",
+     "skill_ja": "破壊の金床",
+     "skill_ko": "파괴의 모루",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Lucrezia",
+   "star": 4,
+   "element": "dark",
+   "costume": "Lucrezia_1",
+   "name_zh_tw": "盧克雷齊亞",
+   "name_zh_cn": "卢克雷齐亚",
+   "name_en": "Lucrezia",
+   "name_ja": "ルクレチア",
+   "name_ko": "루크레치아",
+   "costumes": [
+    {
+     "id": "Lucrezia_1",
+     "name_zh_tw": "誘惑的翅膀",
+     "name_zh_cn": "诱惑之翼",
+     "name_en": "Seductive Wings",
+     "name_ja": "誘惑の翼",
+     "name_ko": "유혹의 날개",
+     "skill_zh_tw": "魅惑之手",
+     "skill_zh_cn": "魅惑之手",
+     "skill_en": "Seductive Gesture",
+     "skill_ja": "テンプテーション",
+     "skill_ko": "매혹의 손길",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Samay",
+   "star": 4,
+   "element": "dark",
+   "costume": "Samay_1",
+   "name_zh_tw": "莎美",
+   "name_zh_cn": "莎美",
+   "name_en": "Samay",
+   "name_ja": "サメイ",
+   "name_ko": "사메이",
+   "costumes": [
+    {
+     "id": "Samay_1",
+     "name_zh_tw": "溫柔的解放者",
+     "name_zh_cn": "深情解放者",
+     "name_en": "Kind Liberator",
+     "name_ja": "優しき解放者",
+     "name_ko": "다정한 해방자",
+     "skill_zh_tw": "猶豫的刀刃",
+     "skill_zh_cn": "犹豫之刃",
+     "skill_en": "Blade of Hesitation",
+     "skill_ja": "戸惑いの剣",
+     "skill_ko": "망설임의 칼날",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Samay_2",
+     "name_zh_tw": "和藹的學生",
+     "name_zh_cn": "和善学生",
+     "name_en": "Kind Student",
+     "name_ja": "優しき学生",
+     "name_ko": "상냥한 학생",
+     "skill_zh_tw": "我相信！",
+     "skill_zh_cn": "靠你了！",
+     "skill_en": "I'm Trusting You!",
+     "skill_ja": "信じています！",
+     "skill_ko": "믿고 있어요!",
+     "sp": [
+      2,
+      1,
+      0
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Kry",
+   "star": 4,
+   "element": "dark",
+   "costume": "Kry_1",
+   "name_zh_tw": "克萊",
+   "name_zh_cn": "克莱",
+   "name_en": "Kry",
+   "name_ja": "クライ",
+   "name_ko": "크라이",
+   "costumes": [
+    {
+     "id": "Kry_1",
+     "name_zh_tw": "解放的掠奪者",
+     "name_zh_cn": "解放掠夺者",
+     "name_en": "Liberated Marauder",
+     "name_ja": "開放された略奪者",
+     "name_ko": "해방된 약탈자",
+     "skill_zh_tw": "鐵甲之襲擊",
+     "skill_zh_cn": "铁甲袭击",
+     "skill_en": "Armor Attack",
+     "skill_ja": "鋼鉄の一撃",
+     "skill_ko": "철갑의 필격",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Kry_2",
+     "name_zh_tw": "粗暴的學生",
+     "name_zh_cn": "粗暴学生",
+     "name_en": "Violent Student",
+     "name_ja": "乱暴な学生",
+     "name_ko": "난폭한 학생",
+     "skill_zh_tw": "相信我就對了",
+     "skill_zh_cn": "相信我",
+     "skill_en": "Leave It to Me!",
+     "skill_ja": "俺だけを信じていろ",
+     "skill_ko": "나만 믿어라",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Jayden",
+   "star": 4,
+   "element": "light",
+   "costume": "Jayden_1",
+   "name_zh_tw": "傑登",
+   "name_zh_cn": "杰登",
+   "name_en": "Jayden",
+   "name_ja": "ジェイデン",
+   "name_ko": "제이든",
+   "costumes": [
+    {
+     "id": "Jayden_1",
+     "name_zh_tw": "美少女信奉者",
+     "name_zh_cn": "美少女信奉者",
+     "name_en": "Beautiful Girl Devotee",
+     "name_ja": "美少女信者",
+     "name_ko": "미소녀 신봉자",
+     "skill_zh_tw": "美少女之力",
+     "skill_zh_cn": "美少女之力",
+     "skill_en": "Power of Beauty",
+     "skill_ja": "美少女の力",
+     "skill_ko": "미소녀의 힘",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Jayden_2",
+     "name_zh_tw": "漫畫研究社",
+     "name_zh_cn": "漫画研究社",
+     "name_en": "Manga Research Club",
+     "name_ja": "漫画研究部",
+     "name_ko": "만화 연구부",
+     "skill_zh_tw": "流星落下",
+     "skill_zh_cn": "流星落下",
+     "skill_en": "Meteor Fall",
+     "skill_ja": "流星落とし",
+     "skill_ko": "유성낙하",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Andrew",
+   "star": 4,
+   "element": "fire",
+   "costume": "Andrew_1",
+   "name_zh_tw": "安德魯",
+   "name_zh_cn": "安德鲁",
+   "name_en": "Andrew",
+   "name_ja": "アンドリュー",
+   "name_ko": "앤드류",
+   "costumes": [
+    {
+     "id": "Andrew_1",
+     "name_zh_tw": "忠誠耿直的管家",
+     "name_zh_cn": "忠直管家",
+     "name_en": "Loyal Butler",
+     "name_ja": "忠実な執事",
+     "name_ko": "충직한 집사",
+     "skill_zh_tw": "竊取生命",
+     "skill_zh_cn": "窃取生命",
+     "skill_en": "Life Steal",
+     "skill_ja": "精気強奪",
+     "skill_ko": "생기 강탈",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Andrew_2",
+     "name_zh_tw": "專家",
+     "name_zh_cn": "专家",
+     "name_en": "Specialist",
+     "name_ja": "スペシャリスト",
+     "name_ko": "스페셜리스트",
+     "skill_zh_tw": "你在看哪裡？",
+     "skill_zh_cn": "你在看哪里？",
+     "skill_en": "What Are You Looking At?",
+     "skill_ja": "どこを見ているのですか？",
+     "skill_ko": "어딜 보시는 겁니까?",
+     "sp": [
+      5,
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Elpis",
+   "star": 4,
+   "element": "dark",
+   "costume": "Elpis_1",
+   "name_zh_tw": "厄爾比斯",
+   "name_zh_cn": "厄尔比斯",
+   "name_en": "Elpis",
+   "name_ja": "エルピス",
+   "name_ko": "엘피스",
+   "costumes": [
+    {
+     "id": "Elpis_1",
+     "name_zh_tw": "救贖之手",
+     "name_zh_cn": "救赎之手",
+     "name_en": "Hand of Salvation",
+     "name_ja": "救いの手",
+     "name_ko": "구원의 손길",
+     "skill_zh_tw": "聖殿的祈禱",
+     "skill_zh_cn": "圣殿祈祷",
+     "skill_en": "Prayer of the Sanctuary",
+     "skill_ja": "聖戦の祈り",
+     "skill_ko": "성전의 기도",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Fred",
+   "star": 3,
+   "element": "wind",
+   "costume": "Fred_1",
+   "name_zh_tw": "弗雷德",
+   "name_zh_cn": "弗雷德",
+   "name_en": "Fred",
+   "name_ja": "フレッド",
+   "name_ko": "프레드",
+   "costumes": [
+    {
+     "id": "Fred_1",
+     "name_zh_tw": "盧戈守衛隊",
+     "name_zh_cn": "卢戈卫队",
+     "name_en": "Lugo Defense Force",
+     "name_ja": "ルーゴ守備隊",
+     "name_ko": "루고 수비대",
+     "skill_zh_tw": "盾牌推擊",
+     "skill_zh_cn": "盾牌推击",
+     "skill_en": "Shield Slam",
+     "skill_ja": "盾押しつけ",
+     "skill_ko": "방패 밀치기",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Gynt",
+   "star": 3,
+   "element": "wind",
+   "costume": "Gynt_1",
+   "name_zh_tw": "君特",
+   "name_zh_cn": "君特",
+   "name_en": "Gynt",
+   "name_ja": "ギュント",
+   "name_ko": "귄트",
+   "costumes": [
+    {
+     "id": "Gynt_1",
+     "name_zh_tw": "盧戈獵人",
+     "name_zh_cn": "卢戈猎人",
+     "name_en": "Lugo Hunter",
+     "name_ja": "ルーゴ狩人",
+     "name_ko": "루고 사냥꾼",
+     "skill_zh_tw": "跳躍射擊",
+     "skill_zh_cn": "跳跃射击",
+     "skill_en": "Jump Shot",
+     "skill_ja": "ジャンプショット",
+     "skill_ko": "점프 샷",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Remnunt",
+   "star": 3,
+   "element": "water",
+   "costume": "Remnunt_1",
+   "name_zh_tw": "雷南特",
+   "name_zh_cn": "雷南特",
+   "name_en": "Remnunt",
+   "name_ja": "レムナント",
+   "name_ko": "램넌트",
+   "costumes": [
+    {
+     "id": "Remnunt_1",
+     "name_zh_tw": "戰鬥醫師",
+     "name_zh_cn": "战斗医生",
+     "name_en": "Combat Doctor",
+     "name_ja": "戦闘医師",
+     "name_ko": "전투 의사",
+     "skill_zh_tw": "沉著之手",
+     "skill_zh_cn": "沉着之手",
+     "skill_en": "Steady Hands",
+     "skill_ja": "落ち着いた手つき",
+     "skill_ko": "침착한 손놀림",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Maria",
+   "star": 3,
+   "element": "dark",
+   "costume": "Maria_1",
+   "name_zh_tw": "瑪麗亞",
+   "name_zh_cn": "玛丽亚",
+   "name_en": "Maria",
+   "name_ja": "マリア",
+   "name_ko": "마리아",
+   "costumes": [
+    {
+     "id": "Maria_1",
+     "name_zh_tw": "大魔法師",
+     "name_zh_cn": "大魔法师",
+     "name_en": "Archmage",
+     "name_ja": "大魔術師",
+     "name_ko": "대마법사",
+     "skill_zh_tw": "破壞魔法",
+     "skill_zh_cn": "破坏魔法",
+     "skill_en": "Destructive Magic",
+     "skill_ja": "破壊の魔導",
+     "skill_ko": "파괴 마법",
+     "sp": [
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Arines",
+   "star": 3,
+   "element": "light",
+   "costume": "Arines_1",
+   "name_zh_tw": "阿里內斯",
+   "name_zh_cn": "阿里内斯",
+   "name_en": "Arines",
+   "name_ja": "アリネス",
+   "name_ko": "아리네스",
+   "costumes": [
+    {
+     "id": "Arines_1",
+     "name_zh_tw": "活力的祭司",
+     "name_zh_cn": "活力祭司",
+     "name_en": "Priest of Vitality",
+     "name_ja": "活力の司祭",
+     "name_ko": "활력의 사제",
+     "skill_zh_tw": "堂堂正正",
+     "skill_zh_cn": "堂堂正正",
+     "skill_en": "Fair and Square",
+     "skill_ja": "正々堂々",
+     "skill_ko": "정정당당",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Emma",
+   "star": 3,
+   "element": "light",
+   "costume": "Emma_1",
+   "name_zh_tw": "艾瑪",
+   "name_zh_cn": "艾玛",
+   "name_en": "Emma",
+   "name_ja": "エマ",
+   "name_ko": "엠마",
+   "costumes": [
+    {
+     "id": "Emma_1",
+     "name_zh_tw": "難伺候的問題學生",
+     "name_zh_cn": "麻烦问题儿童",
+     "name_en": "Haggard Delinquent",
+     "name_ja": "刺々しい不良",
+     "name_ko": "까칠한 불량아",
+     "skill_zh_tw": "我最棒！",
+     "skill_zh_cn": "我最棒！",
+     "skill_en": "I'm the best!",
+     "skill_ja": "私が一番！",
+     "skill_ko": "내가 최고야!",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Emma_2",
+     "name_zh_tw": "學校女王",
+     "name_zh_cn": "校园女王",
+     "name_en": "School Queen",
+     "name_ja": "学校のクイーン",
+     "name_ko": "학교의 여왕",
+     "skill_zh_tw": "我很忙，快讓開！",
+     "skill_zh_cn": "我很忙，快让开！",
+     "skill_en": "Get Lost, I'm Busy!",
+     "skill_ja": "忙しいからどきなさい！",
+     "skill_ko": "바쁘니까 비켜!",
+     "sp": [
+      3,
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Ingrid",
+   "star": 3,
+   "element": "water",
+   "costume": "Ingrid_1",
+   "name_zh_tw": "英格利得",
+   "name_zh_cn": "英格利得",
+   "name_en": "Ingrid",
+   "name_ja": "イングリッド",
+   "name_ko": "잉그리드",
+   "costumes": [
+    {
+     "id": "Ingrid_1",
+     "name_zh_tw": "卡迪斯的子彈",
+     "name_zh_cn": "卡迪斯的子弹",
+     "name_en": "Kardis' Bullet",
+     "name_ja": "カディスの弾丸",
+     "name_ko": "카디스의 탄환",
+     "skill_zh_tw": "跳躍的槍管",
+     "skill_zh_cn": "起舞枪管",
+     "skill_en": "Dancing Barrel",
+     "skill_ja": "バレットダンス",
+     "skill_ko": "춤추는 총구",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Cynthia",
+   "star": 3,
+   "element": "water",
+   "costume": "Cynthia_1",
+   "name_zh_tw": "辛西亞",
+   "name_zh_cn": "辛西亚",
+   "name_en": "Cynthia",
+   "name_ja": "シンシア",
+   "name_ko": "신시아",
+   "costumes": [
+    {
+     "id": "Cynthia_1",
+     "name_zh_tw": "酷寒中的熱氣",
+     "name_zh_cn": "寒日温暖",
+     "name_en": "Warmth within the Severe Cold",
+     "name_ja": "酷寒の中の温もり",
+     "name_ko": "혹한 속의 온기",
+     "skill_zh_tw": "暴風雪",
+     "skill_zh_cn": "暴风雪",
+     "skill_en": "Blizzard",
+     "skill_ja": "ブリザード",
+     "skill_ko": "눈보라",
+     "sp": [
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Julie",
+   "star": 3,
+   "element": "wind",
+   "costume": "Julie_1",
+   "name_zh_tw": "茱莉",
+   "name_zh_cn": "茱莉",
+   "name_en": "Julie",
+   "name_ja": "ジュリー",
+   "name_ko": "줄리",
+   "costumes": [
+    {
+     "id": "Julie_1",
+     "name_zh_tw": "恢復師",
+     "name_zh_cn": "恢复师",
+     "name_en": "Healer",
+     "name_ja": "回復師",
+     "name_ko": "회복사",
+     "skill_zh_tw": "賦予再生",
+     "skill_zh_cn": "赋予再生",
+     "skill_en": "Regeneration Bestowal",
+     "skill_ja": "再生付与",
+     "skill_ko": "재생 부여",
+     "sp": [
+      3,
+      2
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Carlson",
+   "star": 3,
+   "element": "water",
+   "costume": "Carlson_1",
+   "name_zh_tw": "卡森",
+   "name_zh_cn": "卡森",
+   "name_en": "Carlson",
+   "name_ja": "カーソン",
+   "name_ko": "칼슨",
+   "costumes": [
+    {
+     "id": "Carlson_1",
+     "name_zh_tw": "傭兵騎士",
+     "name_zh_cn": "佣兵骑士",
+     "name_en": "The Mercenary Knight",
+     "name_ja": "傭兵騎士",
+     "name_ko": "용병 기사",
+     "skill_zh_tw": "堅定的意志",
+     "skill_zh_cn": "坚定意志",
+     "skill_en": "Unbreakable Will",
+     "skill_ja": "堅牢な意志",
+     "skill_ko": "굳건한 의지",
+     "sp": [
+      3,
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Lydia",
+   "star": 3,
+   "element": "water",
+   "costume": "Lydia_1",
+   "name_zh_tw": "黎迪雅",
+   "name_zh_cn": "黎迪雅",
+   "name_en": "Lydia",
+   "name_ja": "リディア",
+   "name_ko": "리디아",
+   "costumes": [
+    {
+     "id": "Lydia_1",
+     "name_zh_tw": "實習槍兵",
+     "name_zh_cn": "见习枪兵",
+     "name_en": "Apprentice Spearman",
+     "name_ja": "見習い槍兵",
+     "name_ko": "견습 창병",
+     "skill_zh_tw": "定勢標槍",
+     "skill_zh_cn": "祭祀枪术",
+     "skill_en": "Spear Throw",
+     "skill_ja": "投槍：制式",
+     "skill_ko": "제식 투창술",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Rigenette",
+   "star": 3,
+   "element": "wind",
+   "costume": "Rigenette_1",
+   "name_zh_tw": "莉茲內",
+   "name_zh_cn": "莉兹内",
+   "name_en": "Rigenette",
+   "name_ja": "リジー",
+   "name_ko": "리즈넷",
+   "costumes": [
+    {
+     "id": "Rigenette_1",
+     "name_zh_tw": "小獵人",
+     "name_zh_cn": "小猎人",
+     "name_en": "Little Hunter",
+     "name_ja": "チビ狩人",
+     "name_ko": "꼬마 사냥꾼",
+     "skill_zh_tw": "你就是目標！",
+     "skill_zh_cn": "目标就是你！",
+     "skill_en": "The next target is you!",
+     "skill_ja": "ターゲットは君！",
+     "skill_ko": "이번 타겟은 너!",
+     "sp": [
+      2,
+      1
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Beatrice",
+   "star": 3,
+   "element": "fire",
+   "costume": "Beatrice_1",
+   "name_zh_tw": "比阿特麗絲",
+   "name_zh_cn": "比阿特丽丝",
+   "name_en": "Beatrice",
+   "name_ja": "ベアトリス",
+   "name_ko": "베아트리체",
+   "costumes": [
+    {
+     "id": "Beatrice_1",
+     "name_zh_tw": "部族的大戰士",
+     "name_zh_cn": "部族大战士",
+     "name_en": "The Mighty Warrior of the Tribe",
+     "name_ja": "部族の大戦士",
+     "name_ko": "부족의 대전사",
+     "skill_zh_tw": "打倒！",
+     "skill_zh_cn": "打倒！",
+     "skill_en": "I'll Beat You!",
+     "skill_ja": "倒してみせる！",
+     "skill_ko": "쓰러뜨린다!",
+     "sp": [
+      4,
+      3
+     ],
+     "burst_sp": []
+    }
+   ]
+  },
+  {
+   "id": "Wiggle",
+   "star": 3,
+   "element": "fire",
+   "costume": "Wiggle_1",
+   "name_zh_tw": "威格",
+   "name_zh_cn": "威格",
+   "name_en": "Wiggle",
+   "name_ja": "ウィグル",
+   "name_ko": "위글",
+   "costumes": [
+    {
+     "id": "Wiggle_1",
+     "name_zh_tw": "炸彈狂",
+     "name_zh_cn": "炸弹狂",
+     "name_en": "Bomb Fanatic",
+     "name_ja": "爆弾狂",
+     "name_ko": "폭탄광",
+     "skill_zh_tw": "威格？爆炸！",
+     "skill_zh_cn": "威格？爆炸！",
+     "skill_en": "Wiggle? Explosion!",
+     "skill_ja": "ウィグル？爆発！",
+     "skill_ko": "위글? 폭발!",
+     "sp": [
+      5,
+      4,
+      3,
+      2
+     ],
+     "burst_sp": []
+    },
+    {
+     "id": "Wiggle_2",
+     "name_zh_tw": "帽T下的炸彈",
+     "name_zh_cn": "炸弹帽衫",
+     "name_en": "Bomb in the Hoodie",
+     "name_ja": "ボムインザフード",
+     "name_ko": "밤 인 더 후드",
+     "skill_zh_tw": "與炸彈共舞",
+     "skill_zh_cn": "与炸弹共舞",
+     "skill_en": "Dancing with Bombs",
+     "skill_ja": "ダンス・ウィズ・ボム",
+     "skill_ko": "폭탄과 함께 춤을",
+     "sp": [
+      6,
+      5,
+      4
+     ],
+     "burst_sp": []
+    }
+   ]
+  }
+ ],
+ "summons": [
+  {
+   "id": "PersonaOfWorship",
+   "name_zh_tw": "崇拜假面",
+   "name_zh_cn": "崇拜假面",
+   "name_en": "Persona of Worship",
+   "summoner_id": "Morpeah",
+   "costume_id": "Morpeah_1"
+  },
+  {
+   "id": "PersonaOfSlander",
+   "name_zh_tw": "誹謗假面",
+   "name_zh_cn": "诽谤假面",
+   "name_en": "Persona of Slander",
+   "summoner_id": "Morpeah",
+   "costume_id": "Morpeah_1"
+  },
+  {
+   "id": "BunnySpectre",
+   "name_zh_tw": "兔女郎之魂",
+   "name_zh_cn": "兔女郎之魂",
+   "name_en": "Bunny Spectre",
+   "summoner_id": "Morpeah",
+   "costume_id": "Morpeah_2"
+  },
+  {
+   "id": "MagicAmplifierET001",
+   "name_zh_tw": "魔法增幅器ET001",
+   "name_zh_cn": "魔法增幅器ET001",
+   "name_en": "Magic Amplifier ET001",
+   "summoner_id": "Diana",
+   "costume_id": "Diana_3"
+  }
+ ]
+}
