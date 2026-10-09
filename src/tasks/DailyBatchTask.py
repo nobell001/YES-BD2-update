@@ -32,6 +32,7 @@ from src.tasks.task_notifications import (
     suppress_task_completion_notifications,
 )
 from src.tasks.WeeklyTasks import ArcadeBrowseTask, HomePopularityTask
+from src.utils import game_size
 
 RUN_MODE_ALL = "all"
 RUN_MODE_INCOMPLETE = "incomplete"
@@ -314,6 +315,8 @@ class ChildBatchTask(BaseTask):
             self.info_set("状态", f"{self.batch_label}已禁用。")
             return True
 
+        # One notice for the whole batch; the children's are within its gap.
+        game_size.warn_if_unsupported(self)
         # The 跑完的结算 page reads this report; it is saved however the run
         # ends (Stop and errors included).
         self._begin_report(run_mode)

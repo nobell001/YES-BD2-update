@@ -99,6 +99,9 @@ LAST_STAGE = 15
 
 # The pool may sit right after the event currency ("8,500 0/5"); refuse a
 # match that starts inside another number so "8,5000/5" is not read as 5000.
+# OCR often glues the two (live 2026-10-09: "5,9005/5" for 5,900 and 5/5), so
+# the currency's three digits after its comma are split off first.
+CURRENCY_GLUED_PATTERN = re.compile(r"(?<![\d,.])(\d{1,3}(?:,\d{3})+)(?=\d)")
 AP_PATTERN = re.compile(r"(?<![\d,.])(\d{1,2})\s*/\s*(\d{1,2})(?!\d)")
 BONUS_PATTERN = re.compile(r"\+\s*(\d+)")
 COST_PATTERN = re.compile(r"(\d+)\s*$")
@@ -108,6 +111,7 @@ PROGRESS_PATTERN = re.compile(r"第(\d+)次[/／]共(\d+)次")
 def parse_ap(text: str) -> tuple[int | None, int]:
     """Return (free AP, bonus AP) from the top-bar OCR text, e.g. '0/5 +3'."""
     normalized = str(text).replace("／", "/").replace("|", " ")
+    normalized = CURRENCY_GLUED_PATTERN.sub(r"\1 ", normalized)
     free_match = AP_PATTERN.search(normalized)
     if free_match and int(free_match.group(2)) <= 0:
         free_match = None

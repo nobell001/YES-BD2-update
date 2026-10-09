@@ -137,6 +137,13 @@ STORY_BADGE_ENCODED_TEMPLATE_SCORE = 0.98
 STORY_BADGE_ENCODED_PIXEL_SCORE = 0.94
 STORY_BADGE_ENCODED_ZNCC_SCORE = 0.88
 STORY_BADGE_ENCODED_MIN_MARGIN = 0.04
+# Two-digit badges that share their first digit (10/19, 15/18) can sit just
+# under that lead on a real 1920x1080 capture: Leo's clone run 2026-10-09
+# read badge 10 at m=0.981/p=0.941/z=0.896 against 19 at z=0.866 (lead
+# 0.030) on every frame, so the wheel search spun for a minute.  Below the
+# raw lead, but above this floor, the digit OCR must read back the target
+# number before the badge is accepted.
+STORY_BADGE_ENCODED_OCR_MARGIN = 0.020
 STORY_BADGE_CANDIDATE_SCORE = 0.70
 STORY_BADGE_CANDIDATE_PIXEL_SCORE = 0.70
 STORY_BADGE_CANDIDATE_ZNCC_SCORE = 0.50

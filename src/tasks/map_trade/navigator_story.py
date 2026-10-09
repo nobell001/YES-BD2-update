@@ -57,6 +57,7 @@ from src.tasks.map_trade.navigator_constants import (
     STORY_BADGE_CANDIDATE_SCORE,
     STORY_BADGE_CLUSTER_RADIUS,
     STORY_BADGE_ENCODED_MIN_MARGIN,
+    STORY_BADGE_ENCODED_OCR_MARGIN,
     STORY_BADGE_ENCODED_PIXEL_SCORE,
     STORY_BADGE_ENCODED_TEMPLATE_SCORE,
     STORY_BADGE_ENCODED_ZNCC_SCORE,
@@ -626,8 +627,18 @@ class StoryCardNavigationMixin:
                     max(0.0, value.best.combined_score)
                     for value in aligned.values()
                 )
+                # Live 1080p 2026-10-09 (桌面分身): a weak "4" peak beside
+                # every card formed a lattice 76 px left of the badges with one
+                # more slot than the real row, won on count alone, and every
+                # slot then read as 9/4.  Strong peaks decide the lattice first.
+                strong = sum(
+                    1
+                    for value in aligned.values()
+                    if value.best.combined_score >= STORY_BADGE_GRID_STRONG_COMBINED_SCORE
+                )
                 trials.append(
                     (
+                        strong,
                         len(aligned),
                         len(aligned) / expected_visible_slots,
                         quality,
@@ -643,6 +654,7 @@ class StoryCardNavigationMixin:
         if not trials:
             return None
         (
+            _strong,
             _count,
             _fraction,
             _quality,
@@ -655,7 +667,7 @@ class StoryCardNavigationMixin:
             required,
         ) = max(
             trials,
-            key=lambda value: value[:5],
+            key=lambda value: value[:6],
         )
         if len(aligned) < required:
             return None
@@ -1195,6 +1207,21 @@ class StoryCardNavigationMixin:
             # promoted; the digit OCR is the deciding vote for this tier.
             return value.recovery_mode == "slot_grid_runner"
 
+        def ocr_identity(value: StoryBadgeDetection) -> bool:
+            # A native-scale badge that clears the slot-grid structural floors
+            # but not the strict/encoded ones (Leo's 1920x1080 frame
+            # 2026-10-09: badge 14 at m=0.979/p=0.933/z=0.882, 0.204 ahead of
+            # 16).  It needs the grid's lead, and the digit OCR must read the
+            # target number back.
+            return (
+                not value.recovery_mode
+                and not strict_identity(value)
+                and not encoded_identity(value)
+                and value.best.result.score >= STORY_BADGE_GRID_TEMPLATE_SCORE
+                and value.best.result.pixel_score >= STORY_BADGE_GRID_PIXEL_SCORE
+                and value.best.result.zncc_score >= STORY_BADGE_GRID_ZNCC_SCORE
+            )
+
         target_detections = [
             value
             for value in detections
@@ -1204,6 +1231,7 @@ class StoryCardNavigationMixin:
                 or encoded_identity(value)
                 or grid_identity(value)
                 or runner_identity(value)
+                or ocr_identity(value)
             )
         ]
         if not target_detections:
@@ -1290,6 +1318,46 @@ class StoryCardNavigationMixin:
                     f"text={ocr_text or '-'}"
                 ),
             )
+        if ocr_identity(detection):
+            if detection.margin < STORY_BADGE_GRID_MIN_MARGIN:
+                return (
+                    None,
+                    (
+                        f"候选分差不足（ZNCC）：{detection.margin:.3f}"
+                        f"<{STORY_BADGE_GRID_MIN_MARGIN:.3f}；"
+                        f"combined={detection.combined_margin:.3f}"
+                    ),
+                )
+            if detection.ocr_number is not None:
+                ocr_number, ocr_text = detection.ocr_number, detection.ocr_text
+            else:
+                ocr_number, ocr_text = self._story_badge_ocr_number(
+                    frame,
+                    detection.best.result,
+                )
+                detection = replace(
+                    detection,
+                    ocr_text=ocr_text,
+                    ocr_number=ocr_number,
+                )
+            if ocr_number == target_number:
+                self._status(
+                    "剧情角标",
+                    (
+                        f"原尺寸候选由OCR辅助确认：zncc={detection.margin:.3f}, "
+                        f"number={ocr_number}"
+                    ),
+                )
+                return detection, ""
+            return (
+                None,
+                (
+                    "角标原尺寸候选OCR未确认："
+                    f"模板={target_number}, OCR="
+                    f"{ocr_number if ocr_number is not None else '-'}, "
+                    f"text={ocr_text or '-'}"
+                ),
+            )
         required_margin = min(
             threshold
             for passed, threshold in (
@@ -1300,47 +1368,53 @@ class StoryCardNavigationMixin:
             if passed
         )
         if detection.margin < required_margin:
-            if grid_identity(detection):
-                # OCR is an auxiliary discriminator only after the grid's
-                # structural gates and a non-trivial score margin pass.
-                if (
-                    detection.margin >= STORY_BADGE_GRID_OCR_MARGIN
-                    and detection.combined_margin >= STORY_BADGE_GRID_MIN_COMBINED_MARGIN
-                ):
-                    if detection.ocr_number is not None:
-                        # Already digit-confirmed during duplicate selection.
-                        ocr_number, ocr_text = (
-                            detection.ocr_number,
-                            detection.ocr_text,
-                        )
-                    else:
-                        ocr_number, ocr_text = self._story_badge_ocr_number(
-                            frame,
-                            detection.best.result,
-                        )
-                        detection = replace(
-                            detection,
-                            ocr_text=ocr_text,
-                            ocr_number=ocr_number,
-                        )
-                    if ocr_number == target_number:
-                        self._status(
-                            "剧情角标",
-                            (
-                                f"栅格候选分差由OCR辅助确认：zncc={detection.margin:.3f}, "
-                                f"combined={detection.combined_margin:.3f}, number={ocr_number}"
-                            ),
-                        )
-                        return detection, ""
-                    if ocr_number is not None:
-                        return (
-                            None,
-                            (
-                                "角标OCR数字冲突："
-                                f"模板={target_number}, OCR={ocr_number}, "
-                                f"text={ocr_text or '-'}"
-                            ),
-                        )
+            # OCR is an auxiliary discriminator only after a tier's structural
+            # gates and a non-trivial score margin pass.
+            ocr_tiebreak = (
+                grid_identity(detection)
+                and detection.margin >= STORY_BADGE_GRID_OCR_MARGIN
+                and detection.combined_margin >= STORY_BADGE_GRID_MIN_COMBINED_MARGIN
+            ) or (
+                encoded_identity(detection)
+                and detection.margin >= STORY_BADGE_ENCODED_OCR_MARGIN
+                and detection.combined_margin > 0.0
+            )
+            if ocr_tiebreak:
+                if detection.ocr_number is not None:
+                    # Already digit-confirmed during duplicate selection.
+                    ocr_number, ocr_text = (
+                        detection.ocr_number,
+                        detection.ocr_text,
+                    )
+                else:
+                    ocr_number, ocr_text = self._story_badge_ocr_number(
+                        frame,
+                        detection.best.result,
+                    )
+                    detection = replace(
+                        detection,
+                        ocr_text=ocr_text,
+                        ocr_number=ocr_number,
+                    )
+                if ocr_number == target_number:
+                    self._status(
+                        "剧情角标",
+                        (
+                            f"{'栅格' if detection.recovery_mode else '编码'}候选分差由OCR辅助确认："
+                            f"zncc={detection.margin:.3f}, "
+                            f"combined={detection.combined_margin:.3f}, number={ocr_number}"
+                        ),
+                    )
+                    return detection, ""
+                if ocr_number is not None:
+                    return (
+                        None,
+                        (
+                            "角标OCR数字冲突："
+                            f"模板={target_number}, OCR={ocr_number}, "
+                            f"text={ocr_text or '-'}"
+                        ),
+                    )
             return (
                 None,
                 (
