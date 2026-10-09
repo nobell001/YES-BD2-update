@@ -115,6 +115,7 @@ def force_reinstall(package: str, version: str) -> bool:
                 command,
                 capture_output=True,
                 text=True,
+                errors="replace",
                 timeout=REPAIR_TIMEOUT_SECONDS,
                 check=False,
             )

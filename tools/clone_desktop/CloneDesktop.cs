@@ -311,6 +311,15 @@ static class Program
                 account = domain.Length > 0 ? domain + "\\" + user : user.ToString();
             password = secret.ToString();
             save = saveBox;
+            if (password.Length == 0)
+            {
+                // Windows never lets an account without a password sign in to the clone.
+                Log("sign-in box: empty password");
+                MessageBox.Show(
+                    "分身要用 Windows 帳號的密碼登入，這次沒有打密碼。\n" +
+                    "如果這個帳號本來就沒有設密碼，要先到「設定 > 帳戶 > 登入選項 > 密碼」加一個，才能用桌面分身。",
+                    Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
             return password.Length > 0;
         }
         finally

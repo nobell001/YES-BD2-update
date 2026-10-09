@@ -2458,3 +2458,15 @@ msgstr "Wind"
 
 msgid "魔兽会推动角色位置"
 msgstr "The Fiend moves Characters"
+
+msgid ""
+"分身程序不见了，可能被防毒软件（例如 360、火绒）删掉了：\n"
+"• 在防毒软件把这个文件夹设为信任：{folder}\n"
+"• 再按「第一次设定」重新建立"
+msgstr ""
+"The Clone Desktop program is gone. An antivirus (such as 360 or Huorong) may have removed it:\n"
+"• In your antivirus, mark this folder as trusted: {folder}\n"
+"• Then press \"First-time setup\" to build it again"
+
+msgid "分身程序打不开，可能被防毒软件挡住了：请把 {folder} 设为信任，再到「设置」按「第一次设定」"
+msgstr "The Clone Desktop program couldn't start; an antivirus may be blocking it. Mark {folder} as trusted, then press \"First-time setup\" in Settings."

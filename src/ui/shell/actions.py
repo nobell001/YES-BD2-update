@@ -67,6 +67,9 @@ def start(task, window=None, run_mode: str | None = None) -> bool:
         logger.info("start refused: a run is going in the 桌面分身")
         clone_flow.message(window, "工具正在桌面分身里跑，要在这里跑请先按停止", error=True)
         return False
+    if clone_flow.restart_outdated_clone(window, task, run_mode):
+        _notify_started()
+        return True
     if clone_flow.hand_to_clone(window, task, run_mode):
         _notify_started()
         return True

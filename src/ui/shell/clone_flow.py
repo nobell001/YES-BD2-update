@@ -16,6 +16,7 @@ removed every auto-run on opening, 2026-10-03).
 
 from __future__ import annotations
 
+import functools
 import json
 import time
 
@@ -93,31 +94,39 @@ def ask_and_start(window, task, run_mode: str | None = None) -> bool:
     # Leo (2026-10-03 14:35): short bullet points.
     intro = "• 纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑\n• 照常用电脑，鼠标键盘不会被抢"
     hello = clone_desktop.hello_only()
-    if not clone_desktop.ready():
-        steps = (
+    if clone_desktop.viewer_removed():
+        steps = tf(
+            "分身程序不见了，可能被防毒软件（例如 360、火绒）删掉了：\n"
+            "• 在防毒软件把这个文件夹设为信任：{folder}\n"
+            "• 再按「第一次设定」重新建立",
+            folder=str(clone_desktop.DATA_DIR),
+        )
+        yes = "第一次设定"
+    elif not clone_desktop.ready():
+        steps = t((
             "第一次要先设定：\n"
             "• 会跳出 Windows 确认，请按「是」\n"
             "• 设定好后再按一次这个按钮"
-        )
+        ))
         yes = "第一次设定"
     elif hello:
-        steps = (
+        steps = t((
             "要先改一个登录设定：\n"
             "• 分身要用密码登录，现在只允许 PIN／脸\n"
             "• 在「登录选项」关掉「只允许 Windows Hello 登录」\n"
             "• 改好后再按一次这个按钮"
-        )
+        ))
         yes = "打开登录选项"
     else:
-        steps = (
+        steps = t((
             "按「前往」后：\n"
             "• Windows 确认请按「是」\n"
             "• 第一次要打账户密码（不是 PIN），之后会记住\n"
             "• 游戏和日常自动开始，进度在这里看"
-        )
+        ))
         yes = "前往"
     # Translated in parts: the catalogs hold each part, not the joined text.
-    box = MessageBox(t("在桌面分身跑"), t(intro) + "\n\n" + t(steps), window)
+    box = MessageBox(t("在桌面分身跑"), t(intro) + "\n\n" + steps, window)
     box.yesButton.setText(t(yes))
     box.cancelButton.setText(t("取消"))
     if not box.exec():
@@ -155,6 +164,8 @@ def hand_to_clone(window, task, run_mode: str | None = None) -> bool:
     the job within five seconds (``_run_pending_job``).
     """
     if clone_desktop.in_clone() or not clone_desktop.tool_running_in_clone():
+        return False
+    if clone_outdated():
         return False
     clone_desktop.request_job(str(task.name), run_mode)
     logger.info(f"clone: handed {task.name} (mode {run_mode or '-'}) to the tool in the clone")
@@ -202,11 +213,56 @@ def end_idle_clone(window) -> bool:
     return True
 
 
+@functools.lru_cache(maxsize=1)
+def own_version() -> str:
+    try:
+        from src.config import runtime_version
+
+        return str(runtime_version())
+    except Exception:
+        return ""
+
+
+def clone_outdated() -> bool:
+    """Outside: the tool open in the clone is another version than this one.
+
+    The tool updates itself when it is opened again, while the one already
+    open in the clone keeps running the old code from the updated folder
+    (2026-10-09 review).  An idle one is closed and opened again before a
+    task is handed to it.
+    """
+    if clone_desktop.in_clone():
+        return False
+    status = clone_desktop.read_status(FRESH_SECONDS)
+    theirs = str((status or {}).get("version") or "")
+    if not theirs:
+        return False  # a tool from before versions were published
+    mine = own_version()
+    return bool(mine) and theirs != mine
+
+
+def restart_outdated_clone(window, task, run_mode: str | None = None) -> bool:
+    """Outside: an idle clone with an older tool is closed and opened again for ``task``."""
+    if task is None or not clone_outdated() or busy_in_clone():
+        return False
+    return open_clone(window, task, run_mode)
+
+
+def _end_outdated_clone(window) -> bool:
+    logger.info("clone: the tool in the 桌面分身 is an older version, closing it")
+    if clone_desktop.end_clone():
+        return True
+    message(window, "没能关掉分身，请在分身窗口按右上角的 X 关掉再开始", error=True)
+    return False
+
+
 def open_clone(window, task=None, run_mode: str | None = None) -> bool:
     """Open the clone and start the tool in it; with ``task``, it runs that task."""
     global _launch
     if not clone_desktop.ready():
         message(window, "桌面分身还没设定好，请先到「设置」按「第一次设定」", error=True)
+        return False
+    if clone_outdated() and not busy_in_clone() and not _end_outdated_clone(window):
         return False
     if (
         task is not None
@@ -222,7 +278,17 @@ def open_clone(window, task=None, run_mode: str | None = None) -> bool:
         clone_desktop.clear_job()
     if not clone_desktop.open_viewer():
         clone_desktop.clear_job()
-        message(window, "没有打开分身（Windows 的确认按了「否」）", error=True)
+        if clone_desktop.open_failure.get("why") == "declined":
+            message(window, "没有打开分身（Windows 的确认按了「否」）", error=True)
+        else:
+            message(
+                window,
+                tf(
+                    "分身程序打不开，可能被防毒软件挡住了：请把 {folder} 设为信任，再到「设置」按「第一次设定」",
+                    folder=str(clone_desktop.DATA_DIR),
+                ),
+                error=True,
+            )
         return False
     if _launch is None:
         _launch = _Launch()
@@ -565,6 +631,7 @@ def run_status() -> dict:
         stage = stage or "等待自动登录完成"
     return {
         "at": time.time(),
+        "version": own_version(),
         "running": current is not None or report is not None,
         "report": report,
         "task": str(getattr(current, "name", "") or ""),

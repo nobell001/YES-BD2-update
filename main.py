@@ -1,4 +1,89 @@
+def _ascii_root(script_dir: str, prefix: str) -> str:
+    """The folder to reach through an English-only link: the whole install
+    (pyappify's <root>\\data\\apps\\<name>\\working, so Python and its packages
+    too), else what the tool and its Python share, else the tool's folder."""
+    import os
+
+    parts = script_dir.split(os.sep)
+    lowered = [part.lower() for part in parts]
+    if len(parts) >= 4 and lowered[-1] == "working" and lowered[-3] == "apps" and lowered[-4] == "data":
+        return os.sep.join(parts[:-4])
+    try:
+        common = os.path.commonpath([script_dir, prefix])
+    except ValueError:
+        common = ""
+    if common and not common.isascii() and os.path.dirname(common) != common:
+        return common
+    return script_dir
+
+
+def _link_for(target: str) -> str | None:
+    """An English-only folder that leads to ``target`` (a junction; no Administrator needed)."""
+    import _winapi
+    import hashlib
+    import os
+
+    base = os.path.join(os.environ.get("ProgramData") or r"C:\ProgramData", "YES-BD2", "links")
+    if not base.isascii():
+        return None
+    link = os.path.join(base, hashlib.sha1(target.lower().encode("utf-8")).hexdigest()[:10])
+    try:
+        if os.path.isdir(link) and os.path.samefile(link, target):
+            return link
+        if os.path.lexists(link):
+            os.rmdir(link)  # an old link to somewhere else; removes only the link
+        os.makedirs(base, exist_ok=True)
+        _winapi.CreateJunction(target, link)
+    except OSError:
+        return None
+    return link if os.path.samefile(link, target) else None
+
+
+def use_ascii_paths() -> None:
+    """安装文件夹有中文（例如 C:\\Users\\<中文用户名>\\AppData\\Local\\yes-bd2）时，经由英文路径的连结打开。
+
+    ok-script 遇到非英文路径就不启动，OpenCV 也读不了这种路径的图片。中文
+    Windows 给中文文件夹的短名仍是中文（4K 实测 10-09：中文路~1），所以在
+    C:\\ProgramData\\YES-BD2\\links 建一个指向安装文件夹的连结，在导入任何
+    src 模块之前把路径都换成经由它的路径（2026-10-09 检查）。路径本来就是
+    英文时什么都不做。
+    """
+    import os
+    import sys
+
+    if sys.platform != "win32":
+        return
+    script = os.path.abspath(sys.argv[0])
+    if script.isascii():
+        return
+    target = _ascii_root(os.path.dirname(script), os.path.abspath(sys.prefix))
+    link = _link_for(target)
+    if link is None:
+        return  # ok-script then shows its own 「必须是英文路径」 message
+
+    def mapped(path: str) -> str:
+        if not path:
+            return path
+        full = os.path.abspath(path)
+        if full.lower() == target.lower():
+            return link
+        if full.lower().startswith(target.lower() + os.sep):
+            return link + full[len(target):]
+        return path
+
+    sys.argv[0] = mapped(script)
+    # The Administrator copy and the tool in the 桌面分身 start from these.
+    sys.executable = mapped(sys.executable)
+    sys.path[:] = [mapped(entry) for entry in sys.path]
+    try:
+        os.chdir(mapped(os.getcwd()))
+    except OSError:
+        pass
+
+
 if __name__ == "__main__":
+    use_ascii_paths()
+
     # 以管理员身份启动：Windows 确认一次，取代 ok-script 的「需要管理员权限」
     # 对话框（Leo, 2026-10-03）。桌面分身里不问。
     from src.compat.elevate import relaunch_as_admin
@@ -36,6 +121,11 @@ if __name__ == "__main__":
         ensure_core_dependencies()
 
         import ok
+
+        # 设置文件写到一半断电也不会让工具从此打不开（2026-10-09 检查）。
+        from src.compat.safe_json import install_safe_json
+
+        install_safe_json()
 
         from src.config import config
 

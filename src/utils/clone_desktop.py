@@ -25,6 +25,8 @@ DATA_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "bd2-auto" /
 VIEWER = DATA_DIR / "CloneDesktop.exe"
 # Written by the viewer: "started", "running PID" or "failed WHY".
 LAUNCH_RESULT = DATA_DIR / "launch-result.txt"
+# Written by setup.ps1 at the first setup, deleted by 还原.
+SETUP_STATE = DATA_DIR / "setup-state.json"
 # One task handed from a start button outside to the tool started in the clone.
 JOB_FILE = DATA_DIR / "pending-run.json"
 # The run in the clone, as the tool outside shows it (Leo, 2026-10-03 13:17:
@@ -66,6 +68,16 @@ def ready() -> bool:
     return VIEWER.exists() and child_sessions_enabled()
 
 
+def viewer_removed() -> bool:
+    """Set up once, but CloneDesktop.exe is gone: most likely an antivirus took it.
+
+    The tool builds that program on the player's PC, so antivirus programs
+    such as 360 or 火绒 may see an unknown program and remove it (review
+    2026-10-09).
+    """
+    return SETUP_STATE.exists() and not VIEWER.exists()
+
+
 def hello_only() -> bool:
     """A Microsoft account limited to Windows Hello cannot sign in to the clone."""
     value = _read_hklm(
@@ -87,15 +99,56 @@ def viewer_running() -> bool:
         return False
 
 
-def in_clone() -> bool:
-    """True when this process itself runs on the clone desktop."""
+def _session_of(pid: int) -> int | None:
     try:
         session = ctypes.c_ulong(0)
-        ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(session))
-        console = ctypes.windll.kernel32.WTSGetActiveConsoleSessionId()
+        if not ctypes.windll.kernel32.ProcessIdToSessionId(pid, ctypes.byref(session)):
+            return None
     except (AttributeError, OSError):
+        return None
+    return session.value
+
+
+def _console_session() -> int | None:
+    try:
+        return ctypes.windll.kernel32.WTSGetActiveConsoleSessionId()
+    except (AttributeError, OSError):
+        return None
+
+
+def _viewer_in_other_session(own: int) -> bool:
+    """CloneDesktop.exe runs in a session other than ``own`` (the clone's parent)."""
+    try:
+        import psutil
+
+        processes = list(psutil.process_iter(["pid", "name"]))
+    except Exception:
         return False
-    return session.value != console
+    for process in processes:
+        if (process.info.get("name") or "").lower() != "clonedesktop.exe":
+            continue
+        session = _session_of(process.info["pid"])
+        if session is None or session != own:
+            return True
+    return False
+
+
+@functools.lru_cache(maxsize=1)
+def in_clone() -> bool:
+    """True when this process itself runs on the clone desktop.
+
+    Not the console session is not enough: a player who opens the tool over
+    ordinary Remote Desktop is not on the console either, and there the tool
+    must still ask for Administrator, stay on screen, stop on a key press and
+    leave the startup programs (Steam, Discord...) alone.  The clone exists
+    only while its window (CloneDesktop.exe) is open in another session.  A
+    process never changes session, so the answer is kept.
+    """
+    own = _session_of(os.getpid())
+    console = _console_session()
+    if own is None or console is None or own == console:
+        return False
+    return _viewer_in_other_session(own)
 
 
 def child_session_id() -> int | None:
@@ -290,15 +343,29 @@ def open_viewer(launch_tool: bool = True) -> bool:
         args += ["-move", starter_launch_uri()]
     except Exception:
         pass
+    open_failure["why"] = ""
     if is_admin():
-        subprocess.Popen([str(VIEWER), *args], cwd=str(DATA_DIR))
+        try:
+            subprocess.Popen([str(VIEWER), *args], cwd=str(DATA_DIR))
+        except OSError:
+            # Missing, or an antivirus refused to start it.
+            open_failure["why"] = "blocked"
+            return False
         return True
     shell_execute = ctypes.windll.shell32.ShellExecuteW
     shell_execute.restype = ctypes.c_void_p
     result = shell_execute(
         None, "runas", str(VIEWER), subprocess.list2cmdline(args), str(DATA_DIR), 1
     )
-    return (result or 0) > 32
+    if (result or 0) > 32:
+        return True
+    # 5 (access denied) is the user's 「否」; anything else kept it from starting.
+    open_failure["why"] = "declined" if result == 5 else "blocked"
+    return False
+
+
+# Why the last open_viewer() returned False: "declined" or "blocked".
+open_failure = {"why": ""}
 
 
 def launch_result() -> str | None:
