@@ -1133,7 +1133,11 @@
       5,
       4
      ],
-     "burst_sp": []
+     "burst_sp": [
+      2,
+      1,
+      1
+     ]
     },
     {
      "id": "Celia_3",
@@ -3750,22 +3754,27 @@
      ]
     },
     {
-     "id": "official_Nekyndalia_f96c6f42",
-     "temporary": true,
+     "id": "Nekyndalia_2",
      "name_zh_tw": "殘破木乃伊",
-     "name_zh_cn": "残破木乃伊",
+     "name_zh_cn": "白缕轻缠木乃伊",
      "name_en": "Unraveling Mummy",
      "name_ja": "ゆるゆるミイラ",
      "name_ko": "헐거운 미라",
-     "skill_zh_tw": "",
-     "skill_zh_cn": "",
-     "skill_en": "",
-     "skill_ja": "",
-     "skill_ko": "",
-     "sp": [],
-     "burst_sp": [],
-     "notice": "01M43YMWP6D2BARYD15JKCKR13",
-     "announced": "2026-10-06"
+     "skill_zh_tw": "現在開始清掃。",
+     "skill_zh_cn": "清扫工作，现在开始",
+     "skill_en": "Initiating Cleanup",
+     "skill_ja": "掃除を始めましょう",
+     "skill_ko": "청소를 시작하겠습니다",
+     "sp": [
+      6,
+      5
+     ],
+     "burst_sp": [
+      2,
+      1,
+      1
+     ],
+     "added": "2026-10-08"
     }
    ]
   },
@@ -4775,5 +4784,8 @@
    "summoner_id": "Diana",
    "costume_id": "Diana_3"
   }
- ]
+ ],
+ "aliases": {
+  "official_Nekyndalia_f96c6f42": "Nekyndalia_2"
+ }
 }
