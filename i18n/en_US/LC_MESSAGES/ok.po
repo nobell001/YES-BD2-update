@@ -2566,3 +2566,9 @@ msgstr "Runs in the background and finishes even if you close the tool. Takes ef
 
 msgid "游戏语言是繁体中文，工具目前只认得简体中文，所以认不出画面。请到游戏设置把语言改成简体中文，再重新执行。"
 msgstr "The game language is Traditional Chinese. The tool only reads Simplified Chinese for now, so it can't recognise the screen. Switch the game language to Simplified Chinese in the game settings, then run again."
+
+msgid "主页卡带 → 末日之书 → 走到红色交叉剑标记 → 去战斗 → 跳过 → 离开 → 回主页（每周任务：参与末日之书）。战斗不消耗资源。走法跟镜中之战的「舞台移动方式」一样。"
+msgstr "Packs on Home → Last Night → walk to the red crossed-swords marker → Go to battle → Skip → Leave → back to Home (Weekly Quest: Take part in Last Night). The battle costs no resources. It moves the way Mirror Wars' \"Stage movement\" setting says."
+
+msgid "游戏设置为点击移动时选「鼠标点击舞台」；用 WASD 移动的玩家选「键盘WASD走到舞台」。末日之书走到红色战斗标记也用这个设置，走不到时会换另一种方式再试。"
+msgstr "If the game is set to click-to-move, choose \"Click to stage\"; players who move with WASD choose \"Walk to stage with WASD\". Last Night uses this setting too to reach the red battle marker, and tries the other way if it can't get there."

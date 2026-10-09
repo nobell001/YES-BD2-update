@@ -10,7 +10,7 @@ from time import monotonic
 import cv2
 import numpy as np
 
-from src.tasks.map_trade import story_card_art
+from src.tasks.map_trade import event_card_art, story_card_art
 from src.tasks.map_trade.card_status import (
     CardActionState,
     CollectionCardSelectionOutcome,
@@ -33,6 +33,9 @@ from src.tasks.map_trade.navigator_constants import (
     CHARACTER_BADGE_Y,
     CHARACTER_CATEGORY_HIGHLIGHT_REGION,
     CHARACTER_CATEGORY_POINT,
+    EVENT_CARD_SCAN_SECONDS,
+    EVENT_CATEGORY_HIGHLIGHT_REGION,
+    EVENT_CATEGORY_POINT,
     FIRST_CARD_CONFIRM_REGION,
     FIRST_CARD_INSERT_REGION,
     FIRST_CARD_SKIP_TEMPLATE,
@@ -54,7 +57,8 @@ from src.tasks.map_trade.navigator_constants import (
     QUICK_SWITCH_SCROLL_UP_AMOUNT,
     QUICK_SWITCH_SCROLL_UP_COUNT,
     QUICK_SWITCH_TEMPLATE,
-    FIELD_KEYCAP_TEMPLATES,
+    FIELD_ALL_KEYCAP_TEMPLATES,
+    FIELD_KEYCAP_MIN_PASSES,
     STORY_BADGE_CANDIDATE_SCORE,
     STORY_BADGE_CLUSTER_RADIUS,
     STORY_BADGE_ENCODED_MIN_MARGIN,
@@ -199,6 +203,8 @@ class StoryCardNavigationMixin:
         """(tab label, click point, highlight region) of a quick bar tab."""
         if category == "character":
             return "角色游戏卡", CHARACTER_CATEGORY_POINT, CHARACTER_CATEGORY_HIGHLIGHT_REGION
+        if category == "event":
+            return "活动游戏卡", EVENT_CATEGORY_POINT, EVENT_CATEGORY_HIGHLIGHT_REGION
         return "剧情游戏卡", STORY_CATEGORY_POINT, STORY_CATEGORY_HIGHLIGHT_REGION
 
     def _click_quick_switch(self, timeout: float, after_sleep: float) -> bool:
@@ -216,11 +222,14 @@ class StoryCardNavigationMixin:
         ):
             return True
         frame = self.vision.capture()
-        if all(
-            self.vision.passes(self.vision.match(frame, spec), spec)
-            for spec in FIELD_KEYCAP_TEMPLATES
+        if (
+            sum(
+                self.vision.passes(self.vision.match(frame, spec), spec)
+                for spec in FIELD_ALL_KEYCAP_TEMPLATES
+            )
+            >= FIELD_KEYCAP_MIN_PASSES
         ):
-            self._status("快速切换按钮", "模板未命中，按键CH确认在箱庭，点击标定位置")
+            self._status("快速切换按钮", "模板未命中，按键确认在箱庭，点击标定位置")
             self.vision.click_reference(*FIELD_QUICK_SWITCH_REFERENCE_POINT, after_sleep=after_sleep)
             return True
         return self.vision.click_stable_template(
@@ -1047,6 +1056,8 @@ class StoryCardNavigationMixin:
         A card the art cannot settle (e.g. 游玩中 covers it) goes through the
         badge tiers as before."""
 
+        if getattr(self, "_badge_category", "story") == "event":
+            return self._find_event_card_by_art(frame, target_number)
         if getattr(self, "_badge_category", "story") == "story":
             detection, reason = self._find_story_card_by_art(frame, target_number)
             if detection is not None:
@@ -1102,6 +1113,48 @@ class StoryCardNavigationMixin:
                 runner_up=None,
                 ocr_text=text,
                 ocr_number=number,
+                recovery_mode="card_art",
+            ),
+            "",
+        )
+
+    def _find_event_card_by_art(
+        self,
+        frame: np.ndarray,
+        target_number: int,
+    ) -> tuple[StoryBadgeDetection | None, str]:
+        """An event card by its cover art alone: the tab numbers its slots by
+        position, so a number never names a card (event_card_art)."""
+
+        try:
+            check = event_card_art.find_card(frame, target_number)
+        except (cv2.error, ValueError) as exc:
+            return None, f"图片比对异常：{exc}"
+        if not check.ok or check.target is None:
+            return None, check.reason
+        art = check.target
+        factor = frame.shape[0] / 1080.0
+        center_x, center_y = art.badge_center
+        side = max(1, round(event_card_art.BADGE_SIZE_1080 * factor))
+        half = side / 2
+        result = MatchResult(
+            art.score,
+            (round(center_x * factor - half), round(center_y * factor - half)),
+            (side, side),
+            scale=factor,
+        )
+        other = check.other
+        self._status(
+            "活动卡带图片",
+            (
+                f"{target_number}: 图片{art.score:.3f}"
+                + (f"，次高卡带{other.number} {other.score:.3f}" if other else "")
+            ),
+        )
+        return (
+            StoryBadgeDetection(
+                best=StoryBadgeCandidate(target_number, result),
+                runner_up=None,
                 recovery_mode="card_art",
             ),
             "",
@@ -1777,6 +1830,20 @@ class StoryCardNavigationMixin:
                 ),
             )
             return frame, detection
+
+        if getattr(self, "_badge_category", "story") == "event":
+            # Every owned event card shows at once: look, no scrolling.
+            end_at = monotonic() + EVENT_CARD_SCAN_SECONDS
+            while True:
+                found = scan_current_page()
+                if found is not None or monotonic() >= end_at:
+                    break
+                self.task.sleep(0.5)
+            if found is None:
+                self.task.log_warning(
+                    f"跑图：活动游戏卡页没有认出活动卡带{target_number}：{last_reason}。"
+                )
+            return found
 
         # A card clearly off screen skips the slow full look (1.5-9 s at 2K).
         offset = self._story_bar_offset(self.vision.capture())

@@ -122,18 +122,28 @@ class CardSpec:
     shop_label: str
     collectable: bool = True
     targets: tuple[CollectionMapTarget, ...] = ()
-    # The quick bar tab it sits in: "story" (剧情游戏卡) or "character" (角色游戏卡).
+    # The quick bar tab it sits in: "story" (剧情游戏卡), "character" (角色游戏卡)
+    # or "event" (活动游戏卡).
     category: str = "story"
 
     @property
     def label(self) -> str:
-        """How messages name the card: 第14章 / 角色卡1."""
-        return f"角色卡{self.number}" if self.category == "character" else f"第{self.number}章"
+        """How messages name the card: 第14章 / 角色卡1 / 活动卡2."""
+        if self.category == "character":
+            return f"角色卡{self.number}"
+        if self.category == "event":
+            return f"活动卡{self.number}"
+        return f"第{self.number}章"
 
     @property
     def filter_key(self) -> int | str:
-        """Its token in 跑图章节 / 测试章节: 14 for a chapter, "R1" for a character card."""
-        return f"R{self.number}" if self.category == "character" else self.number
+        """Its token in 跑图章节 / 测试章节: 14 for a chapter, "R1" for a
+        character card, "E2" for an event card."""
+        if self.category == "character":
+            return f"R{self.number}"
+        if self.category == "event":
+            return f"E{self.number}"
+        return self.number
 
 
 @dataclass(frozen=True)
@@ -260,16 +270,30 @@ WALK_LABEL_EDGES = {
 # skills; Leo: "先壓制就不會碰到怪了", then "傳送艾琳比較穩 那就先傳艾琳".
 # Character card 3: 禁闭室's menu lists 艾琳 and no 狩猎场 (live 4K
 # 2026-10-03); 艾琳 also keeps the way back clear of 战斗Ⅰ's patrol.
-TOWN_NAV_ENTRIES = {"Q_sp14": "艾琳", "Q_cp3": "艾琳"}
+TOWN_NAV_ENTRIES = {
+    "Q_sp14": "艾琳",
+    "Q_cp3": "艾琳",
+    # Event cards without a teleport circle (Leo 2026-10-09).
+    **{card_id: "艾琳" for card_id in ("Q_ep1", "Q_ep3", "Q_ep5", "Q_ep7")},
+}
 # Restarts (a start on any map but the first or last, or a failed move) go to
 # the town through this ≡-menu entry first, even when standing on a circle.
 # Character card 3 (Leo 2026-10-03: "如果一開始 玩家在戰鬥一 或者 三 就先傳回艾琳
 # 然後再走去魔法陣繼續").
-RESTART_NAV_ENTRIES = {"Q_cp3": "艾琳"}
+RESTART_NAV_ENTRIES = {
+    "Q_cp3": "艾琳",
+    # Event cards: too close to an exit to click it -> 艾琳, then the exit
+    # (Leo 2026-10-09: "人物和傳送點貼太近有時候不好點 那就直接傳送回艾琳").
+    **{card_id: "艾琳" for card_id in ("Q_ep1", "Q_ep3", "Q_ep5", "Q_ep7")},
+}
 # Cards whose patrol catch is left alone: the game reloads the map and walks
 # on by itself, so the exit walk keeps waiting instead of clicking again
 # (Leo 2026-10-03, card 3's 墨镜大叔: "最好方法就是不處理 放著總會過的").
-RESUMING_WALK_CARD_IDS = frozenset({"Q_cp3"})
+RESUMING_WALK_CARD_IDS = frozenset(
+    # Event-card walks are long (Memory Edge 40 s with a field battle on
+    # the way, live 4K 2026-10-09): wait for the walk to end.
+    {"Q_cp3", "Q_ep1", "Q_ep3", "Q_ep5", "Q_ep7"}
+)
 # Cards whose last map is left for the town (≡ menu, TOWN_NAV_ENTRIES)
 # instead of walking back: a start there runs last -> town -> the rest
 # forward.  Card 3 (live 4K 2026-10-04): arriving at 禁闭室 by the walk
@@ -384,11 +408,94 @@ CHARACTER_CARDS = tuple(
     for number, name in enumerate(CHARACTER_CARD_NAMES, start=1)
 )
 
-# The weekly map run: story chapters, then character cards.
-COLLECTABLE_CARDS = STORY_COLLECTABLE_CARDS + tuple(
-    card for card in CHARACTER_CARDS if card.collectable
+# 活动游戏卡: the permanent event cards (Leo 2026-10-09), numbered as the
+# shop numbers them (E1/E2/E3/E5/E7; 4 and 6 are time-limited).  Walked live
+# at 4K 2026-10-09 (docs/dev-notes/event-cartridges-2026-10-09.md):
+#   1 Summer Knight: 泳池派对场 (安全), 战斗Ⅰ 派对会场角落
+#   2 Nightmare Winter: 战斗Ⅰ 恶梦之城1, 战斗Ⅱ 恶梦之城2, 雷瓦汀据点 (安全,
+#     a shop, the LAST teleport page); every map has a teleport circle
+#   3 Beachside Angels: 海岸沙滩 (安全), 战斗Ⅰ 海岸椰林
+#   5 Memory Edge: 底层居住区 (安全), 战斗Ⅰ 第4区, 安全 ??? (unopened)
+#   7 Splash Queen: 水上乐园室内泳池 (安全), 战斗Ⅰ 泼水音乐节活动现场,
+#     水上乐园物资仓库 (安全)
+# Cards 1/3/5/7 have no teleport circle: the two maps are walked between on
+# the area map (EVENT_WALK_EDGES).
+EVENT_CARD_NAMES = {
+    1: "夏日骑士",
+    2: "恶梦之冬",
+    3: "海滨天使",
+    5: "记忆边缘",
+    7: "戏水女王",
+}
+EVENT_COLLECTION_TARGETS = {
+    1: (
+        CollectionMapTarget(_MAIN, "泳池派对场"),
+        CollectionMapTarget(_BATTLE_1, "派对会场角落"),
+    ),
+    2: (
+        CollectionMapTarget(_MAIN, "雷瓦汀据点"),
+        CollectionMapTarget(_BATTLE_1, "恶梦之城1", excludes=("恶梦之城2",)),
+        CollectionMapTarget(_BATTLE_2, "恶梦之城2", excludes=("恶梦之城1",)),
+    ),
+    3: (
+        CollectionMapTarget(_MAIN, "海岸沙滩"),
+        CollectionMapTarget(_BATTLE_1, "海岸椰林"),
+    ),
+    5: (
+        CollectionMapTarget(_MAIN, "底层居住区"),
+        CollectionMapTarget(_BATTLE_1, "第4区"),
+    ),
+    7: (
+        CollectionMapTarget(_MAIN, "水上乐园室内泳池", aliases=("室内泳池",)),
+        CollectionMapTarget(_BATTLE_1, "泼水音乐节活动现场", aliases=("音乐节活动现场",)),
+    ),
+}
+EVENT_CARDS = tuple(
+    CardSpec(
+        card_id=f"Q_ep{number}",
+        number=number,
+        name=name,
+        template=f"image/Cartridges/Q_ep{number}.png",
+        shop_label=f"E{number}:{name}",
+        targets=EVENT_COLLECTION_TARGETS[number],
+        category="event",
+    )
+    for number, name in EVENT_CARD_NAMES.items()
 )
-CARD_BY_ID = {card.card_id: card for card in (*STORY_CARDS, *CHARACTER_CARDS)}
+WALKED_EVENT_CARD_IDS = frozenset({"Q_ep1", "Q_ep3", "Q_ep5", "Q_ep7"})
+# (card, from, to) -> area-map spots (1080 ref) tried in order until the map
+# closes, as WALK_EDGES; a spot may open the small list of what stands
+# there (战斗区 / 旅馆 / 艾琳...), whose 战斗区 / 安全区 row then starts the
+# walk (navigator_sandbox._click_exit_picker).  Standing on the exit itself
+# the spot often does nothing (Leo: 太近不好點): the failed move restarts
+# from 艾琳 (RESTART_NAV_ENTRIES), from where the spot works (live 4K
+# 2026-10-09, cards 1 and 3).
+EVENT_WALK_EDGES = {
+    # Summer Knight: one ring each way; on the battle page just below the
+    # ring worked when standing on it.
+    ("Q_ep1", "main_area", "battle_area_1"): ((682, 392),),
+    ("Q_ep1", "battle_area_1", "main_area"): ((492, 768), (492, 745)),
+    # Beachside Angels: two battle exits share one picker; two house rings
+    # on the battle page.
+    ("Q_ep3", "main_area", "battle_area_1"): ((733, 689), (690, 727)),
+    ("Q_ep3", "battle_area_1", "main_area"): ((326, 411), (371, 365)),
+    # Memory Edge: the 第4区 label; the battle map's bottom exit (where the
+    # walk from the town arrives), else its far exit (a 40 s walk).
+    ("Q_ep5", "main_area", "battle_area_1"): ((480, 253), (480, 272), (736, 449)),
+    ("Q_ep5", "battle_area_1", "main_area"): ((537, 718), (537, 735), (392, 548), (392, 567)),
+    # Splash Queen: the 水上乐园室内泳池 label / its ring, and the pool's
+    # battle ring.
+    ("Q_ep7", "battle_area_1", "main_area"): ((396, 384), (395, 402)),
+    ("Q_ep7", "main_area", "battle_area_1"): ((748, 585), (748, 565)),
+}
+
+# The weekly map run: story chapters, then character cards, then event cards.
+COLLECTABLE_CARDS = (
+    STORY_COLLECTABLE_CARDS
+    + tuple(card for card in CHARACTER_CARDS if card.collectable)
+    + EVENT_CARDS
+)
+CARD_BY_ID = {card.card_id: card for card in (*STORY_CARDS, *CHARACTER_CARDS, *EVENT_CARDS)}
 
 
 CHARACTER_SHOPS = {

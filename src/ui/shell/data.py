@@ -335,13 +335,14 @@ def cartridge_picture(code: str) -> str | None:
 @dataclass
 class CardProgress:
     card_id: str
-    code: str  # S1 / R2: picture and short label
+    code: str  # S1 / R2 / E3: picture and short label
     number: int
     name: str
     story: bool
     maps: int
     done_maps: int
     complete: bool
+    category: str = "story"  # story / character / event
 
 
 @dataclass
@@ -383,18 +384,20 @@ def map_progress() -> MapProgress | None:
         store = _ReadOnlyStore()
         state = store.load()
         cards = []
+        prefixes = {"story": "S", "character": "R", "event": "E"}
         for card in COLLECTABLE_CARDS:
-            if card.number in UNSUPPORTED_COLLECTION_CARD_NUMBERS and card.category != "character":
+            if card.number in UNSUPPORTED_COLLECTION_CARD_NUMBERS and card.category == "story":
                 continue
-            story = card.category != "character"
+            story = card.category == "story"
             done = len(state.completed_targets(card.card_id))
             cards.append(
                 CardProgress(
                     card_id=card.card_id,
-                    code=f"{'S' if story else 'R'}{card.number}",
+                    code=f"{prefixes.get(card.category, 'S')}{card.number}",
                     number=card.number,
                     name=card.name,
                     story=story,
+                    category=card.category,
                     maps=len(card.targets),
                     done_maps=done,
                     complete=state.card_complete(card.card_id),

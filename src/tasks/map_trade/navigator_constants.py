@@ -107,6 +107,17 @@ CHARACTER_CATEGORY_HIGHLIGHT_REGION = (
     825 / FHD_1080.width,
     915 / FHD_1080.height,
 )
+# The 活动游戏卡 tab at the bar's right end (live 4K 2026-10-09: highlight
+# 0.083 selected; the story / character regions read 0.007 / 0.010 then).
+EVENT_CATEGORY_POINT = (1358 / FHD_1080.width, 877 / FHD_1080.height)
+EVENT_CATEGORY_HIGHLIGHT_REGION = (
+    1255 / FHD_1080.width,
+    840 / FHD_1080.height,
+    1460 / FHD_1080.width,
+    915 / FHD_1080.height,
+)
+# The event tab never scrolls (at most 7 cards fit): how long to look.
+EVENT_CARD_SCAN_SECONDS = 3.0
 QUICK_SWITCH_CARTRIDGE_REGION = (0.0, 908 / FHD_1080.height, 1.0, 1.0)
 QUICK_SWITCH_SCROLL_FOCUS_POINT = (43 / FHD_1080.width, 974 / FHD_1080.height)
 # Top-left back arrow of the quick bar / card collection page.
@@ -373,6 +384,36 @@ FIELD_KEYCAP_TEMPLATES = (
         minimum_safe_threshold=0.78,
     ),
 )
+# The M cap under the minimap and the Q cap under the bottom discs, cut
+# tight (white cap and letter only, no background; 1080p downscale of a 4K
+# field frame).  On bright sand the C cap found nothing at all (Beachside
+# Angels, live 4K 2026-10-09: C -1, H 0.83-0.90) and the field read as
+# UNKNOWN for 60 s; M scored 0.96 and Q 0.98 on every field frame of the five
+# event cards, and nothing on home, the quick bar, the area map, a loading
+# screen or a dimmed dialog.  While the game walks the character, the caps
+# but M hide, as before.
+FIELD_EXTRA_KEYCAP_TEMPLATES = (
+    TemplateSpec(
+        "箱庭按键M",
+        "field/field_keycap_M.png",
+        0.80,
+        relative_roi=(176 / 1920, 222 / 1080, 238 / 1920, 274 / 1080),
+        min_pixel_score=0.75,
+        minimum_safe_threshold=0.80,
+    ),
+    TemplateSpec(
+        "箱庭按键Q",
+        "field/field_keycap_Q.png",
+        0.80,
+        relative_roi=(1053 / 1920, 1022 / 1080, 1115 / 1920, 1074 / 1080),
+        min_pixel_score=0.75,
+        minimum_safe_threshold=0.80,
+    ),
+)
+FIELD_ALL_KEYCAP_TEMPLATES = FIELD_KEYCAP_TEMPLATES + FIELD_EXTRA_KEYCAP_TEMPLATES
+# How many of the four caps prove the field (C and H both, as before, or
+# any two once M / Q join).
+FIELD_KEYCAP_MIN_PASSES = 2
 SANDBOX_SKILL_GROUP_TEMPLATE_SCORE = 0.95
 # Structural gates retain candidates in complex backgrounds; HSV semantics
 # below decide whether a slot is selected or unselected.
@@ -517,6 +558,11 @@ MAP_MERCHANT_ICON_TIMEOUT = 5.0
 MERCHANT_NAV_GUIDE_TEMPLATE = TemplateSpec(
     "小地图导航", "image/Nvi_SandGuideButt.png", 0.72, roi=(180, 45, 210, 110)
 )
+# Where that ≡ button sits (1080p (288, 112), in the 1280x720 reference).
+# On bright sand the template found nothing at all (Beachside Angels, live
+# 4K 2026-10-09); with a C/H key cap proving the field HUD this spot is
+# pressed, and the menu's OCR that follows still has to list the entry.
+MERCHANT_NAV_GUIDE_REFERENCE_POINT = (288 * 1280 / 1920, 112 * 720 / 1080)
 # 以下两个 OCR 区域与上方模板 roi 同属 map_trade 模块的 1280×720（MAP_TRADE_REFERENCE）
 # 参考系，由 vision.reference_roi / match 统一缩放（代码质量阶段 B-1 补注）。
 MERCHANT_NAV_MENU_OCR_ROI = (220, 40, 360, 340)
@@ -873,6 +919,14 @@ AREA_MAP_SCAN_LIMIT = 24
 # 2026-09-30: label centre y 675, its green house icon y 694).
 AREA_MAP_EXIT_LABEL_RELATIVE_ROI = (0.10, 0.10, 0.90, 0.86)
 AREA_MAP_EXIT_ICON_OFFSETS = (18, 0, 30)
+# Rows of the small list an area-map spot opens when several things stand
+# there (event cards, live 4K 2026-10-09: 战斗区 / 旅馆 / 艾琳); the walk
+# banner then reads "自动移动中：战斗区" / "自动移动中：安全区".
+EXIT_PICKER_BATTLE = "战斗区"
+EXIT_PICKER_SAFE = "安全区"
+# A field battle's result buttons (as DoomBookTask): 离开 bottom right.
+BATTLE_RESULT_BUTTONS_RELATIVE_ROI = (1420 / 1920, 980 / 1080, 1860 / 1920, 1040 / 1080)
+BATTLE_RESULT_LEAVE_TEXT = "离开"
 # One poll reads several OCR boxes; a slow PC got only 1-2 looks in 3 s
 # and took a slow page turn for the end of the list.
 AREA_MAP_CHANGE_TIMEOUT = 6.0

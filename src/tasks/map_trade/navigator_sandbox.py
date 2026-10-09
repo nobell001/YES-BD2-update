@@ -22,12 +22,14 @@ from src.tasks.map_trade.action_icons import (
 from src.tasks.map_trade.collector_constants import SEARCH_COUNTDOWN_RELATIVE_ROI
 from src.tasks.map_trade.models import (
     CARD_BY_ID,
+    EVENT_WALK_EDGES,
     RESTART_NAV_ENTRIES,
     RESUMING_WALK_CARD_IDS,
     RESUMING_WALK_TIMEOUT,
     TOWN_NAV_ENTRIES,
     WALK_EDGES,
     WALK_LABEL_EDGES,
+    WALKED_EVENT_CARD_IDS,
     CardSpec,
     CollectionMapRole,
     CollectionMapTarget,
@@ -47,13 +49,20 @@ from src.tasks.map_trade.navigator_constants import (
     AUTO_MOVE_CANCEL_REFERENCE_POINT,
     AUTO_MOVE_IDLE_READS,
     AREA_MAP_EXIT_LABEL_RELATIVE_ROI,
+    BATTLE_RESULT_BUTTONS_RELATIVE_ROI,
+    BATTLE_RESULT_LEAVE_TEXT,
+    EXIT_PICKER_BATTLE,
+    EXIT_PICKER_SAFE,
     AREA_MAP_TELEPORT_BRIGHT_MAXIMUM_SPREAD,
     AREA_MAP_TELEPORT_BRIGHT_MINIMUM_GRAY,
     AREA_MAP_TELEPORT_BRIGHT_NEUTRAL_RATIO,
     AREA_MAP_TELEPORT_BRIGHT_RADIUS_RATIO,
     AREA_MAP_TELEPORT_CLUSTER_RADIUS,
+    FIELD_ALL_KEYCAP_TEMPLATES,
+    FIELD_KEYCAP_MIN_PASSES,
     HAND_TEMPLATE,
     MAP_PAGE_MODE_STABLE_HITS,
+    MERCHANT_NAV_GUIDE_REFERENCE_POINT,
     MERCHANT_NAV_GUIDE_TEMPLATE,
     HUNTING_GROUND_NAV_ENTRY,
     MERCHANT_NAV_GUIDE_TIMEOUT,
@@ -1213,10 +1222,33 @@ class SandboxNavigationMixin:
                     if idle >= AUTO_MOVE_IDLE_READS:
                         return
                 else:
-                    # A loading screen with art (not black), a dialog...
+                    # A loading screen with art (not black), a dialog, or
+                    # a field battle met on the way (Memory Edge, live 4K
+                    # 2026-10-09: VICTORY, 离开, then the walk goes on).
                     idle = 0
+                    self._leave_battle_result(frame)
             self.task.sleep(0.5)
         self._status("导航状态", f"自动移动{timeout:.0f}秒仍未结束，继续确认地图")
+
+    def _leave_battle_result(self, frame: np.ndarray) -> bool:
+        """Press 离开 when a field battle's result shows; True when pressed."""
+
+        try:
+            boxes = self.vision.ocr_boxes(
+                frame, "战斗结算按钮", relative_roi=BATTLE_RESULT_BUTTONS_RELATIVE_ROI
+            )
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception:
+            return False
+        for box in boxes:
+            text = normalize_text(self.vision.simplify(str(getattr(box, "name", ""))))
+            center = self._ocr_box_center(box)
+            if BATTLE_RESULT_LEAVE_TEXT in text and center is not None:
+                self._status("导航状态", "路上遇到战斗，结算后按离开")
+                self.vision.click_client(center, frame.shape, after_sleep=1.0)
+                return True
+        return False
 
     def _cancel_walk(self) -> bool:
         """Press the ✕ under "自动移动中" while the banner shows; True when a
@@ -2332,8 +2364,20 @@ class SandboxNavigationMixin:
         if not self.vision.click_template(
             MERCHANT_NAV_GUIDE_TEMPLATE, timeout=MERCHANT_NAV_GUIDE_TIMEOUT, after_sleep=0.8
         ):
-            self.task.log_warning(f"跑图：未识别到小地图导航按钮，无法前往{wanted}。")
-            return None
+            frame = self.vision.capture()
+            # Two key caps, as the field check: on the same sand the C cap
+            # found nothing while H, M and Q passed.
+            if (
+                sum(
+                    self.vision.passes(self.vision.match(frame, spec), spec)
+                    for spec in FIELD_ALL_KEYCAP_TEMPLATES
+                )
+                < FIELD_KEYCAP_MIN_PASSES
+            ):
+                self.task.log_warning(f"跑图：未识别到小地图导航按钮，无法前往{wanted}。")
+                return None
+            self._status("小地图导航", "模板未命中，按键确认在箱庭，点击标定位置")
+            self.vision.click_reference(*MERCHANT_NAV_GUIDE_REFERENCE_POINT, after_sleep=0.8)
         choice = self._nav_menu_choice(entries)
         if choice is None:
             self.task.log_warning(f"跑图：导航菜单里没有{wanted}。")
@@ -2471,9 +2515,18 @@ class SandboxNavigationMixin:
             self.last_loading_title = ""
             if not self._click_walk_exit(edge, target, here):
                 self._close_field_map()
-                return NavigationResult(
-                    False, ScreenState.SANDBOX, f"区域地图上点{target.title}出口没有反应"
-                )
+                header = self._retry_walk_from_town(card, current, target)
+                if header is None:
+                    return NavigationResult(
+                        False, ScreenState.SANDBOX, f"区域地图上点{target.title}出口没有反应"
+                    )
+                if not self._click_walk_exit(edge, target, here):
+                    self._close_field_map()
+                    return NavigationResult(
+                        False,
+                        ScreenState.SANDBOX,
+                        f"经艾琳后区域地图上点{target.title}出口仍没有反应",
+                    )
             if card.card_id in RESUMING_WALK_CARD_IDS:
                 self._wait_resuming_walk(RESUMING_WALK_TIMEOUT)
             arrived = self._wait_for_field_hud(
@@ -2508,10 +2561,11 @@ class SandboxNavigationMixin:
         OCR label) until the map closes; True once it did."""
 
         frame = self.vision.capture()
-        if edge in WALK_EDGES:
+        spots = WALK_EDGES.get(edge) or EVENT_WALK_EDGES.get(edge)
+        if spots:
             points = [
                 (round(x * frame.shape[1] / 1920), round(y * frame.shape[0] / 1080))
-                for x, y in WALK_EDGES[edge]
+                for x, y in spots
             ]
         else:
             end_at = monotonic() + WALK_LABEL_READ_TIMEOUT
@@ -2530,12 +2584,71 @@ class SandboxNavigationMixin:
                 y = round(known[1] * scale)
                 points = [(x, y + round(dy * scale)) for dy in AREA_MAP_EXIT_ICON_OFFSETS]
                 self._status("区域地图出口", f"{target.title}: 标签被遮住，用记录位置 {points}")
+        picker = edge in EVENT_WALK_EDGES
         for point in points:
             self._status("导航状态", f"区域地图点击{target.title}出口 {point}")
             self.vision.click_client(point, frame.shape, after_sleep=WALK_CLICK_SETTLE_SECONDS)
             if here not in self._field_map_header():
                 return True
+            if picker and self._click_exit_picker(target) and here not in self._field_map_header():
+                return True
         return False
+
+    def _click_exit_picker(self, target: CollectionMapTarget) -> bool:
+        """The small list an area-map spot opens when several things stand
+        there (战斗区 / 旅馆 / 艾琳..., event cards live 4K 2026-10-09):
+        click the row of the target's kind (战斗区, or 安全区 for the
+        town).  True when a row was clicked."""
+
+        wanted = (
+            EXIT_PICKER_SAFE if target.role is CollectionMapRole.MAIN_AREA else EXIT_PICKER_BATTLE
+        )
+        frame = self.vision.capture()
+        try:
+            boxes = self.vision.ocr_boxes(
+                frame, "区域地图出口列表", relative_roi=AREA_MAP_EXIT_LABEL_RELATIVE_ROI
+            )
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:
+            self._status("区域地图出口列表 OCR错误", str(exc))
+            return False
+        for box in boxes:
+            text = normalize_text(self.vision.simplify(str(getattr(box, "name", ""))))
+            center = self._ocr_box_center(box)
+            if wanted in text and center is not None:
+                self._status("区域地图出口列表", f"点击{text} {center}")
+                self.vision.click_client(center, frame.shape, after_sleep=WALK_CLICK_SETTLE_SECONDS)
+                return True
+        return False
+
+    def _retry_walk_from_town(
+        self,
+        card: CardSpec,
+        current: CollectionMapTarget,
+        target: CollectionMapTarget,
+    ) -> str | None:
+        """An event card's exit did not react, as when the character stands
+        right on it (Leo 2026-10-09: 太近不好點, 傳送回艾琳): from the town,
+        go to 艾琳 and open the area map again.  Its header, or None when
+        this does not apply or failed."""
+
+        npc = RESTART_NAV_ENTRIES.get(card.card_id)
+        if (
+            card.card_id not in WALKED_EVENT_CARD_IDS
+            or npc is None
+            or current.key != card.targets[0].key
+        ):
+            return None
+        self._status("导航状态", f"{target.title}出口点不动，先传到{npc}再点")
+        if not self._travel_via_nav_menu(npc):
+            return None
+        header = self._open_field_map()
+        if header is None or normalize_text(current.title) not in header:
+            if header is not None:
+                self._close_field_map()
+            return None
+        return header
 
     def _exit_label_points(self, frame, target: CollectionMapTarget) -> list[tuple[int, int]]:
         """Client points for the exit to ``target`` on the open area map: its
@@ -2675,9 +2788,25 @@ class SandboxNavigationMixin:
         if card is None or not card.collectable:
             return NavigationResult(False, ScreenState.UNKNOWN, f"非跑图剧情卡带：{card_id}")
         edge = (card_id, current_target.key, next_target.key)
-        if edge in WALK_EDGES or edge in WALK_LABEL_EDGES:
-            return self._walk_to_collection_map(card, current_target, next_target)
         town_npc = TOWN_NAV_ENTRIES.get(card.card_id)
+        if (
+            card.card_id in WALKED_EVENT_CARD_IDS
+            and town_npc
+            and next_target.key == card.targets[0].key
+        ):
+            # Event cards without a circle: 艾琳 stands in the town, so the
+            # ≡ menu reaches it from anywhere (Leo 2026-10-09); the walk is
+            # the fallback.
+            if (
+                self._travel_via_nav_menu(town_npc)
+                and self.current_collection_target(card) == next_target.key
+            ):
+                return NavigationResult(
+                    True, ScreenState.SANDBOX, f"经{town_npc}到达{next_target.title}"
+                )
+            self._status("导航状态", f"经{town_npc}未到{next_target.title}，改为走过去")
+        if edge in WALK_EDGES or edge in WALK_LABEL_EDGES or edge in EVENT_WALK_EDGES:
+            return self._walk_to_collection_map(card, current_target, next_target)
         if town_npc and next_target.key == card.targets[0].key:
             # Chapter 14 back to the town: the ≡ menu's 艾琳 (11 s, live 2K
             # 2026-09-30).  Without 压制 the walk to 左侧回廊's circle from the

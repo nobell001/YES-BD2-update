@@ -765,7 +765,10 @@ class BaseBD2Task(BaseTask):
         """
         from types import SimpleNamespace
 
-        from src.tasks.map_trade.navigator_constants import FIELD_KEYCAP_TEMPLATES
+        from src.tasks.map_trade.navigator_constants import (
+            FIELD_ALL_KEYCAP_TEMPLATES,
+            FIELD_KEYCAP_MIN_PASSES,
+        )
         from src.tasks.map_trade.vision import Vision
 
         vision = Vision(
@@ -778,11 +781,18 @@ class BaseBD2Task(BaseTask):
             frame = self.capture_frame()
         except AttributeError:  # no executor yet (bare test doubles)
             return False
-        if frame is None or not all(
-            vision.passes(vision.match(frame, spec), spec) for spec in FIELD_KEYCAP_TEMPLATES
+        # Any two of the C / H / M / Q caps (bright sand hides C, live 4K
+        # 2026-10-09).
+        if (
+            frame is None
+            or sum(
+                vision.passes(vision.match(frame, spec), spec)
+                for spec in FIELD_ALL_KEYCAP_TEMPLATES
+            )
+            < FIELD_KEYCAP_MIN_PASSES
         ):
             return False
-        self.info_set("快速切换按钮", "模板未命中，按键CH确认在箱庭，点击标定位置")
+        self.info_set("快速切换按钮", "模板未命中，按键确认在箱庭，点击标定位置")
         x, y = FIELD_QUICK_SWITCH_POINT
         self.operate_click(x / 1920, y / 1080, after_sleep=1.0)
         return True

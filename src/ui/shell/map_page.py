@@ -34,10 +34,19 @@ SKILLS = (("吸收", "magnet"), ("召集", "users-round"), ("压制", "shield"))
 
 
 def range_text(
-    story: list[int], character: list[int], all_story: list[int], all_character: list[int]
+    story: list[int],
+    character: list[int],
+    all_story: list[int],
+    all_character: list[int],
+    event: list[int] = (),
+    all_event: list[int] = (),
 ) -> str:
-    """Selected cards as the task's 跑图章节 text ("全部", "1-7,9", "R1-R2")."""
-    if sorted(story) == sorted(all_story) and sorted(character) == sorted(all_character):
+    """Selected cards as the task's 跑图章节 text ("全部", "1-7,9", "R1-R2", "E1-E3")."""
+    if (
+        sorted(story) == sorted(all_story)
+        and sorted(character) == sorted(all_character)
+        and sorted(event) == sorted(all_event)
+    ):
         return "全部"
 
     def runs(numbers: list[int], prefix: str) -> list[str]:
@@ -57,7 +66,7 @@ def range_text(
             start = previous = number
         return parts
 
-    parts = runs(story, "") + runs(character, "R")
+    parts = runs(story, "") + runs(character, "R") + runs(list(event), "E")
     return ",".join(parts) if parts else "全部"
 
 
@@ -265,6 +274,9 @@ class MapPage(Page):
         cards_column.addWidget(Text("角色卡带", "eyebrow"))
         self.char_box, self.char_grid = grid_container(104, 12)
         cards_column.addWidget(self.char_box)
+        cards_column.addWidget(Text("活动卡带", "eyebrow"))
+        self.event_box, self.event_grid = grid_container(104, 12)
+        cards_column.addWidget(self.event_box)
         self.body.addWidget(cards)
         self.body.addStretch(1)
         self._tiles: dict[str, CartridgeTile] = {}
@@ -301,38 +313,54 @@ class MapPage(Page):
         if task is not None:
             task.config[LIMIT_KEY] = int(value)
 
-    def _selected(self, progress) -> tuple[list[int], list[int]]:
+    @staticmethod
+    def _numbers(progress, category: str) -> list[int]:
+        return [c.number for c in progress.cards if c.category == category]
+
+    def _selected(self, progress) -> tuple[list[int], list[int], list[int]]:
         from src.tasks.map_trade.collector import chapter_filter
 
         task = self.task()
         allowed = chapter_filter(task.config.get(RANGE_KEY, "")) if task is not None else None
         story = [
-            c.number for c in progress.cards if c.story and (allowed is None or c.number in allowed)
+            c.number
+            for c in progress.cards
+            if c.category == "story" and (allowed is None or c.number in allowed)
         ]
         character = [
             c.number
             for c in progress.cards
-            if not c.story and (allowed is None or f"R{c.number}" in allowed)
+            if c.category == "character" and (allowed is None or f"R{c.number}" in allowed)
         ]
-        return story, character
+        event = [
+            c.number
+            for c in progress.cards
+            if c.category == "event" and (allowed is None or f"E{c.number}" in allowed)
+        ]
+        return story, character, event
 
     def _toggle_card(self, code: str) -> None:
         task = self.task()
         progress = self._progress
         if task is None or progress is None:
             return
-        story, character = self._selected(progress)
+        story, character, event = self._selected(progress)
         number = int(code[1:])
-        target = story if code.startswith("S") else character
+        target = {"S": story, "R": character, "E": event}.get(code[:1], story)
         if number in target:
             target.remove(number)
         else:
             target.append(number)
-        all_story = [c.number for c in progress.cards if c.story]
-        all_character = [c.number for c in progress.cards if not c.story]
-        if not story and not character:
+        if not story and not character and not event:
             return  # keep at least one card
-        task.config[RANGE_KEY] = range_text(story, character, all_story, all_character)
+        task.config[RANGE_KEY] = range_text(
+            story,
+            character,
+            self._numbers(progress, "story"),
+            self._numbers(progress, "character"),
+            event,
+            self._numbers(progress, "event"),
+        )
         self.refresh()
 
     def _all_cards(self) -> None:
@@ -384,15 +412,17 @@ class MapPage(Page):
             left.append(limit - used)
         self.skill_foot.set_text("今天的次数用完了" if min(left) <= 0 else tf("每天 {time} 重置", time=data.daily_reset_clock()))
 
-        story, character = self._selected(progress)
+        story, character, event = self._selected(progress)
+        grids = {"story": self.story_grid, "character": self.char_grid, "event": self.event_grid}
+        chosen = {"story": story, "character": character, "event": event}
         for card in progress.cards:
             tile = self._tiles.get(card.code)
             if tile is None:
                 tile = CartridgeTile(card)
                 tile.clicked.connect(self._toggle_card)
-                (self.story_grid if card.story else self.char_grid).addWidget(tile)
+                grids.get(card.category, self.story_grid).addWidget(tile)
                 self._tiles[card.code] = tile
-            in_range = (card.number in story) if card.story else (card.number in character)
+            in_range = card.number in chosen.get(card.category, story)
             tile.set_card(card, in_range)
-        everything = len(story) + len(character) == cards
+        everything = len(story) + len(character) + len(event) == cards
         self.reset_range.setVisible(not everything)

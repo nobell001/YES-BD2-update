@@ -31,7 +31,8 @@ CARD_RETRY_DEFAULT = 2
 
 def chapter_filter(text) -> set[int | str] | None:
     """"8-13" / "6" / "1,3,5" -> chapter numbers, "R1" / "R1-R7" -> character
-    cards ("R1" etc., see CardSpec.filter_key); empty or 全部 -> None (all)."""
+    cards, "E2" / "E1-E7" -> event cards ("R1" / "E2" etc., see
+    CardSpec.filter_key); empty or 全部 -> None (all)."""
     raw = str(text or "").replace("，", ",").replace("、", ",")
     raw = raw.replace("～", "-").replace("~", "-").strip()
     if not raw or raw in {"全部", "all"}:
@@ -39,15 +40,15 @@ def chapter_filter(text) -> set[int | str] | None:
     wanted: set[int | str] = set()
     for part in raw.split(","):
         part = part.strip().upper()
-        prefix = "R" if part.startswith("R") else ""
-        body = part.replace("R", "")
+        prefix = part[0] if part[:1] in ("R", "E") else ""
+        body = part.replace(prefix, "") if prefix else part
         if "-" in body:
             low, high = (value.strip() for value in body.split("-", 1))
             if low.isdigit() and high.isdigit():
                 numbers = range(int(low), int(high) + 1)
-                wanted.update(f"R{n}" if prefix else n for n in numbers)
+                wanted.update(f"{prefix}{n}" if prefix else n for n in numbers)
         elif body.isdigit():
-            wanted.add(f"R{body}" if prefix else int(body))
+            wanted.add(f"{prefix}{body}" if prefix else int(body))
     return wanted or None
 
 

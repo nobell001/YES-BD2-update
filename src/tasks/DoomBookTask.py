@@ -2,7 +2,7 @@
 
 Flow from the user's demonstration on the 简体 client, 2026-09-26: home →
 cartridge slot at the bottom right (游戏中) → 游戏卡珍藏集 → 末日之书 card →
-field → walk with WASD onto the red crossed-swords marker → 末日之书 page →
+field → walk onto the red crossed-swords marker → 末日之书 page →
 去战斗 → battle, skipped once the skip button turns from grey to white →
 RESULT → 离开 → field → home.
 
@@ -10,8 +10,11 @@ The character spawns at a fixed spot when switching in from another
 cartridge, but keeps its last position when coming back from home (user,
 2026-09-26), so the marker is searched on the whole screen.
 
-The battle costs nothing; it only records the damage.  Movement uses the
-keyboard exception approved for WASD players (see docs/architecture.md).
+The battle costs nothing; it only records the damage.  It moves the way
+镜中之战's 「舞台移动方式」 says (Leo, 2026-10-09: one setting for both):
+clicking the marker for click-to-move players, or WASD, the keyboard
+exception approved for WASD players (see docs/architecture.md).  When the
+chosen way does not get there, the other one is tried.
 """
 
 from __future__ import annotations
@@ -41,6 +44,11 @@ from src.utils.stage_walk import (
     plan_step,
     predict_after_step,
 )
+
+# Click-to-move: clicks on the marker, each followed by a wait for the
+# character to walk onto it and the 末日之书 page to open.
+CLICK_MAX_TRIES = 3
+CLICK_ARRIVE_SECONDS = 6.0
 
 # 1920x1080 reference coordinates / ROIs.
 CARTRIDGE_SLOT_POINT = (1693, 975)
@@ -174,8 +182,8 @@ class DoomBookTask(_ClaimTaskBase):
         super().__init__(*args, **kwargs)
         self.name = "末日之书"
         self.description = (
-            "主页卡带 → 末日之书 → 键盘 WASD 走到红色交叉剑标记 → 去战斗 → 跳过 → 离开 → 回主页"
-            "（每周任务：参与末日之书）。战斗不消耗资源。"
+            "主页卡带 → 末日之书 → 走到红色交叉剑标记 → 去战斗 → 跳过 → 离开 → 回主页"
+            "（每周任务：参与末日之书）。战斗不消耗资源。走法跟镜中之战的「舞台移动方式」一样。"
         )
         self.icon = FluentIcon.FLAG
 
@@ -190,7 +198,7 @@ class DoomBookTask(_ClaimTaskBase):
             return self._claim_fail("进入末日之书")
         self.dismiss_field_followers()
         self._keys_refused = False
-        if not self._walk_to_marker():
+        if not self._reach_marker():
             if self._keys_refused:
                 # Switching cartridges cannot help while another window has
                 # the keyboard; leave the field for the next run.
@@ -200,7 +208,7 @@ class DoomBookTask(_ClaimTaskBase):
             # switching to another cartridge and back resets it to the spawn
             # (user, 2026-09-26).
             self.log_info(f"{LABEL}：切换卡带后回到出生点重试。")
-            if not (self._reset_to_spawn() and self._walk_to_marker()):
+            if not (self._reset_to_spawn() and self._reach_marker()):
                 self._save_flow_diagnostic("doom_book_walk_failed")
                 return self._claim_fail("走到战斗标记")
         if not self._fight():
@@ -344,6 +352,61 @@ class DoomBookTask(_ClaimTaskBase):
             self.log_info(f"{LABEL}：点击卡带后未进入末日之书地图。")
             return False
         self.log_info(f"{LABEL}：游戏卡珍藏集里找不到末日之书。")
+        return False
+
+    def _move_mode(self) -> str:
+        """镜中之战's 「舞台移动方式」: one setting for both tasks."""
+        from src.tasks.PVPTask import PVPTask, STAGE_MOVE_CLICK, STAGE_MOVE_OPTIONS
+
+        try:
+            pvp = self.executor.get_task_by_class(PVPTask)
+            mode = str(pvp.config.get("舞台移动方式", STAGE_MOVE_CLICK))
+        except Exception:
+            mode = STAGE_MOVE_CLICK
+        return mode if mode in STAGE_MOVE_OPTIONS else STAGE_MOVE_CLICK
+
+    def _reach_marker(self) -> bool:
+        """Onto the marker the chosen way; the other way when that fails."""
+        from src.tasks.PVPTask import STAGE_MOVE_CLICK, STAGE_MOVE_WASD
+
+        first = self._move_mode()
+        ways = [first, STAGE_MOVE_WASD if first == STAGE_MOVE_CLICK else STAGE_MOVE_CLICK]
+        for index, way in enumerate(ways):
+            if index:
+                self.log_info(f"{LABEL}：{ways[0]}没走到战斗标记，改用{way}再试。")
+            arrived = self._click_to_marker() if way == STAGE_MOVE_CLICK else self._walk_to_marker()
+            if arrived:
+                return True
+            if self._keys_refused or not self._field_visible(self.capture_frame()):
+                return False
+        return False
+
+    def _click_to_marker(self) -> bool:
+        """Click-to-move: click the marker and let the character walk onto it."""
+        self.info_set("当前阶段", "鼠标点击战斗标记")
+        missing, clicks = 0, 0
+        while clicks < CLICK_MAX_TRIES:
+            frame = self.capture_frame()
+            if self._doom_page_visible(frame):
+                return True
+            marker = None
+            if self._field_visible(frame):
+                marker = find_marker(
+                    cv2.resize(frame[:, :, :3], (REFERENCE_WIDTH, REFERENCE_HEIGHT))
+                )
+            if marker is None:
+                missing += 1
+                if missing >= 5:
+                    self.log_info(f"{LABEL}：点击走位时画面中找不到红色战斗标记。")
+                    return False
+                self.sleep(0.5)
+                continue
+            missing = 0
+            clicks += 1
+            self.info_set("战斗标记位置", f"第{clicks}次点击 {marker}")
+            self._click_reference(*marker, after_sleep=0.5)
+            if self._wait_for(self._doom_page_visible, timeout=CLICK_ARRIVE_SECONDS):
+                return True
         return False
 
     def _walk_to_marker(self) -> bool:

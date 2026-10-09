@@ -75,7 +75,8 @@ from src.tasks.map_trade.navigator_constants import (
     SANDBOX_SKILL_UNSELECTED_YELLOW_MAX_RATIO,
     SANDBOX_TELEPORT_SKILL_TEMPLATE,
     SANDBOX_TEMPLATES,
-    FIELD_KEYCAP_TEMPLATES,
+    FIELD_ALL_KEYCAP_TEMPLATES,
+    FIELD_KEYCAP_MIN_PASSES,
     SHOP_PAGE_OCR_KEYWORDS,
     STORY_BADGE_CANDIDATE_ZNCC_SCORE,
     STORY_BADGE_ENCODED_MIN_MARGIN,
@@ -375,13 +376,16 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
                 )
             )
         if not sandbox_confirmed:
-            keycaps = [self.vision.match(frame, spec) for spec in FIELD_KEYCAP_TEMPLATES]
-            sandbox_confirmed = all(
-                self.vision.passes(result, spec)
-                for result, spec in zip(keycaps, FIELD_KEYCAP_TEMPLATES)
+            keycaps = [self.vision.match(frame, spec) for spec in FIELD_ALL_KEYCAP_TEMPLATES]
+            sandbox_confirmed = (
+                sum(
+                    self.vision.passes(result, spec)
+                    for result, spec in zip(keycaps, FIELD_ALL_KEYCAP_TEMPLATES)
+                )
+                >= FIELD_KEYCAP_MIN_PASSES
             )
             sandbox_signals.append(
-                "按键CH="
+                "按键CHMQ="
                 + ("pass" if sandbox_confirmed else "miss")
                 + "("
                 + ",".join(f"{r.score:.2f}/{r.pixel_score:.2f}" for r in keycaps)

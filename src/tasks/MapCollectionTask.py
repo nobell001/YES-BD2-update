@@ -108,7 +108,7 @@ class MapCollectionTask(MapAutomationTaskBase):
                 "加载页面等待秒数": "进入卡带、传送或换图后画面卡住多久算失败；自动移动中的时间不算。",
                 "卡带单步重试次数": "单张卡带进入或单步操作失败时的尝试次数。",
                 "本次最多卡带数": "本次运行最多完成几张卡带；0 表示直到今日技能次数用完。",
-                "跑图章节": "只跑这些章节，例如 8-13 或 1,3,5，角色卡 R1-R7；全部 = 不限。",
+                "跑图章节": "只跑这些章节，例如 8-13 或 1,3,5，角色卡 R1-R7，活动卡 E1-E7；全部 = 不限。",
             }
         )
         self.config_type.update(
@@ -168,7 +168,7 @@ class MapRouteTestTask(MapCollectionTask):
         self.description = "只走每章三张采集地图的路线，不放技能、不记进度（开发用）。"
         self.visible = False
         self.default_config.update({"测试章节": "1-7"})
-        self.config_description.update({"测试章节": "例如 6、1-7、8,9,10、14；角色卡 R1、R1-R7。"})
+        self.config_description.update({"测试章节": "例如 6、1-7、8,9,10、14；角色卡 R1、R1-R7；活动卡 E1-E7。"})
 
     def _chosen_cards(self):
         from src.tasks.map_trade.collector import chapter_filter
