@@ -314,6 +314,7 @@ def _run_pending_job() -> None:
             logger.warning(f"clone job: no task named {job.get('task')!r}")
             return
         run_mode = job.get("run_mode")
+        _reload_settings()
         log_in_this_run()
         # A batch waits for the login itself; a single task would start on the
         # title screen (live 2026-10-04: 跑图路线测试 failed 进入卡带失败).
@@ -326,6 +327,20 @@ def _run_pending_job() -> None:
     logger.info(f"clone job: starting {task.name}")
     _get_out_of_the_way()
     actions.start(task, None, run_mode)
+
+
+def _reload_settings() -> None:
+    """Take the settings the tool outside saved before running its job here."""
+    configs = [getattr(task, "config", None) for task in data.onetime_tasks() + data.trigger_tasks()]
+    global_config = getattr(data.executor(), "global_config", None)
+    configs += list((getattr(global_config, "configs", None) or {}).values())
+    for config in configs:
+        if config is None:
+            continue
+        try:
+            clone_desktop.reload_config(config)
+        except Exception as error:
+            logger.warning(f"clone job: reloading {getattr(config, 'config_file', '?')} failed: {error}")
 
 
 def _get_out_of_the_way() -> None:

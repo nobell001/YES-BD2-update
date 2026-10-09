@@ -379,6 +379,28 @@ def take_job(max_age: float) -> dict | None:
     return job
 
 
+def reload_config(config) -> bool:
+    """Re-read one ok-script ``Config`` from its file, in place, without saving.
+
+    The tool outside and the tool in the clone share the configs folder but
+    each keeps its own copy in memory, so a setting changed outside never
+    reached a run in the clone (Leo, 2026-10-09: 镜中之战 kept clicking after
+    he switched 舞台移动方式 to the keyboard).  Missing or broken files are
+    left alone.
+    """
+    path = getattr(config, "config_file", None)
+    if not path:
+        return False
+    try:
+        current = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(current, dict):
+        return False
+    config.verify_config(current, config.default)
+    return True
+
+
 # Programs of the tool and the game, never closed in the clone.
 KEEP_NAMES = {
     "python.exe",
