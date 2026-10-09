@@ -91,6 +91,15 @@ if __name__ == "__main__":
     if relaunch_as_admin():
         raise SystemExit(0)
 
+    # 不是从启动器打开时（桌面分身等）补上启动器的版本资讯，「检查更新」
+    # 才问得到新版（YES-BD2 issue #2）。必须在任何 import pyappify 之前。
+    import os
+    import sys
+
+    from src.compat.launcher_env import restore_launcher_env
+
+    restore_launcher_env(os.path.dirname(os.path.abspath(sys.argv[0])))
+
     # 原生崩溃（如 0xc0000005）不经过 Python 异常，必须在导入 ok 之前
     # 启用 faulthandler，把各线程栈写入 logs/crash-*.log 供事后定位。
     import datetime
@@ -130,4 +139,10 @@ if __name__ == "__main__":
         from src.config import config
 
         ok_instance = ok.OK(config)
+
+        # 启动器写的「yes-bd2」捷径直接开工具、跳过更新：改成开启动器
+        # （YES-BD2 issue #2，Leo 2026-10-09）。
+        from src.compat.launcher_shortcut import install_launcher_shortcut_fix
+
+        install_launcher_shortcut_fix(os.path.dirname(os.path.abspath(sys.argv[0])))
         ok_instance.start()

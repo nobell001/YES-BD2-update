@@ -62,9 +62,14 @@ SKILL_DAILY_LIMITS = {
 }
 
 
-# Pause between back-to-back skill presses (Leo 2026-09-29: 0.5 s is safe).
-PIPELINE_CLICK_INTERVAL = 0.5
+# Pause between back-to-back skill presses (Leo 2026-09-29: 0.5 s; 10-09
+# 0.8 s after a player's 「召集点的太快了经常点不上」 on a slower PC).
+PIPELINE_CLICK_INTERVAL = 0.8
 PIPELINE_RECHECK_SECONDS = 0.6
+# A press the game did not take (a player 2026-10-09: 「召集点的太快了经常点
+# 不上失败」) is pressed once more after a pause, and then taken as done
+# (Leo: 「补按后 你就不要管了」).
+PRESS_AGAIN_PAUSE_SECONDS = 1.5
 # Slot count readers by icon name (the 压制 icon is named 制服).
 COUNT_ACTIONS_BY_ICON = {
     ABSORB_ACTION.icon.name: ABSORB_ACTION,
@@ -751,7 +756,20 @@ class SkillExecutionMixin:
         # Leo 2026-09-29: the slots are fixed, so the three skills are
         # pressed back to back and verified afterwards (was detect / click /
         # wait / verify one at a time, ~10 s per battle map at 2K).
+        self._missed_presses = set()
+        self._pressed_again = set()
         results = self._use_actions_pipelined(actions, card_id=card_id, map_role=map_role)
+        missed = next((result for result in results if not result.completed), None)
+        if missed is not None and missed.press_again:
+            # Done skills are skipped on the next pass by their records; the
+            # bright one is pressed again (its record turns void first).
+            self._status(
+                "采集技能",
+                f"{missed.message}；按钮还亮着，等{PRESS_AGAIN_PAUSE_SECONDS:.1f}秒补按一次",
+            )
+            self._pressed_again = set(self._missed_presses)
+            self.task.sleep(PRESS_AGAIN_PAUSE_SECONDS)
+            results = self._use_actions_pipelined(actions, card_id=card_id, map_role=map_role)
         for result in results:
             if not result.completed:
                 return SkillExecutionResult(
@@ -816,7 +834,7 @@ class SkillExecutionMixin:
         last_click_at = None
         for action, frame, detection, before in armed:
             if last_click_at is not None:
-                # Leo: 0.5 s between presses is always accepted by the game.
+                # Slower PCs missed presses 0.5 s apart (player, 2026-10-09).
                 self.task.sleep(max(0.0, PIPELINE_CLICK_INTERVAL - (monotonic() - last_click_at)))
             last_click_at = monotonic()
             self.vision.click_client(
@@ -844,17 +862,22 @@ class SkillExecutionMixin:
                     require_stable=True,
                 )
             self._report_icon_detection(action, post_detection)
-            verified.append(
-                self._finish_after_click(
-                    action,
-                    card_id=card_id,
-                    map_role=map_role,
-                    before=before,
-                    detection=detection,
-                    post_detection=post_detection,
-                    feedback=feedback,
-                )
+            result = self._finish_after_click(
+                action,
+                card_id=card_id,
+                map_role=map_role,
+                before=before,
+                detection=detection,
+                post_detection=post_detection,
+                feedback=feedback,
             )
+            if not result.completed and action.name in getattr(self, "_pressed_again", ()):
+                # Leo 2026-10-09: a missed press is almost always fixed by
+                # the second one, so it is not checked again.
+                self.progress.mark_action_seen_done(card_id, map_role, action.name)
+                self._status(f"{action.name}状态", "已补按一次，不再检查")
+                result = SkillExecutionResult(True, result.depleted, "已补按一次，不再检查")
+            verified.append(result)
         if stop_after is not None:
             # Keep the order: verified clicks first, then the failure.
             return verified + results
@@ -1336,7 +1359,26 @@ class SkillExecutionMixin:
                 f"feedback={feedback.outcome or 'unknown'}, "
                 f"text={feedback.text or '-'}"
             ),
+            # Pressed again only when every sign says the game never got the
+            # press: icon still bright, no toast, and the count read steadily
+            # at exactly its value before.  压制 stays bright after a press
+            # that took (Leo 2026-10-07), so its count decides; before the
+            # next press the count is read once more (_resume_by_count).
+            press_again=self._note_missed_press(
+                action,
+                post_detection.state is ActionIconState.AVAILABLE
+                and feedback.outcome is None
+                and not feedback_success
+                and post_window_stable
+                and after is not None
+                and tuple(after) == tuple(before),
+            ),
         )
+
+    def _note_missed_press(self, action: SkillAction, missed: bool) -> bool:
+        if missed:
+            self._missed_presses = getattr(self, "_missed_presses", set()) | {action.name}
+        return bool(missed)
 
     def _report_icon_detection(
         self,

@@ -10,6 +10,7 @@ from time import monotonic
 import cv2
 import numpy as np
 
+from src.tasks.map_trade import story_card_art
 from src.tasks.map_trade.card_status import (
     CardActionState,
     CollectionCardSelectionOutcome,
@@ -81,6 +82,7 @@ from src.tasks.map_trade.navigator_constants import (
     STORY_BADGE_GRID_VERTICAL_TOLERANCE_RATIO,
     STORY_BADGE_GRID_ZNCC_SCORE,
     STORY_BADGE_MIN_MARGIN,
+    STORY_BADGE_NATIVE_RUNNER_MAX_GAP,
     STORY_BADGE_OCR_BINARY_THRESHOLD,
     STORY_BADGE_OCR_HORIZONTAL_BORDER,
     STORY_BADGE_OCR_INNER_HEIGHT,
@@ -1033,6 +1035,78 @@ class StoryCardNavigationMixin:
             )
         return StoryBadgeDetection(best, runner_up), ""
 
+    def _find_story_card(
+        self,
+        frame: np.ndarray,
+        target_number: int,
+    ) -> tuple[StoryBadgeDetection | None, str]:
+        """The card by its cover art first, else by its number badge.
+
+        Leo 2026-10-09: look-alike badges (10/19, 15/18, 16/18) kept the bar
+        sliding for minutes; the art tells the cards apart by a wide margin.
+        A card the art cannot settle (e.g. 游玩中 covers it) goes through the
+        badge tiers as before."""
+
+        if getattr(self, "_badge_category", "story") == "story":
+            detection, reason = self._find_story_card_by_art(frame, target_number)
+            if detection is not None:
+                return detection, ""
+            self._status("剧情卡带图片", f"{target_number}: {reason}，改用角标")
+        return self._find_story_badge(frame, target_number)
+
+    def _find_story_card_by_art(
+        self,
+        frame: np.ndarray,
+        target_number: int,
+    ) -> tuple[StoryBadgeDetection | None, str]:
+        try:
+            check = story_card_art.find_card(frame, target_number)
+        except (cv2.error, ValueError) as exc:
+            return None, f"图片比对异常：{exc}"
+        if not check.ok or check.target is None:
+            return None, check.reason
+        art = check.target
+        factor = frame.shape[0] / 1080.0
+        badge_left = (art.left + story_card_art.BADGE_FROM_ART_1080[0]) * factor
+        badge_top = (art.top + story_card_art.BADGE_FROM_ART_1080[1]) * factor
+        side = max(1, round(story_card_art.BADGE_SIZE_1080 * factor))
+        result = MatchResult(
+            art.score,
+            (round(badge_left), round(badge_top)),
+            (side, side),
+            scale=factor,
+        )
+        # Leo: the art and the bar already agree, so the digit only vetoes a
+        # clear read of another number; nothing read, or a two-digit badge
+        # read without its thin leading 1 (16 as 6, most misreads in his
+        # 2026-10-09 log), passes.
+        number, text = self._story_badge_ocr_number(frame, result)
+        if (
+            number is not None
+            and number != target_number
+            and not (target_number >= 10 and number == target_number - 10)
+        ):
+            return None, f"图片是卡带{target_number}，但数字读成{number}"
+        other = check.other
+        self._status(
+            "剧情卡带图片",
+            (
+                f"{target_number}: 图片{art.score:.3f}"
+                + (f"，次高卡带{other.number} {other.score:.3f}" if other else "")
+                + f"，数字={number if number is not None else '-'}"
+            ),
+        )
+        return (
+            StoryBadgeDetection(
+                best=StoryBadgeCandidate(target_number, result),
+                runner_up=None,
+                ocr_text=text,
+                ocr_number=number,
+                recovery_mode="card_art",
+            ),
+            "",
+        )
+
     def _find_story_badge(
         self,
         frame: np.ndarray,
@@ -1049,6 +1123,24 @@ class StoryCardNavigationMixin:
         strict_reason = reason
         if detection is not None:
             return detection, reason
+        # Leo's clone 2026-10-09 13:30: badge 16 matched the 18 template a
+        # hair better (z=0.878 vs 0.868) on every frame for two minutes.  A
+        # close native runner-up gets the same OCR-decided promotion as the
+        # slot-grid runner-up, before the slower grid pass.
+        native_runners = self._story_badge_grid_runner_detections(
+            target_number,
+            detections,
+            recovery_mode="native_runner",
+            max_gap=STORY_BADGE_NATIVE_RUNNER_MAX_GAP,
+        )
+        if native_runners:
+            runner_detection, _runner_reason = self._find_story_badge_from_detections(
+                frame,
+                target_number,
+                native_runners,
+            )
+            if runner_detection is not None:
+                return runner_detection, ""
         grid_detections = self._story_badge_grid_detections(
             frame,
             detections,
@@ -1104,6 +1196,8 @@ class StoryCardNavigationMixin:
     def _story_badge_grid_runner_detections(
         target_number: int,
         grid_detections: tuple[StoryBadgeDetection, ...],
+        recovery_mode: str = "slot_grid_runner",
+        max_gap: float | None = None,
     ) -> tuple[StoryBadgeDetection, ...]:
         """Promote grid runner-up slots whose full structural evidence holds.
 
@@ -1125,11 +1219,13 @@ class StoryCardNavigationMixin:
                 or result.zncc_score < STORY_BADGE_GRID_ZNCC_SCORE
             ):
                 continue
+            if max_gap is not None and value.margin > max_gap:
+                continue
             promoted.append(
                 StoryBadgeDetection(
                     best=StoryBadgeCandidate(number=target_number, result=result),
                     runner_up=value.best,
-                    recovery_mode="slot_grid_runner",
+                    recovery_mode=recovery_mode,
                 )
             )
         return tuple(promoted)
@@ -1205,7 +1301,7 @@ class StoryCardNavigationMixin:
         def runner_identity(value: StoryBadgeDetection) -> bool:
             # Structural floors were already enforced when the runner-up was
             # promoted; the digit OCR is the deciding vote for this tier.
-            return value.recovery_mode == "slot_grid_runner"
+            return value.recovery_mode in ("slot_grid_runner", "native_runner")
 
         def ocr_identity(value: StoryBadgeDetection) -> bool:
             # A native-scale badge that clears the slot-grid structural floors
@@ -1666,7 +1762,7 @@ class StoryCardNavigationMixin:
         def scan_current_page() -> tuple[np.ndarray, StoryBadgeDetection] | None:
             nonlocal last_reason
             frame = self.vision.capture()
-            detection, last_reason = self._find_story_badge(frame, target_number)
+            detection, last_reason = self._find_story_card(frame, target_number)
             if detection is None:
                 self._status("剧情角标", f"{target_number}: {last_reason}")
                 return None
@@ -1776,7 +1872,7 @@ class StoryCardNavigationMixin:
         scroll_focused = False
         while True:
             frame = self.vision.capture()
-            badge, last_reason = self._find_story_badge(frame, card.number)
+            badge, last_reason = self._find_story_card(frame, card.number)
             if badge is None:
                 self._status("剧情角标", f"{card.number}: {last_reason}")
                 if self._story_badge_reason_is_ambiguous(last_reason):
@@ -1796,7 +1892,7 @@ class StoryCardNavigationMixin:
                 if completion.complete_region:
                     self.task.sleep(PROBE_STORY_BADGE_CONFIRM_SECONDS)
                     confirmed_frame = self.vision.capture()
-                    confirmed_badge, confirmed_reason = self._find_story_badge(
+                    confirmed_badge, confirmed_reason = self._find_story_card(
                         confirmed_frame,
                         card.number,
                     )
@@ -2110,7 +2206,7 @@ class StoryCardNavigationMixin:
                     f"画面未变，沿用识别{detection.best.number}",
                 )
                 return confirmed_frame, detection
-            confirmed, reason = self._find_story_badge(
+            confirmed, reason = self._find_story_card(
                 confirmed_frame,
                 detection.best.number,
             )

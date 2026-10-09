@@ -10,7 +10,7 @@ before the window is first shown.
 from __future__ import annotations
 
 from ok import Logger
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QWidget
 
@@ -42,14 +42,7 @@ class Shell(QObject):
             "home": HomePage(self.open_task, self.navigate),
             "report": ReportPage(),
             "daily": TaskPage(
-                "shellDaily", "日常设定", batch_name=data.DAILY_BATCH, navigate=self.navigate
-            ),
-            "weekly": TaskPage(
-                "shellWeekly",
-                "周常",
-                batch_name=data.WEEKLY_BATCH,
-                weekly=True,
-                navigate=self.navigate,
+                "shellDaily", "任务设定", batch_name=data.DAILY_BATCH, navigate=self.navigate
             ),
             "trade": TradePage(),
             "map": MapPage(),
@@ -57,13 +50,16 @@ class Shell(QObject):
             "settings": SettingsPage(window),
         }
         self.sidebar = Sidebar()
-        self.sidebar.navigate.connect(self.navigate)
+        self.sidebar.navigate.connect(self._sidebar_clicked)
         from src.ui.shell.about_page import AboutPage
 
         self.pages["about"] = AboutPage(window, self.sidebar)
         from src.ui.shell.guide_page import GuidePage
 
         self.pages["guide"] = GuidePage(self.navigate, self.sidebar)
+        from src.ui.shell.problem_page import ProblemPage
+
+        self.pages["problem"] = ProblemPage()
 
         # Everything above only builds widgets; from here on the window changes.
         stack = window.stackedWidget
@@ -89,6 +85,31 @@ class Shell(QObject):
         from src.ui.shell import clone_flow
 
         clone_flow.run_pending_job_soon()
+        self._start_hotkeys()
+        from src.ui.shell import autorun
+
+        # The player's 「打开工具就自动跑」 on 首页 (Leo 2026-10-09).
+        QTimer.singleShot(1500, autorun.schedule)
+
+    # ------------------------------------------------------------ hotkeys
+
+    hotkey_pressed = Signal(str)
+
+    def _start_hotkeys(self) -> None:
+        """暂停/停止 keys anywhere, even with the game in front (Leo 2026-10-09)."""
+        from src.ui.shell import hotkeys
+
+        self.hotkey_pressed.connect(self._on_hotkey)  # queued: pressed on the hotkey thread
+        hotkeys.start(self.hotkey_pressed.emit)
+
+    def _on_hotkey(self, action: str) -> None:
+        from src.ui.shell import hotkeys
+
+        home = self.pages["home"]
+        if action == hotkeys.PAUSE:
+            home._pause()
+        elif action == hotkeys.STOP:
+            home._stop()
 
     # ------------------------------------------------------------ navigation
 
@@ -96,6 +117,12 @@ class Shell(QObject):
         page = self.pages.get(key)
         if page is not None:
             self.window.switchTo(page)
+
+    def _sidebar_clicked(self, key: str) -> None:
+        if key == "home":
+            # Leo 2026-10-09: 首页 in the sidebar leaves a finished run's 结算.
+            self.pages["home"].leave_summary()
+        self.navigate(key)
 
     def _after_start(self) -> None:
         """A start goes to 首页, except from the 魔兽追踪者 page (Leo 2026-10-06:

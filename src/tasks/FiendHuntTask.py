@@ -9,7 +9,7 @@ player (认不准就不按).
 录制 lives on the 魔兽追踪者 page (Leo 2026-10-06; its own page since 10-01): the player picks or
 makes a save there and starts FiendHuntRecordTask (not listed among the
 tasks).  Each turn the player arranges by hand and presses the record key
-(F8 unless set otherwise, F6-F10) instead of BATTLE; the tool reads the
+(F8 unless set otherwise, F6-F12) instead of BATTLE; the tool reads the
 screen, saves the turn with a screenshot and presses BATTLE itself.  It
 only reads the key, it never sends it.  Recording into an existing save
 edits it; the page lists its turns, deletes one or picks one to redo.
@@ -68,8 +68,9 @@ CARDS_ALL = "全部判断技能、顺序、站位（较慢，建议先设好服�
 CARD_CHOICES = (CARDS_SUMMONS, CARDS_ALL)
 # The record key: an F-key, as the takeover guard lets those through to the
 # game without stopping the task (any other key counts as the player taking over).
-# Leo 2026-10-06: F6-F10 (the game takes none of them); anything else is F8.
-KEY_CHOICES = tuple(f"F{number}" for number in range(6, 11))
+# Leo 2026-10-06: F6-F10 (the game takes none of them); 2026-10-09 F6-F12, set
+# in 设置 with the pause and stop keys (src/ui/shell/hotkeys.py); else F8.
+KEY_CHOICES = tuple(f"F{number}" for number in range(6, 13))
 DEFAULT_KEY = "F8"
 SAVE_KEY_NAME = DEFAULT_KEY
 DAMAGE_FILE = "伤害记录.csv"
@@ -104,7 +105,7 @@ def valid_record_name(name: str) -> bool:
 
 
 def key_code(name: str) -> int:
-    """Virtual-key code of F6-F10 (F8 for anything else)."""
+    """Virtual-key code of F6-F12 (F8 for anything else)."""
     if name not in KEY_CHOICES:
         name = DEFAULT_KEY
     return 0x70 + int(name[1:]) - 1
@@ -510,7 +511,8 @@ class FiendHuntRecordTask(FiendHuntTask):
                 "存档": "录到哪个存档文件夹（在「魔兽追踪者」页选或新增）。",
                 "录制按键": (
                     "排好一回合后按这个键保存并开打（代替按 BATTLE）。"
-                    "可选 F6~F10：别的键按在游戏上会被当成你接手，工具会停下。"
+                    "可选 F6~F12（不能跟暂停、停止键相同）："
+                    "别的键按在游戏上会被当成你接手，工具会停下。"
                 ),
             }
         )

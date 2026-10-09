@@ -10,10 +10,11 @@ from PySide6.QtCore import QRectF, Qt, QTimer
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QDialog, QLabel, QSizePolicy, QWidget
 
-from src.tasks import run_report
+from src.tasks import problem_report, run_report
 from src.tasks.BaseBD2Task import task_info_snapshot
-from src.ui.shell import actions, clone_flow, data, motion, theme
+from src.ui.shell import actions, autorun, clone_flow, data, hotkeys, motion, theme
 from src.ui.shell.page import Page
+from src.ui.shell.problem_page import ProblemCard
 from src.ui.shell.safe import guarded
 from src.ui.shell.widgets import (
     Bar,
@@ -252,12 +253,12 @@ class Timeline(Card):
 class PictureDialog(QDialog):
     """A picture filling most of the window; any click closes it."""
 
-    def __init__(self, path: str, parent=None):
+    def __init__(self, path: str, parent=None, pixmap: QPixmap | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setModal(True)
-        self._pixmap = QPixmap(path)
+        self._pixmap = pixmap if pixmap is not None else QPixmap(path)
         # Opens with a short fade, the picture rising a little into place.
         self._open = motion.Tween(self, self.update, 200, 0.0)
         if parent is not None:
@@ -553,27 +554,36 @@ class HomePage(Page):
             t("纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑；你照常用电脑，鼠标键盘不会被抢")
         )
         self.start_clone.setVisible(clone_flow.available())
+        # Shown while 「打开就自动跑日常」 counts down (Leo 2026-10-09).
+        self.cancel_autorun = Button("取消自动开始", "secondary", on_click=self._cancel_autorun)
+        self.cancel_autorun.hide()
         buttons.addStretch(1)
+        buttons.addWidget(self.cancel_autorun)
         buttons.addWidget(self.resume)
         buttons.addWidget(self.start_all)
         buttons.addWidget(self.start_rest)
         buttons.addWidget(self.start_clone)
         # The plain start uses the real mouse (Leo, 2026-10-03).
         buttons.addWidget(Text("一般执行时请别动键盘和鼠标", "muted"), 0, Qt.AlignHCenter)
+        # Leo 2026-10-09: the player chooses here whether opening the tool runs it.
+        self.autorun_box = CheckBox("打开就自动跑日常", autorun.enabled())
+        self.autorun_box.setToolTip(
+            t("打开启动器或工具后自动开始一键日常，只跑今天还没做的；游戏没开会自己打开并登录")
+        )
+        self.autorun_box.toggled.connect(autorun.set_enabled)
+        buttons.addWidget(self.autorun_box, 0, Qt.AlignHCenter)
         buttons.addStretch(1)
         hero.addLayout(buttons)
         layout.addWidget(self.hero)
 
         stats, grid = grid_container(200, 12, 3)
-        self.week_card = StatCard(
-            "calendar-range", "本周周常", "week", lambda: self._navigate("weekly")
-        )
+        # 本周周常 is gone: the 周常 are tiles of 一键日常 now (Leo 2026-10-09).
         self.map_card = StatCard("map", "本周跑图", "map", lambda: self._navigate("map"))
         # Leo 2026-10-05: not only the last run; the card opens 今日报表.
         self.last_card = StatCard(
             "list-checks", "今日报表", "plain", lambda: self._navigate("report")
         )
-        for card in (self.week_card, self.map_card, self.last_card):
+        for card in (self.map_card, self.last_card):
             grid.addWidget(card)
         layout.addWidget(stats)
 
@@ -586,6 +596,16 @@ class HomePage(Page):
         layout.addLayout(head)
         self.tiles_box, self.tiles = grid_container(118, 10, None, 104)
         layout.addWidget(self.tiles_box)
+        # Leo 2026-10-09: the 周常 in a row of their own; 一键日常 still runs them.
+        self.week_head = QWidget()
+        week_head = hbox(self.week_head, (2, 6, 2, 0), 14)
+        week_head.addWidget(Text("本周任务", "h2"))
+        self.week_note = Text("", "muted")
+        week_head.addWidget(self.week_note)
+        week_head.addStretch(1)
+        layout.addWidget(self.week_head)
+        self.week_box, self.week_tiles = grid_container(118, 10, None, 104)
+        layout.addWidget(self.week_box)
         self.game_size = GameSizeCard()
         layout.addWidget(self.game_size)
         self._tile_keys: list[str] = []
@@ -600,15 +620,16 @@ class HomePage(Page):
         )
         self.game_size.refresh()
         batch = data.task_by_name(data.DAILY_BATCH)
+        data.sync_weekly_ticks(batch)
         children = data.batch_children(batch)
         included = [child for child in children if child.included]
-        done = [child for child in included if data.done_today(child.name)]
-        remaining = [child for child in included if not data.done_today(child.name)]
+        done = [child for child in included if data.child_done(child)]
+        remaining = [child for child in included if not data.child_done(child)]
         self.ring.set_progress(len(done), len(included))
         busy = data.busy()
         if not included:
             self.hero_title.set_text("一键日常里没有项目")
-            self.hero_sub.set_text("到「日常设定」把要跑的项目加进一键日常")
+            self.hero_sub.set_text("到「任务设定」把要跑的项目加进一键日常")
             self.start_rest.hide()
         elif remaining:
             self.hero_title.set_text(tf("还剩 {n} 项", n=len(remaining)))
@@ -644,18 +665,13 @@ class HomePage(Page):
         self.resume.setEnabled(not busy and batch is not None)
         # Still usable then: the tool in the clone takes the run when it is free.
         self.start_clone.setEnabled(not data.busy())
-
-        weekly = data.task_by_name(data.WEEKLY_BATCH)
-        weekly_items = [child for child in data.batch_children(weekly) if child.included]
-        weekly_done = sum(1 for child in weekly_items if data.done_this_week(child.name))
-        total = len(weekly_items)
-        self.week_card.set(
-            str(weekly_done),
-            f"/ {total}",
-            weekly_done / max(1, total),
-            tf("下周{weekday} {time} 刷新", **data.weekly_reset_parts()),
-            bool(total) and weekly_done == total,
-        )
+        self.autorun_box.set_checked_quietly(autorun.enabled())
+        # Leo 2026-10-09: players must see that it is about to start by itself.
+        left = autorun.seconds_left()
+        self.cancel_autorun.setVisible(left is not None)
+        if left is not None:
+            self.hero_title.set_text("马上自动开始一键日常")
+            self.hero_sub.set_text(tf("{n} 秒后开始，不想跑就按「取消自动开始」", n=left))
 
         stamp, progress = self._map_cache
         if time.time() - stamp > 15:
@@ -709,19 +725,33 @@ class HomePage(Page):
                     on_click=lambda key=child.key: self._open_task("daily", key),
                     on_include=self._set_included,
                 )
-                self.tiles.addWidget(tile)
+                (self.week_tiles if child.weekly else self.tiles).addWidget(tile)
                 self._tiles[child.key] = tile
             self._tile_keys = keys
+        has_week = any(child.weekly for child in children)
+        self.week_head.setVisible(has_week)
+        self.week_box.setVisible(has_week)
+        self.week_note.set_text(
+            tf("跑过会自动取消勾选，每周{weekday} {time} 自动勾回来", **data.weekly_reset_parts())
+        )
         for child in children:
             tile = self._tiles[child.key]
             tile.set_included(child.included)
-            if data.done_today(child.name):
+            if data.child_done(child):
                 record = data.last_run(child.name) or {}
-                tile.set_state("done", data.clock_text(record.get("finished")))
+                finished = record.get("finished")
+                when = data.clock_text(finished)
+                if child.weekly and data.day_text(finished) != "今天":
+                    when = data.day_text(finished) or when  # done earlier this week
+                tile.set_state("done", when)
             elif not child.included:
                 tile.set_state("off", "不在一键日常里")
             else:
-                tile.set_state("wait", "未完成")
+                tile.set_state("wait", "本周未完成" if child.weekly else "未完成")
+
+    def _cancel_autorun(self) -> None:
+        autorun.cancel()
+        self.refresh()
 
     def _set_included(self, key: str, on: bool) -> None:
         """Same switch as 「加入一键完成日常」 on the item's settings page."""
@@ -847,7 +877,8 @@ class HomePage(Page):
         self.set_title(
             tf("已暂停：{name}" if paused else "正在跑：{name}", name=name) if name else "正在准备"
         )
-        self.set_sub("")
+        # Leo 2026-10-09: say the keys, and that 设置 changes them.
+        self.set_sub(hotkeys.hint())
         self.pause_button.set_label("继续" if paused else "暂停")
         self.pause_button.set_icon_name("play" if paused else "pause")
         self.now_icon.set_icon(icon, kind)
@@ -944,6 +975,10 @@ class HomePage(Page):
         body.addLayout(left, 3)
         self.sum_side = QWidget()
         side = vbox(self.sum_side, (0, 0, 0, 0), 16)
+        # Leo 2026-10-09: a run that did not fully finish offers its 问题摘要 here.
+        self.problem_card = ProblemCard()
+        self.problem_card.hide()
+        side.addWidget(self.problem_card)
         self.gacha_card, self.gacha_grid = self._picture_card("抽到的", "白嫖抽抽乐 · 点图看大图")
         self.mail_card, self.mail_grid = self._picture_card("邮件领到的", "领取邮件 · 点图看大图")
         side.addWidget(self.gacha_card)
@@ -952,6 +987,9 @@ class HomePage(Page):
         body.addWidget(self.sum_side, 2)
         layout.addLayout(body)
         self._shown_summary_key = None
+        self._summary_pictures = False
+        self._problem_found = False
+        self._problem_looked = False
 
     @staticmethod
     def _sum_box(grid, label: str, tone: str) -> Text:
@@ -1007,7 +1045,24 @@ class HomePage(Page):
             has_mail = self._fill_pictures(self.mail_grid, images.get("mail") or [])
             self.gacha_card.setVisible(has_gacha)
             self.mail_card.setVisible(has_mail)
-            self.sum_side.setVisible(has_gacha or has_mail)
+            self._summary_pictures = has_gacha or has_mail
+            self._problem_found = False
+            self._problem_looked = False
+        # A stop the player pressed is not a problem to report: the run stays
+        # in the 回报问题 page, but the results page shows no card (Leo 10-09).
+        reportable = ended not in (run_report.ENDED_DONE, run_report.ENDED_STOPPED)
+        if reportable and not self._problem_found and (
+            not self._problem_looked or time.time() - finished < 60
+        ):
+            # The record is written just after the batch's report; look again
+            # until it is there (a few seconds at most).
+            self._problem_looked = True
+            record = problem_report.find(report.get("label"), finished)
+            self._problem_found = record is not None
+            self.problem_card.set_record(record)
+        problem = reportable and self._problem_found
+        self.problem_card.setVisible(problem)
+        self.sum_side.setVisible(self._summary_pictures or problem)
 
     def _refresh_summary_switch(self, current: str | None) -> None:
         labels = tuple(str(r.get("label") or "") for r in run_report.saved() if r.get("label"))
@@ -1063,6 +1118,11 @@ class HomePage(Page):
     def _close_summary(self) -> None:
         self._summary = None
         self.refresh()
+
+    def leave_summary(self) -> None:
+        """Back to the home page proper; a run in progress stays on screen."""
+        if self._summary is not None:
+            self._close_summary()
 
     # ================================================================ state
 

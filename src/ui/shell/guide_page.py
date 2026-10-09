@@ -123,15 +123,14 @@ class GuidePage(Page):
         self._build_settings()
         self._build_map()
         self.body.addStretch(1)
-        if sidebar is not None and not seen() and "guide" in getattr(sidebar, "items", {}):
+        # Leo 2026-10-09: always marked 必看 (it used to go once opened).
+        if sidebar is not None and "guide" in getattr(sidebar, "items", {}):
             sidebar.items["guide"].set_badge("必看")
 
     def showEvent(self, event):
         super().showEvent(event)
         if not seen():
             mark_seen()
-        if self._sidebar is not None and "guide" in getattr(self._sidebar, "items", {}):
-            self._sidebar.items["guide"].set_badge("")
 
     # ---------------------------------------------------------- pieces
 
@@ -209,8 +208,7 @@ class GuidePage(Page):
         column.addLayout(head)
         buttons = hbox(None, (44, 2, 0, 0), 8)
         for key, label in (
-            ("daily", "日常设定"),
-            ("weekly", "周常"),
+            ("daily", "任务设定"),
             ("trade", "跑商"),
             ("map", "跑图"),
         ):

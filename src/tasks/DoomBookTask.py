@@ -83,6 +83,8 @@ NEW_RECORD_ICON_ROI = (1210, 412, 140, 142)
 NEW_RECORD_ICON_MIN_SCORE = 0.8
 NEW_RECORD_GONE_SECONDS = 5.0
 FIELD_HOME_POINT = (1797, 57)
+# The 末日之书 page's back arrow (top left) returns to the field.
+DOOM_PAGE_BACK_POINT = (172, 50)
 # Every cartridge field has the P icon (quick switch) at the bottom centre
 # and the skill HUD (SPACE / TAB labels) at the bottom right.
 FIELD_QUICK_SWITCH_POINT = (851, 997)
@@ -257,6 +259,29 @@ class DoomBookTask(_ClaimTaskBase):
                 return True
         self.log_info(f"{LABEL}：「创造新纪录」画面点不掉。")
         return True
+
+    def _back_to_field_from_page(self) -> bool:
+        """After a battle the game can land on the 末日之书 page instead of the
+        field (4K 桌面分身 2026-10-09, after 创造新纪录): press its back arrow."""
+        for _attempt in range(3):
+            self.info_set("当前阶段", "末日之书页返回地图")
+            self._click_reference(*DOOM_PAGE_BACK_POINT, after_sleep=1.5)
+            if self._wait_for(self._field_after_result, timeout=10.0):
+                return True
+            if not self._doom_page_visible(self.capture_frame()):
+                return self._wait_for(self._field_after_result, timeout=20.0)
+        self.log_info(f"{LABEL}：末日之书页按返回后没有回到地图。")
+        return False
+
+    def _field_or_doom_page(self, frame) -> bool:
+        """After 离开: the field, or the 末日之书 page (logged) for the caller's
+        loop to leave with its back arrow; a new-record screen is clicked away."""
+        if self._field_after_result(frame):
+            return True
+        if self._doom_page_visible(frame):
+            self.log_info(f"{LABEL}：按离开后回到末日之书页。")
+            return True
+        return False
 
     def _field_after_result(self, frame) -> bool:
         """The field is back; a new-record screen on the way is clicked away."""
@@ -466,14 +491,25 @@ class DoomBookTask(_ClaimTaskBase):
 
         self.info_set("当前阶段", "战斗中")
         end_at = monotonic() + BATTLE_TIMEOUT_SECONDS
+        doom_page_reads = 0
         while monotonic() <= end_at:
             frame = self.capture_frame()
+            # The battle already left this page, so seeing it again (two
+            # reads) means the battle is over and the game came back here.
+            doom_page_reads = doom_page_reads + 1 if self._doom_page_visible(frame) else 0
+            if doom_page_reads >= 2:
+                self.log_info(f"{LABEL}：战斗结束后回到末日之书页。")
+                return self._back_to_field_from_page()
             buttons = self._reference_boxes(frame, RESULT_BUTTONS_ROI, "结算按钮")
             leave = self._box_with(buttons, (LEAVE_TEXT,))
             if leave is not None:
                 self.info_set("当前阶段", "离开结算")
                 self._click_reference_box(leave, after_sleep=2.0)
-                if self._wait_for(self._field_after_result, timeout=30.0):
+                # Stop waiting as soon as the 末日之书 page shows instead of
+                # the field; the next loop presses its back arrow.
+                if self._wait_for(self._field_or_doom_page, timeout=30.0) and self._field_visible(
+                    self.capture_frame()
+                ):
                     return True
                 continue
             reference = cv2.resize(frame[:, :, :3], (REFERENCE_WIDTH, REFERENCE_HEIGHT))
@@ -503,15 +539,21 @@ class DoomBookTask(_ClaimTaskBase):
             leave = self._box_with(buttons, (LEAVE_TEXT,))
             if leave is not None:
                 self._click_reference_box(leave, after_sleep=2.0)
-                if self._wait_for(self._field_after_result, timeout=30.0):
+                if self._wait_for(self._field_or_doom_page, timeout=30.0) and self._field_visible(
+                    self.capture_frame()
+                ):
                     self._field_to_home()
-                return
+                    return
+                # On the 末日之书 page: the two-read check below leaves it.
+                continue
             if self._dismiss_new_record(frame):
                 continue
-            # 去战斗 never took: still on the 末日之书 page (two reads), no
-            # battle to wait out for the full battle length.
+            # On the 末日之书 page (two reads): 去战斗 never took, or the
+            # battle ended back here.  No battle to wait out; leave the page.
             doom_page_reads = doom_page_reads + 1 if self._doom_page_visible(frame) else 0
             if doom_page_reads >= 2:
+                if self._back_to_field_from_page():
+                    self._field_to_home()
                 return
             self.sleep(1.0)
 

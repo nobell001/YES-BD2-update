@@ -779,7 +779,7 @@ class FiendPage(Page):
                     tile.load()
 
     def _key_picker(self, row):
-        """录制按键, F6-F10 (Leo 2026-10-06), chosen here."""
+        """录制按键, F6-F12 (Leo 2026-10-06/09), chosen here or in 设置."""
         from qfluentwidgets import ComboBox
 
         fiend = _fiend()
@@ -796,7 +796,14 @@ class FiendPage(Page):
         return box
 
     def _key_changed(self, key: str) -> None:
-        self._set(self.record_task(), "录制按键", key)
+        from src.ui.shell import hotkeys
+
+        task = self.record_task()
+        if task is None:
+            self._set(task, "录制按键", key)
+        else:
+            # Swaps with the pause/stop key if one of them had it.
+            hotkeys.set_key(hotkeys.RECORD, key, task)
         QTimer.singleShot(0, self.refresh)  # the note under the buttons names the key
 
     @staticmethod

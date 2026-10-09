@@ -23,10 +23,11 @@ class NavItem(QAbstractButton):
     Selected: a soft violet pill in 淡紫, a quiet card with a blue icon in 深色.
     """
 
-    def __init__(self, key: str, label: str, icon_name: str, parent=None):
+    def __init__(self, key: str, label: str, icon_name: str, parent=None, strong=False):
         super().__init__(parent)
         self.key = key
         self._label = t(label)
+        self._strong = strong
         self._icon = icon_name
         self._selected = False
         self._hover = 0.0
@@ -144,7 +145,12 @@ class NavItem(QAbstractButton):
             )
         font = QFont(self.font())
         font.setPixelSize(13)
-        font.setWeight(QFont.Weight.Bold if self._selected else theme.body_weight())
+        if self._selected:
+            font.setWeight(QFont.Weight.Bold)
+        elif self._strong:
+            font.setWeight(QFont.Weight.DemiBold)
+        else:
+            font.setWeight(theme.body_weight())
         painter.setFont(font)
         painter.setPen(fg)
         text_rect = QRectF(40, 0, self.width() - 48, self.height())
@@ -183,14 +189,16 @@ class Sidebar(QWidget):
     PAGES = (
         ("home", "首页", "house"),
         ("report", "今日报表", "list-checks"),
-        ("daily", "日常设定", "calendar-check"),
-        ("weekly", "周常", "calendar-range"),
+        # Leo 2026-10-09: 任务设定 (the 周常 are in it too).
+        ("daily", "任务设定", "calendar-check"),
         ("trade", "跑商", "coins"),
         ("map", "跑图", "map"),
         # Leo 2026-10-06: 魔兽战 back, on a page of its own.
         ("fiend", "魔兽追踪者", "skull"),
     )
     BOTTOM = (
+        # Leo 2026-10-09: players send what went wrong from here, always in reach.
+        ("problem", "回报问题", "message-circle-warning"),
         # Leo (2026-10-05): the guide sits where new players see it.
         ("guide", "使用说明", "book-open"),
         ("settings", "设置", "settings"),
@@ -246,7 +254,8 @@ class Sidebar(QWidget):
         theme.on_theme_changed(self, self.apply_style)
 
     def _item(self, key: str, label: str, icon_name: str) -> NavItem:
-        item = NavItem(key, label, icon_name, self)
+        # Leo 2026-10-09: 使用说明 a little bolder, always marked 必看.
+        item = NavItem(key, label, icon_name, self, strong=key == "guide")
         item.clicked.connect(lambda *_a, k=key: self.navigate.emit(k))
         self.items[key] = item
         return item
@@ -304,11 +313,10 @@ class Sidebar(QWidget):
 
     def _refresh_badges(self) -> None:
         report, current = clone_flow.active_run()
-        for key, batch_name in (("daily", data.DAILY_BATCH), ("weekly", data.WEEKLY_BATCH)):
+        for key, batch_name in (("daily", data.DAILY_BATCH),):
             batch = data.task_by_name(batch_name)
             children = [child for child in data.batch_children(batch) if child.included]
-            check = data.done_this_week if key == "weekly" else data.done_today
-            done = sum(1 for child in children if check(child.name))
+            done = sum(1 for child in children if data.child_done(child))
             running = report is not None and report.get("label") == batch_name
             if running:
                 rows = report.get("rows") or []

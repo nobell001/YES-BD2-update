@@ -10,7 +10,7 @@ from ok import BaseTask
 from ok.task.exceptions import FinishedException, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
-from src.tasks import run_report
+from src.tasks import problem_report, run_report, weekly_ticks
 from src.tasks.CraftGearTask import CraftGearTask
 from src.tasks.DailyTask import DailyTask
 from src.tasks.DoomBookTask import DoomBookTask
@@ -97,6 +97,8 @@ def failure_note(task) -> str:
 class DailyBatchChild:
     config_key: str
     task_class: type[BaseTask]
+    # 周常 in 一键日常 (Leo 2026-10-09): skipped once done this game week.
+    weekly: bool = False
 
 
 DAILY_BATCH_CHILDREN = (
@@ -110,6 +112,13 @@ DAILY_BATCH_CHILDREN = (
     DailyBatchChild("自动PVP", PVPTask),
     DailyBatchChild("跑商", MapTradeTask),
     DailyBatchChild("活动每日战斗", EventBattleTask),
+    # 周常 run with the daily ones and are skipped once done this week (Leo
+    # 2026-10-09, YES-BD2 issue #1: no separate 一键完成周常).  Before the
+    # rewards, so the weekly missions they finish are claimed in the same run.
+    DailyBatchChild("浏览街机菜单", ArcadeBrowseTask, weekly=True),
+    DailyBatchChild("小屋增加人气", HomePopularityTask, weekly=True),
+    DailyBatchChild("制作装备", CraftGearTask, weekly=True),
+    DailyBatchChild("末日之书", DoomBookTask, weekly=True),
     # 收尾：先领任务奖励，再领通行证（通行证任务依赖每日任务完成数），再收邮件。
     DailyBatchChild("领取任务奖励", MissionRewardTask),
     DailyBatchChild("领取通行证", PassRewardTask),
@@ -151,7 +160,7 @@ class ChildBatchTask(BaseTask):
         self.name = self.batch_label
         self.description = (
             "按顺序执行已开启的公会、小屋、酒馆、常客圣石、快速狩猎、抽抽乐、爛装分解、精炼、"
-            "广场、PVP、跑商、活动战斗，最后领取任务奖励、通行证和邮件。"
+            "广场、PVP、跑商、活动战斗、本周还没做的周常，最后领取任务奖励、通行证和邮件。"
         )
         self.icon = FluentIcon.COMPLETED
         self.group_name = "日常/周常"
@@ -166,6 +175,8 @@ class ChildBatchTask(BaseTask):
                 "启用": True,
                 "失败后继续": True,
                 "完成日常后自动关机": False,
+                # Ticked on 首页 (src/ui/shell/autorun.py, Leo 2026-10-09).
+                "打开工具时自动开始": False,
                 **{key: True for key in child_keys},
             }
         )
@@ -180,6 +191,10 @@ class ChildBatchTask(BaseTask):
                     "一键完成日常运行成功且全部已启用子任务今日均已完成"
                     "（含运行前就已完成的项目）后，60 秒倒计时自动关机；"
                     "期间在系统命令行执行 shutdown /a 可取消。"
+                ),
+                "打开工具时自动开始": (
+                    "打开工具几秒后自动开始，只跑今天还没做的（周常是本周）；"
+                    "游戏没开会自己打开并登录。"
                 ),
                 **{
                     key: f"是否在{self.batch_label}中执行{key}。"
@@ -315,20 +330,23 @@ class ChildBatchTask(BaseTask):
             self.info_set("状态", f"{self.batch_label}已禁用。")
             return True
 
-        # One notice for the whole batch; the children's are within its gap.
-        game_size.warn_if_unsupported(self)
-        # The 跑完的结算 page reads this report; it is saved however the run
-        # ends (Stop and errors included).
-        self._begin_report(run_mode)
-        self._report_ended = run_report.ENDED_ERROR
-        try:
-            return self._run_children(run_mode)
-        except (TaskDisabledException, FinishedException):
-            self._report_ended = run_report.ENDED_STOPPED
-            self._record_stopped_progress()
-            raise
-        finally:
-            run_report.finish(self._report_ended)
+        # Once for the whole batch: the children then find a fixed size, or a
+        # notice still within its gap.
+        game_size.fix_or_warn(self)
+        # The 问题摘要 record of the whole batch; its children's problems go in it.
+        with problem_report.run_scope(self):
+            # The 跑完的结算 page reads this report; it is saved however the run
+            # ends (Stop and errors included).
+            self._begin_report(run_mode)
+            self._report_ended = run_report.ENDED_ERROR
+            try:
+                return self._run_children(run_mode)
+            except (TaskDisabledException, FinishedException):
+                self._report_ended = run_report.ENDED_STOPPED
+                self._record_stopped_progress()
+                raise
+            finally:
+                run_report.finish(self._report_ended)
 
     def _record_stopped_progress(self) -> None:
         """Stop pressed: keep the children done so far so 继续 skips them."""
@@ -352,6 +370,28 @@ class ChildBatchTask(BaseTask):
             rows,
         )
 
+    # 一键日常 takes a 周常's tick away once it is done this week (weekly_ticks).
+    untick_weekly_done = False
+
+    def _sync_weekly_ticks(self, history) -> list[str]:
+        if not self.untick_weekly_done:
+            return []
+        pairs = []
+        for child in self.child_tasks:
+            if child.weekly:
+                task = self._child_task(child.task_class)
+                name = str(getattr(task, "name", None) or child.config_key)
+                pairs.append((child.config_key, name))
+        if not pairs:
+            return []
+        changed = weekly_ticks.sync(self.config, pairs, history.last_run)
+        for key in changed:
+            if self.config.get(key, True):
+                self.log_info(f"{self.batch_label}：{key} 新的一周，重新勾选。")
+            else:
+                self.log_info(f"{self.batch_label}：{key} 本周已做完，取消勾选。")
+        return changed
+
     def _run_children(self, run_mode: str) -> bool:
         only_incomplete = run_mode == RUN_MODE_INCOMPLETE
         from src.tasks import scheduler as task_scheduler
@@ -360,6 +400,10 @@ class ChildBatchTask(BaseTask):
         history = (
             default_store() if only_incomplete else None
         )
+        # A 周常 done this week has had its tick taken away (and one from last
+        # week gets it back); the ticks then decide, so a 周常 the player
+        # ticks again runs again (Leo 2026-10-09).
+        self._sync_weekly_ticks(default_store())
         schedule_store = task_scheduler.default_store()
 
         completed: list[str] = []
@@ -468,6 +512,12 @@ class ChildBatchTask(BaseTask):
                         run_report.row_ended(child.config_key, run_report.DONE)
                         self.log_info(f"{self.batch_label}：{child.config_key} 完成。")
                         self._delay_child_schedule(schedule_store, str(task.name), True)
+                        if child.weekly and self.untick_weekly_done:
+                            weekly_ticks.mark_done(
+                                self.config,
+                                child.config_key,
+                                self._child_finished[child.config_key],
+                            )
                     else:
                         failed.append(child.config_key)
                         publish_outcome()
@@ -639,6 +689,8 @@ class ChildBatchTask(BaseTask):
                 continue
             task = self._child_task(child.task_class)
             name = str(getattr(task, "name", None) or child.config_key)
+            if child.weekly and history.is_completed_this_week(name):
+                continue
             if not history.is_completed_today(name):
                 self.log_info(
                     f"{self.batch_label}：{child.config_key} 今日未完成，不执行自动关机。"
@@ -665,17 +717,47 @@ class ChildBatchTask(BaseTask):
 class DailyBatchTask(ChildBatchTask):
     """一键完成日常."""
 
+    untick_weekly_done = True
 
-WEEKLY_BATCH_CHILDREN = (
-    DailyBatchChild("浏览街机菜单", ArcadeBrowseTask),
-    DailyBatchChild("小屋增加人气", HomePopularityTask),
-    DailyBatchChild("制作装备", CraftGearTask),
-    DailyBatchChild("末日之书", DoomBookTask),
-)
+    def load_config(self):
+        # The 周常 switches used to live on 一键完成周常: keep what the player set.
+        own = _read_json(_config_file(self.__class__.__name__))
+        weekly = _read_json(_config_file(WeeklyBatchTask.__name__))
+        super().load_config()
+        for child in self.child_tasks:
+            key = child.config_key
+            if child.weekly and key not in own and isinstance(weekly.get(key), bool):
+                self.config[key] = weekly[key]
+
+
+def _config_file(name: str):
+    from pathlib import Path
+
+    from ok.util.config import Config
+    from ok.util.file import get_relative_path
+
+    return Path(get_relative_path(Config.config_folder, f"{name}.json"))
+
+
+def _read_json(path) -> dict:
+    import json
+
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+WEEKLY_BATCH_CHILDREN = tuple(child for child in DAILY_BATCH_CHILDREN if child.weekly)
 
 
 class WeeklyBatchTask(ChildBatchTask):
-    """一键完成周常: weekly chores, skipped once done in the current game week."""
+    """一键完成周常: weekly chores, skipped once done in the current game week.
+
+    No longer registered (Leo 2026-10-09: 一键日常 runs the 周常 too); kept so
+    old saved runs, its config file and the auto-login gate still resolve.
+    """
 
     batch_label = "一键完成周常"
     child_tasks = WEEKLY_BATCH_CHILDREN
@@ -686,9 +768,10 @@ class WeeklyBatchTask(ChildBatchTask):
             "按顺序执行已开启的周常：浏览街机菜单、小屋增加人气、制作装备、末日之书。"
         )
         self.icon = FluentIcon.DATE_TIME
-        # Shutdown is a daily-batch feature.
-        self.default_config.pop("完成日常后自动关机", None)
-        self.config_description.pop("完成日常后自动关机", None)
+        # Shutdown and auto-run on open are daily-batch features.
+        for key in ("完成日常后自动关机", "打开工具时自动开始"):
+            self.default_config.pop(key, None)
+            self.config_description.pop(key, None)
 
     period_done_note = "本周已经做完"
 

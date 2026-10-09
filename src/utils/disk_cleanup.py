@@ -3,7 +3,8 @@
 Run once at start.  What is already bounded elsewhere:
 - logs/ok-script*.log: ok rotates at midnight and keeps 7 days;
 - screenshots/: ok keeps 7 days (cleared above 300 MB); the 今日报表
-  pictures under screenshots/run_report keep 7 game days;
+  pictures under screenshots/run_report keep 7 game days, and so do the
+  回报问题 records under screenshots/problem_report;
 - configs/run_log.json keeps 7 game days.
 
 What only grew, and is trimmed here:

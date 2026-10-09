@@ -50,6 +50,9 @@ DOWNLOAD_PROGRESS_PATTERN = re.compile(
 
 
 class AutoLoginTask(BaseBD2Task):
+    # Polled by the executor every second; keeps no 问题摘要 record.
+    runs_by_itself = True
+
     status_keys = [
         "阶段",
         "内部状态",

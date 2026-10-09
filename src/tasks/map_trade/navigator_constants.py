@@ -144,6 +144,11 @@ STORY_BADGE_ENCODED_MIN_MARGIN = 0.04
 # raw lead, but above this floor, the digit OCR must read back the target
 # number before the badge is accepted.
 STORY_BADGE_ENCODED_OCR_MARGIN = 0.020
+# A native badge may lose its own slot by a hair to a look-alike number
+# (Leo's clone 2026-10-09: 16 behind 18 by 0.010 ZNCC on every frame).  Such a
+# runner-up is promoted only this close behind, and only the digit OCR reading
+# the target number accepts it.
+STORY_BADGE_NATIVE_RUNNER_MAX_GAP = 0.050
 STORY_BADGE_CANDIDATE_SCORE = 0.70
 STORY_BADGE_CANDIDATE_PIXEL_SCORE = 0.70
 STORY_BADGE_CANDIDATE_ZNCC_SCORE = 0.50

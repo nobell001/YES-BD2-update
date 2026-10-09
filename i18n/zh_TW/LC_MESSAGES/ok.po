@@ -197,3 +197,42 @@ msgstr "閃耀西班牙蒜味蝦"
 
 msgid "黄油"
 msgstr "奶油"
+
+msgid "任务设定"
+msgstr "任務設定"
+
+msgid "到「任务设定」把要跑的项目加进一键日常"
+msgstr "到「任務設定」把要跑的項目加進一鍵日常"
+
+msgid "快捷键"
+msgstr "快捷鍵"
+
+msgid "打开启动器或工具后自动开始一键日常，只跑今天还没做的；游戏没开会自己打开并登录"
+msgstr "打開啟動器或工具後自動開始一鍵日常，只跑今天還沒做的；遊戲沒開會自己打開並登入"
+
+msgid "打开就自动跑日常"
+msgstr "打開就自動跑日常"
+
+msgid "按 {pause} 暂停、{stop} 停止，可在设置里改"
+msgstr "按 {pause} 暫停、{stop} 停止，可在設定裡改"
+
+msgid "暂停/继续"
+msgstr "暫停/繼續"
+
+msgid "本周任务"
+msgstr "本週任務"
+
+msgid "跑的时候按一下停止"
+msgstr "跑的時候按一下停止"
+
+msgid "跑的时候按一下暂停，再按一下继续"
+msgstr "跑的時候按一下暫停，再按一下繼續"
+
+msgid "跑过会自动取消勾选，每周{weekday} {time} 自动勾回来"
+msgstr "跑過會自動取消勾選，每週{weekday} {time} 自動勾回來"
+
+msgid "魔兽录制"
+msgstr "魔獸錄製"
+
+msgid "魔兽追踪者录制时，每回合排好后按这个键"
+msgstr "魔獸追蹤者錄製時，每回合排好後按這個鍵"

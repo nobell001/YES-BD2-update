@@ -25,7 +25,7 @@ from src.ui.quest_ui import install_quest_ui
 
 # This marker is replaced with the Git tag when PyAppify creates the update
 # repository.  Source checkouts always read the project version from pyproject.
-version = "v0.1.11"
+version = "v0.1.13"
 
 
 def runtime_version(project_file: Path | None = None) -> str:
@@ -115,9 +115,11 @@ config = {
     "window_size": {
         # First-open size (Leo's 4K PC at 175%, 10-08): the home page shows its
         # task cards 8 per row in 2 rows with no scrolling.  Smaller screens are
-        # shrunk to fit.
+        # shrunk to fit.  10-09: the 本周任务 row under them needs 944 px of page
+        # (measured, tools/dev/render_home.py), so 1020 with the title bar;
+        # 2K at 125% still has room for it.
         "width": 1335,
-        "height": 997,
+        "height": 1020,
         "min_width": 600,
         "min_height": 450,
     },
@@ -173,7 +175,6 @@ config = {
     ],
     "onetime_tasks": [
         ["src.tasks.DailyBatchTask", "DailyBatchTask"],
-        ["src.tasks.DailyBatchTask", "WeeklyBatchTask"],
         ["src.tasks.DailyTask", "DailyTask"],
         ["src.tasks.QuickHuntTask", "QuickHuntTask"],
         ["src.tasks.FiendHuntTask", "FiendHuntTask"],

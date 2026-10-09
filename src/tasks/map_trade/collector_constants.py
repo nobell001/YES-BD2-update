@@ -119,6 +119,10 @@ class SkillExecutionResult:
     # pending.  Keep the action names visible to the caller for status and
     # final-map warnings without changing the existing positional interface.
     pending_actions: tuple[str, ...] = ()
+    # The press did not take: the icon is still bright, no toast came and
+    # the count read steadily unchanged, so pressing again is not charged
+    # twice.
+    press_again: bool = False
 
 
 @dataclass(frozen=True)

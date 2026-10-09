@@ -1,4 +1,4 @@
-"""日常设定 / 周常: tasks on the left, the picked one's state and settings on the right."""
+"""任务设定: tasks on the left, the picked one's state and settings on the right."""
 
 from __future__ import annotations
 
@@ -123,6 +123,7 @@ class TaskPage(Page):
         self._navigate = navigate
         self.batch_name = batch_name
         self.weekly = weekly
+        self._weekly_names: set[str] = set()  # 周常 inside 一键日常
         self._selected: str | None = None
         self._rows: dict[str, TaskRow] = {}
         self._row_keys: list = []
@@ -168,14 +169,16 @@ class TaskPage(Page):
     def items(self) -> list[_Item]:
         if not self.batch_name:
             return []
+        children = [child for child in data.batch_children(self.batch()) if child.task is not None]
+        self._weekly_names = {child.name for child in children if child.weekly}
         return [
             _Item(child.key, child.task, child.name, child.icon, child.kind, child.included)
-            for child in data.batch_children(self.batch())
-            if child.task is not None
+            for child in children
         ]
 
     def _done(self, name: str) -> bool:
-        return data.done_this_week(name) if self.weekly else data.done_today(name)
+        weekly = self.weekly or name in self._weekly_names
+        return data.done_this_week(name) if weekly else data.done_today(name)
 
     def select(self, key: str | None) -> None:
         self._selected = key
@@ -212,16 +215,17 @@ class TaskPage(Page):
             if row is None:
                 continue
             row.set_selected(item.key == self._selected)
+            weekly = self.weekly or item.name in self._weekly_names
             if self._done(item.name):
                 record = data.last_run(item.name) or {}
                 stamp = data.clock_text(record.get("finished"))
-                if self.weekly:
+                if weekly and data.day_text(record.get("finished")) != "今天":
                     stamp = data.day_text(record.get("finished")) or stamp
                 row.set_state("done", stamp)
             elif item.included is False:
                 row.set_state("off", "不跑")
             else:
-                row.set_state("wait", "本周未完成" if self.weekly else "未完成")
+                row.set_state("wait", "本周未完成" if weekly else "未完成")
         selected = next((item for item in items if item.key == self._selected), None)
         if selected is not None and selected.key != self._detail_key:
             self._build_detail(selected)
@@ -279,7 +283,8 @@ class TaskPage(Page):
         stats = Inset()
         stats_row = hbox(stats, (16, 12, 16, 12), 24)
         first = vbox(None, (0, 0, 0, 0), 4)
-        first.addWidget(Text("本周" if self.weekly else "今天", "muted"))
+        weekly = self.weekly or item.name in self._weekly_names
+        first.addWidget(Text("本周" if weekly else "今天", "muted"))
         self.stat_state = Text("", "h3")
         first.addWidget(self.stat_state)
         stats_row.addLayout(first, 1)
@@ -365,7 +370,7 @@ class TaskPage(Page):
         record = data.last_run(name) or {}
         if self._done(name):
             when = data.clock_text(record.get("finished"))
-            if self.weekly:
+            if self.weekly or name in self._weekly_names:
                 when = f"{data.day_text(record.get('finished'))} {when}".strip()
             self.stat_state.set_text(tf("✓ {when} 完成", when=when))
             self.stat_state.set_role("ok")

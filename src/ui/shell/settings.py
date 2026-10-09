@@ -186,6 +186,8 @@ class SettingsPage(Page):
             )
         )
 
+        self._build_hotkeys()
+
         game = self._section("游戏")
         login = data.task_by_class_name("AutoLoginTask")
         self.login_toggle = None
@@ -244,6 +246,50 @@ class SettingsPage(Page):
             )
         )
         self.body.addStretch(1)
+
+    def _build_hotkeys(self) -> None:
+        """暂停、停止、魔兽录制三个键（Leo 2026-10-09，F6~F12，不能重复）。"""
+        from src.ui.shell import hotkeys
+
+        column = self._section("快捷键")
+        subs = {
+            hotkeys.PAUSE: "跑的时候按一下暂停，再按一下继续",
+            hotkeys.STOP: "跑的时候按一下停止",
+            hotkeys.RECORD: "魔兽追踪者录制时，每回合排好后按这个键",
+        }
+        icons = {hotkeys.PAUSE: "pause", hotkeys.STOP: "square", hotkeys.RECORD: "circle-dot"}
+        self.hotkey_boxes: dict[str, ComboBox] = {}
+        current = hotkeys.keys()
+        for index, action in enumerate(hotkeys.ACTIONS):
+            if index:
+                column.addWidget(Separator())
+            box = ComboBox()
+            box.addItems(list(hotkeys.KEY_CHOICES))
+            box.setCurrentText(current[action])
+            box.setFixedWidth(96)
+            box.currentTextChanged.connect(
+                lambda key, action=action: self._hotkey_picked(action, key)
+            )
+            self.hotkey_boxes[action] = box
+            row = HubRow(icons[action], hotkeys.LABELS[action], subs[action], control=box)
+            column.addWidget(row)
+        hotkeys.on_changed(self._show_hotkeys)
+
+    def _hotkey_picked(self, action: str, key: str) -> None:
+        from src.ui.shell import hotkeys
+
+        hotkeys.set_key(action, key)
+        self._show_hotkeys()
+
+    def _show_hotkeys(self) -> None:
+        from src.ui.shell import hotkeys
+
+        current = hotkeys.keys()
+        for action, box in getattr(self, "hotkey_boxes", {}).items():
+            if box.currentText() != current[action]:
+                box.blockSignals(True)
+                box.setCurrentText(current[action])
+                box.blockSignals(False)
 
     def _build_clone(self) -> None:
         """Only 还原 lives here; 桌面分身 itself starts from 首页 (Leo, 2026-10-03)."""
@@ -343,4 +389,5 @@ class SettingsPage(Page):
             self.login_toggle.set_checked_quietly(bool(getattr(login, "enabled", False)))
         if self.home_button is not None:
             self.home_button.setEnabled(actions.can_start())
+        self._show_hotkeys()  # the 魔兽追踪者 page can change the record key
         self._refresh_clone()

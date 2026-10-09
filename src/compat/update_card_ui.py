@@ -40,6 +40,11 @@ def _too_old_message(version) -> str:
     )
 
 
+# 工具不是从启动器打开、也找不到启动器（例如源码版）时，pyappify 只会抛
+# 「pyappify_version: None」的英文错误；改成告诉玩家怎么做。
+NO_LAUNCHER_MESSAGE = "这个窗口不是从 YES-BD2 启动器打开的，没办法检查更新。请关掉工具，从桌面的 YES-BD2 打开后再检查。"
+
+
 def status_width_for_text(label, message: str) -> int:
     """状态标签的目标宽度：短文本自然单行，长文本收敛到折行宽度。"""
     if not message:
@@ -95,6 +100,9 @@ def install_update_card_ui() -> None:
         version = getattr(self.pyappify_module, "pyappify_version", None)
         if launcher_supports_update_check(version) is False:
             self._show_error(_too_old_message(version))
+            return
+        if not version and callable(getattr(self.pyappify_module, "get_version_list", None)):
+            self._show_error(NO_LAUNCHER_MESSAGE)
             return
         original_check_for_updates(self)
 

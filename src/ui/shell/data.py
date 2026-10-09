@@ -111,6 +111,7 @@ class Child:
     icon: str
     kind: str  # theme.KINDS
     included: bool  # switched on in the batch
+    weekly: bool = False  # a 周常: done once a game week (Leo 2026-10-09)
 
 
 def batch_children(batch) -> list[Child]:
@@ -135,9 +136,27 @@ def batch_children(batch) -> list[Child]:
                 icon,
                 kind,
                 bool(config.get(child.config_key, True)),
+                bool(getattr(child, "weekly", False)),
             )
         )
     return children
+
+
+def sync_weekly_ticks(batch) -> None:
+    """Untick the 周常 done this week, tick last week's again (src.tasks.weekly_ticks)."""
+    if batch is None or not hasattr(batch, "_sync_weekly_ticks"):
+        return
+    try:
+        from src.tasks.run_history import default_store
+
+        batch._sync_weekly_ticks(default_store())
+    except Exception as exc:
+        logger.warning(f"weekly ticks: sync failed ({exc})")
+
+
+def child_done(child: Child) -> bool:
+    """Done today, or for a 周常 done this game week."""
+    return done_this_week(child.name) if child.weekly else done_today(child.name)
 
 
 def task_look(task) -> tuple[str, str]:
