@@ -366,12 +366,7 @@ class MapProgress:
 def map_progress() -> MapProgress | None:
     try:
         from src.tasks.map_trade.collector_constants import UNSUPPORTED_COLLECTION_CARD_NUMBERS
-        from src.tasks.map_trade.models import (
-            COLLECTABLE_CARDS,
-            DAILY_ABSORB_LIMIT,
-            DAILY_SUMMON_LIMIT,
-            DAILY_SUPPRESS_LIMIT,
-        )
+        from src.tasks.map_trade.models import COLLECTABLE_CARDS
         from src.tasks.map_trade.progress import ProgressStore
 
         class _ReadOnlyStore(ProgressStore):
@@ -408,11 +403,8 @@ def map_progress() -> MapProgress | None:
         return MapProgress(
             cards=cards,
             used=store.effective_daily_counts(),
-            limits={
-                "吸收": DAILY_ABSORB_LIMIT,
-                "召集": DAILY_SUMMON_LIMIT,
-                "压制": DAILY_SUPPRESS_LIMIT,
-            },
+            # Today's limits as the game showed them (they differ per player).
+            limits={name: store.limit_of(name) for name in ("吸收", "召集", "压制")},
         )
     except Exception as exc:
         logger.error(f"read map progress failed: {exc}")

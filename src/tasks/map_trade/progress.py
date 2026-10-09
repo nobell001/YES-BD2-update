@@ -12,12 +12,12 @@ from src.tasks.map_trade.data import SHOP_PURCHASE_REFERENCES
 from src.tasks.map_trade.models import (
     COLLECTABLE_CARDS,
     DAILY_ABSORB_LIMIT,
-    DAILY_SUBMAP_LIMIT,
     DAILY_SUMMON_LIMIT,
     DAILY_SUPPRESS_LIMIT,
     DEFAULT_RECIPES,
     CollectionActionState,
     CollectionMapRole,
+    plausible_limit,
 )
 from src.utils.game_day import DAILY_REFRESH_HOUR
 
@@ -71,6 +71,10 @@ class ProgressState:
     archived_action_records: dict[str, dict[str, object]] = field(default_factory=dict)
     # Last trusted absolute HUD snapshot per action name (used, limit).
     observed_counts: dict[str, tuple[int, int]] = field(default_factory=dict)
+    # Today's daily limit per action as the HUD shows it ("3/19" -> 19).
+    # It differs between players and grows with game updates (Leo
+    # 2026-10-09: his 21/21/80, a player's 召集 19), so the HUD decides.
+    observed_limits: dict[str, int] = field(default_factory=dict)
 
     def completed_targets(self, card_id: str) -> set[str]:
         allowed = VALID_TARGET_KEYS.get(card_id, frozenset())
@@ -121,6 +125,8 @@ class ProgressStore:
         self.path = Path(path)
         self.now_provider = now_provider or (lambda: datetime.now(UTC_PLUS_8))
         self.state: ProgressState | None = None
+        # A limit read once that differs from today's: (limit, times read).
+        self._limit_candidates: dict[str, tuple[int, int]] = {}
 
     def load(self) -> ProgressState:
         now = self.now_provider()
@@ -199,6 +205,7 @@ class ProgressStore:
             action_records=active_records,
             archived_action_records=archived_records,
             observed_counts=self._sanitize_observed_counts(raw.get("observed_counts", {})),
+            observed_limits=self._sanitize_observed_limits(raw.get("observed_limits", {})),
         )
         if self.state.daily_key != day:
             self._archive_daily_actions()
@@ -208,6 +215,7 @@ class ProgressStore:
             self.state.daily_suppressions = 0
             self.state.depleted_today = False
             self.state.observed_counts = {}
+            self.state.observed_limits = {}
             self.save()
         elif schema_version != STATE_SCHEMA_VERSION:
             # Persist the current shape immediately after an older compatible load.
@@ -380,10 +388,26 @@ class ProgressStore:
                 used, observed_limit = int(raw_value[0]), int(raw_value[1])
             except (TypeError, ValueError):
                 continue
-            if used < 0 or observed_limit != limit or used > observed_limit:
+            if used < 0 or not plausible_limit(observed_limit) or used > observed_limit:
                 continue
             counts[action_name] = (used, observed_limit)
         return counts
+
+    @classmethod
+    def _sanitize_observed_limits(cls, raw_limits) -> dict[str, int]:
+        if not isinstance(raw_limits, dict):
+            return {}
+        limits: dict[str, int] = {}
+        for action, raw_value in raw_limits.items():
+            if cls._action_limit(str(action)) is None:
+                continue
+            try:
+                value = int(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if plausible_limit(value):
+                limits[str(action)] = value
+        return limits
 
     def _archive_daily_actions(self) -> None:
         """Move unresolved records out of the active day at the game-day edge."""
@@ -441,6 +465,7 @@ class ProgressStore:
                 action: list(value)
                 for action, value in self.state.observed_counts.items()
             },
+            "observed_limits": dict(self.state.observed_limits),
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
@@ -462,11 +487,53 @@ class ProgressStore:
 
     @staticmethod
     def _action_limit(action: str) -> int | None:
+        """The usual daily limit, used until the HUD shows today's."""
         return {
             "吸收": DAILY_ABSORB_LIMIT,
             "召集": DAILY_SUMMON_LIMIT,
             "压制": DAILY_SUPPRESS_LIMIT,
         }.get(str(action))
+
+    def limit_of(self, action: str) -> int | None:
+        """Today's daily limit: what the HUD showed, else the usual one."""
+        action_name = self._action_name(action)
+        default = self._action_limit(action_name)
+        if default is None:
+            return None
+        state = self.state
+        seen = state.observed_limits.get(action_name) if state is not None else None
+        return seen if seen else default
+
+    def note_limit(self, action: str, observed: tuple[int, int] | None) -> None:
+        """Keep the limit of a trusted HUD read ("3/19") as today's."""
+        action_name = self._action_name(action)
+        if self._action_limit(action_name) is None or observed is None:
+            return
+        try:
+            used, limit = int(observed[0]), int(observed[1])
+        except (TypeError, ValueError, IndexError):
+            return
+        if not plausible_limit(limit) or not 0 <= used <= limit:
+            return
+        state = self._require_state()
+        if limit == self.limit_of(action_name):
+            self._limit_candidates.pop(action_name, None)
+            if action_name not in state.observed_limits:
+                state.observed_limits[action_name] = limit
+            return
+        # A new limit is believed on its second steady read in a row, so
+        # one misread ("1/20" for "1/21") cannot change it.
+        candidate, seen = self._limit_candidates.get(action_name, (None, 0))
+        seen = seen + 1 if candidate == limit else 1
+        self._limit_candidates[action_name] = (limit, seen)
+        if seen >= 2:
+            self._limit_candidates.pop(action_name, None)
+            state.observed_limits[action_name] = limit
+            previous = state.observed_counts.get(action_name)
+            if previous is not None and previous[1] != limit:
+                # The game changed the limit (an update): older snapshots
+                # were taken against the old one.
+                del state.observed_counts[action_name]
 
     def _daily_lower_bound(self, action: str) -> int:
         state = self._require_state()
@@ -480,7 +547,7 @@ class ProgressStore:
         """Return the trusted count immediately before a local action."""
 
         action_name = self._action_name(action)
-        limit = self._action_limit(action_name)
+        limit = self.limit_of(action_name)
         if limit is None:
             return None
         state = self._require_state()
@@ -575,7 +642,7 @@ class ProgressStore:
 
     def can_reserve_action(self, action: str, amount: int = 1) -> bool:
         action_name = self._action_name(action)
-        limit = self._action_limit(action_name)
+        limit = self.limit_of(action_name)
         if limit is None:
             return False
         # Leo 2026-10-07: a press is never charged twice (each map's skill
@@ -593,7 +660,7 @@ class ProgressStore:
         state = self._require_state()
         observed = state.observed_counts.get("吸收", (0, 0))[0]
         used = max(state.daily_absorbs, observed)
-        return used + len(remaining_targets) <= DAILY_ABSORB_LIMIT
+        return used + len(remaining_targets) <= self.limit_of("吸收")
 
     def arm_action(
         self,
@@ -691,7 +758,7 @@ class ProgressStore:
         covered_observed: tuple[int, int] | None = None,
     ) -> bool:
         trusted_baseline = None
-        limit = self._action_limit(self._action_name(action))
+        limit = self.limit_of(action)
         if baseline is not None and limit is not None:
             try:
                 candidate = (int(baseline[0]), int(baseline[1]))
@@ -714,7 +781,7 @@ class ProgressStore:
         if record is None:
             return False
         if covered_observed is not None:
-            limit = self._action_limit(self._action_name(action))
+            limit = self.limit_of(action)
             try:
                 covered_valid = (
                     limit is not None
@@ -868,13 +935,14 @@ class ProgressStore:
 
         state = self._require_state()
         action_name = self._action_name(action)
-        limit = self._action_limit(action_name)
-        if observed is None or limit is None or len(observed) != 2:
+        if observed is None or self._action_limit(action_name) is None or len(observed) != 2:
             return 0
         try:
             used, observed_limit = int(observed[0]), int(observed[1])
         except (TypeError, ValueError):
             return 0
+        self.note_limit(action_name, (used, observed_limit))
+        limit = self.limit_of(action_name)
         if (
             observed_limit != limit
             or used < 0
@@ -1129,20 +1197,20 @@ class ProgressStore:
             CollectionMapRole.BATTLE_AREA_2.value,
         }
         absorb_reservation = self._target_reservations(card_id, target_key, "吸收")
-        if self._effective_used("吸收") - absorb_reservation + 1 > DAILY_ABSORB_LIMIT:
+        if self._effective_used("吸收") - absorb_reservation + 1 > self.limit_of("吸收"):
             state.depleted_today = True
             self.save()
             return False
         summon_reservation = self._target_reservations(card_id, target_key, "召集")
         if is_battle and (
-            self._effective_used("召集") - summon_reservation + 1 > DAILY_SUMMON_LIMIT
+            self._effective_used("召集") - summon_reservation + 1 > self.limit_of("召集")
         ):
             state.depleted_today = True
             self.save()
             return False
         suppress_reservation = self._target_reservations(card_id, target_key, "压制")
         if is_battle and (
-            self._effective_used("压制") - suppress_reservation + 1 > DAILY_SUPPRESS_LIMIT
+            self._effective_used("压制") - suppress_reservation + 1 > self.limit_of("压制")
         ):
             state.depleted_today = True
             self.save()
@@ -1154,9 +1222,9 @@ class ProgressStore:
             state.daily_summons += 1
             state.daily_suppressions += 1
         if (
-            state.daily_submaps >= DAILY_SUBMAP_LIMIT
-            or state.daily_summons >= DAILY_SUMMON_LIMIT
-            or state.daily_suppressions >= DAILY_SUPPRESS_LIMIT
+            state.daily_submaps >= self.limit_of("吸收")
+            or state.daily_summons >= self.limit_of("召集")
+            or state.daily_suppressions >= self.limit_of("压制")
         ):
             state.depleted_today = True
         self._cover_action_records(card_id, target_key)

@@ -54,7 +54,8 @@ from src.tasks.map_trade.models import (
 )
 from src.tasks.map_trade.vision import parse_used_limit
 
-# Used to split a count read without its slash ("7170" -> 7/70).
+# Used to split a count read without its slash ("7180" -> 7/80) until the
+# HUD has shown today's limit (see ``_known_limit``).
 SKILL_DAILY_LIMITS = {
     "吸收": DAILY_ABSORB_LIMIT,
     "召集": DAILY_SUMMON_LIMIT,
@@ -1364,16 +1365,31 @@ class SkillExecutionMixin:
             # at exactly its value before.  压制 stays bright after a press
             # that took (Leo 2026-10-07), so its count decides; before the
             # next press the count is read once more (_resume_by_count).
+            # 召集 is pressed again even when its count did not read
+            # steadily: it greys out once it takes, so still bright means the
+            # game dropped it (a slow PC, right after 吸收; two players
+            # 2026-10-09).  压制 stays bright either way, so its count decides.
             press_again=self._note_missed_press(
                 action,
                 post_detection.state is ActionIconState.AVAILABLE
                 and feedback.outcome is None
                 and not feedback_success
-                and post_window_stable
-                and after is not None
-                and tuple(after) == tuple(before),
+                and (
+                    (post_window_stable and after is not None and tuple(after) == tuple(before))
+                    or (
+                        action.name == SUMMON_ACTION.name
+                        and (after is None or tuple(after) == tuple(before))
+                    )
+                ),
             ),
         )
+
+    def _known_limit(self, action_name: str) -> int | None:
+        """Today's limit as the HUD showed it, else the usual one."""
+        try:
+            return self.progress.limit_of(action_name)
+        except Exception:
+            return SKILL_DAILY_LIMITS.get(action_name)
 
     def _note_missed_press(self, action: SkillAction, missed: bool) -> bool:
         if missed:
@@ -1537,7 +1553,7 @@ class SkillExecutionMixin:
                 )
             else:
                 return None
-            count = parse_used_limit(text, SKILL_DAILY_LIMITS.get(action.name))
+            count = parse_used_limit(text, self._known_limit(action.name))
             if count is not None:
                 return count
             if index + 1 < len(scales):

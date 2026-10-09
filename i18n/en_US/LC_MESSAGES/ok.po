@@ -2557,3 +2557,12 @@ msgstr "Fiend Hunter recording"
 
 msgid "魔兽追踪者录制时，每回合排好后按这个键"
 msgstr "While recording Fiend Hunter, press this after arranging each turn"
+
+msgid "启动器更新中"
+msgstr "Updating the launcher"
+
+msgid "在后台进行，关掉工具也会完成，下次打开生效"
+msgstr "Runs in the background and finishes even if you close the tool. Takes effect next time you open it."
+
+msgid "游戏语言是繁体中文，工具目前只认得简体中文，所以认不出画面。请到游戏设置把语言改成简体中文，再重新执行。"
+msgstr "The game language is Traditional Chinese. The tool only reads Simplified Chinese for now, so it can't recognise the screen. Switch the game language to Simplified Chinese in the game settings, then run again."

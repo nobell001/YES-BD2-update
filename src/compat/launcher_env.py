@@ -127,3 +127,35 @@ def restore_launcher_env(
     if isinstance(profile, str) and profile:
         environ.setdefault("PYAPPIFY_APP_PROFILE", profile)
     return True
+
+
+SHOWN_FILE = Path("configs") / "update_notice_shown.txt"
+
+
+def show_update_notice_once(script_dir: str | os.PathLike, environ=None) -> bool:
+    """更新内容每个版本只跳一次；True 表示这次要跳。
+
+    启动器把 app.json 的 app_starting_version 留在更新前的版本，之后每次
+    打开都传进来，工具就以为刚更新，每次都跳到「关于」（4K 实测 10-09：
+    app_starting_version v0.1.11、current v0.1.13）。记下跳过的版本，
+    同一个版本再打开时把起始版本当成现在的版本，不再跳。
+    """
+    environ = os.environ if environ is None else environ
+    current = environ.get("PYAPPIFY_APP_VERSION")
+    starting = environ.get("PYAPPIFY_APP_STARTING_VERSION")
+    if not current or not starting or current == starting:
+        return False
+    shown_file = Path(script_dir) / SHOWN_FILE
+    try:
+        shown = shown_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        shown = ""
+    if shown == current:
+        environ["PYAPPIFY_APP_STARTING_VERSION"] = current
+        return False
+    try:
+        shown_file.parent.mkdir(exist_ok=True)
+        shown_file.write_text(current, encoding="utf-8")
+    except OSError:
+        pass
+    return True

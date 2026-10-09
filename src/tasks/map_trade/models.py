@@ -16,9 +16,18 @@ __all__ = [
 MAP_TRADE_REFERENCE = HD_720
 DAILY_ABSORB_LIMIT = 21
 DAILY_SUMMON_LIMIT = 21
-# The game shows x/70 on the 压制 icon (live 2026-09-28; was 60).
-DAILY_SUPPRESS_LIMIT = 70
+# The game shows x/80 on the 压制 icon (Leo 2026-10-09; 70 on 09-28, 60 before).
+DAILY_SUPPRESS_LIMIT = 80
 DAILY_SUBMAP_LIMIT = DAILY_ABSORB_LIMIT
+# These are the usual limits only: each player's HUD shows its own ("3/19"
+# for a 召集 not levelled up, 80 for 压制 on Leo's account, 2026-10-09), and
+# game updates raise them, so a limit read from the HUD wins for the day.
+MAX_DAILY_SKILL_LIMIT = 999
+
+
+def plausible_limit(value: int) -> bool:
+    """A daily skill limit read from the HUD that can be believed."""
+    return 1 <= int(value) <= MAX_DAILY_SKILL_LIMIT
 # Story cartridge 1 血骑士: its merchant 无聊收集狂大叔 runs the trade.
 MERCHANT_CARD_ID = "Q_sp1"
 PINNED_CARD_IDS = frozenset({"Q_sp6", "Q_sp18", "Q_sp20"})

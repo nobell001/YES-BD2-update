@@ -17,10 +17,6 @@ from src.tasks.map_trade.collector_constants import (
 from src.tasks.map_trade.collector_skills import SkillExecutionMixin
 from src.tasks.map_trade.models import (
     COLLECTABLE_CARDS,
-    DAILY_ABSORB_LIMIT,
-    DAILY_SUBMAP_LIMIT,
-    DAILY_SUMMON_LIMIT,
-    DAILY_SUPPRESS_LIMIT,
     LAST_MAP_THEN_TOWN_CARD_IDS,
     CollectionMapRole,
     CollectionResult,
@@ -95,7 +91,7 @@ class Collector(SkillExecutionMixin):
 
     def _run_collection(self) -> CollectionResult:
         state = self.progress.load()
-        if state.depleted_today or state.daily_submaps >= DAILY_SUBMAP_LIMIT:
+        if state.depleted_today or state.daily_submaps >= self.progress.limit_of("吸收"):
             return CollectionResult(True, depleted=True, message="今日采集技能额度已用尽")
         if state.weekly_collection_complete:
             return CollectionResult(
@@ -345,9 +341,11 @@ class Collector(SkillExecutionMixin):
             self._status(
                 "每日技能进度",
                 (
-                    f"吸取 {effective['吸收']}/{DAILY_ABSORB_LIMIT}（本地{state.daily_absorbs}）；"
-                    f"召集 {effective['召集']}/{DAILY_SUMMON_LIMIT}（本地{state.daily_summons}）；"
-                    f"压制 {effective['压制']}/{DAILY_SUPPRESS_LIMIT}"
+                    f"吸取 {effective['吸收']}/{self.progress.limit_of('吸收')}"
+                    f"（本地{state.daily_absorbs}）；"
+                    f"召集 {effective['召集']}/{self.progress.limit_of('召集')}"
+                    f"（本地{state.daily_summons}）；"
+                    f"压制 {effective['压制']}/{self.progress.limit_of('压制')}"
                     f"（本地{state.daily_suppressions}）"
                     + (f"；待对账{pending}条" if pending else "")
                 ),

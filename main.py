@@ -100,6 +100,17 @@ if __name__ == "__main__":
 
     restore_launcher_env(os.path.dirname(os.path.abspath(sys.argv[0])))
 
+    # 更新内容每个版本只跳一次，不是每次打开都跳到「关于」（Leo, 2026-10-09）。
+    from src.compat.launcher_env import show_update_notice_once
+
+    show_update_notice_once(os.path.dirname(os.path.abspath(sys.argv[0])))
+
+    # 旧启动器一打开工具就在背景换成新版，关掉工具也会换完，玩家不用重装
+    # （Leo, 2026-10-09）。
+    from src.compat.launcher_self_update import start_launcher_swap
+
+    start_launcher_swap(os.path.dirname(os.path.abspath(sys.argv[0])))
+
     # 原生崩溃（如 0xc0000005）不经过 Python 异常，必须在导入 ok 之前
     # 启用 faulthandler，把各线程栈写入 logs/crash-*.log 供事后定位。
     import datetime

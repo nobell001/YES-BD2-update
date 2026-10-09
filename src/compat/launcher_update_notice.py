@@ -41,6 +41,28 @@ def show_launcher_update_notice(window, pyappify_module, config) -> None:
         QDesktopServices.openUrl(QUrl(download_url))
 
 
+def show_launcher_swap_hint(window) -> None:
+    """旧启动器正在后台换新（慢的网络要几分钟）：让玩家知道有在更新。"""
+    from src.compat import launcher_self_update
+
+    if not launcher_self_update.swap_started:
+        return
+    try:
+        from qfluentwidgets import InfoBar, InfoBarPosition
+
+        from src.ui.shell import data
+
+        InfoBar.info(
+            data.tr("启动器更新中"),
+            data.tr("在后台进行，关掉工具也会完成，下次打开生效"),
+            parent=window,
+            position=InfoBarPosition.TOP,
+            duration=8000,
+        )
+    except Exception:
+        pass
+
+
 def install_launcher_update_notice() -> None:
     from ok.ui.qt.MainWindow import MainWindow
 
@@ -60,6 +82,7 @@ def install_launcher_update_notice() -> None:
             750,
             lambda: show_launcher_update_notice(self, pyappify, self.config),
         )
+        QTimer.singleShot(1500, lambda: show_launcher_swap_hint(self))
 
     MainWindow.showEvent = show_event_with_launcher_notice
     setattr(MainWindow, PATCH_MARKER, True)

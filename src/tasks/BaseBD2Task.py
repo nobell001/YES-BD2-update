@@ -17,7 +17,7 @@ from src.scene.BD2Scene import BD2Scene
 from src.scene.ScreenPosition import ScreenPosition
 from src.tasks import problem_report
 from src.tasks.task_notifications import log_task_completion
-from src.utils import game_size
+from src.utils import game_language, game_size
 from src.utils.game_day import DAILY_REFRESH_HOUR
 from src.utils.home_confirmation import (
     HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT,
@@ -140,6 +140,9 @@ class BaseBD2Task(BaseTask):
             # A run started by the player keeps a 问题摘要 record; a problem
             # is noted before going home, while the game still shows it.
             keep = constructed and not problem_report.is_trigger(self)
+            # A failure after the home checks read 繁中 text says to switch the
+            # game to 简体中文 (Leo 2026-10-09: warn now, support 繁中 later).
+            started = monotonic()
             with problem_report.run_scope(self, keep) as scope:
                 # Daily and weekly tasks first set a game size the tool was not
                 # tested on to 1920x1080, or say they could not (Leo 2026-10-09).
@@ -155,7 +158,8 @@ class BaseBD2Task(BaseTask):
                 except FinishedException:
                     raise
                 except Exception as exc:
-                    problem_report.note_problem(self, "error", str(exc))
+                    hint = game_language.warn_after_failure(self, started) if keep else ""
+                    problem_report.note_problem(self, "error", hint or str(exc))
                     # A task that throws (a bug, a full disk) is a failure too:
                     # go home first, then let the error reach the log as before.
                     if wanted and constructed:
@@ -167,7 +171,8 @@ class BaseBD2Task(BaseTask):
                             pass
                     raise
                 if result is False:
-                    problem_report.note_problem(self, "fail")
+                    hint = game_language.warn_after_failure(self, started) if keep else ""
+                    problem_report.note_problem(self, "fail", hint)
                     if wanted and constructed:
                         self._leave_home_after_failed_run()
                 scope.result = result
