@@ -25,7 +25,7 @@ from src.ui.quest_ui import install_quest_ui
 
 # This marker is replaced with the Git tag when PyAppify creates the update
 # repository.  Source checkouts always read the project version from pyproject.
-version = "v0.1.17"
+version = "v0.1.18"
 
 
 def runtime_version(project_file: Path | None = None) -> str:
@@ -77,6 +77,9 @@ def blur_area(width, height):
 config = {
     "custom_tasks": True,
     "debug": False,
+    # ok-script would kill the copy already open after 5 s, even mid-run;
+    # main.py checks with src/compat/single_instance.py instead (2026-10-09).
+    "check_mutex": False,
     "use_gui": True,
     "config_folder": "configs",
     "global_configs": [basic_options],
