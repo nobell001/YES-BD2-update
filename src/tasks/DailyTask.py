@@ -1,4 +1,5 @@
 from time import monotonic
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -95,9 +96,13 @@ MY_HOME_ENTRY_CLICK_ATTEMPTS = 3
 MY_HOME_ENTRY_RETRY_SECONDS = 4.0
 BUSINESS_COLLECT_ENTRY_REFERENCE_POINT = (165, 260)
 # Fallback only: closes the popup when 取消 is not read, and taps away an
-# unrecognised reward overlay. 一键获得 itself is never clicked at a fixed
-# point.
+# unrecognised reward overlay.
 BUSINESS_COLLECT_CLOSE_REFERENCE_POINT = (832, 814)
+# 一键获得 when its text is not read: x from the 10-10 problem-summary frame,
+# y from 取消's row when read (Leo 2026-10-11, the fixed spot as last resort).
+BUSINESS_COLLECT_CLAIM_REFERENCE_POINT = (1090, 814)
+# Inside the button (about 235×47 at 1080p), for the press and the grey check.
+BUSINESS_COLLECT_CLAIM_SPOT_SIZE = (160, 30)
 # The popup's height grows with account progress, so its buttons move up and
 # down: only the centre band is fixed, the vertical range stays generous.
 BUSINESS_COLLECT_POPUP_ROI = (480, 80, 960, 980)
@@ -115,13 +120,11 @@ BUSINESS_CLAIM_CONFIRM_SECONDS = 4.0
 # it gave no reward overlay and failed the step.  In that run's problem-summary
 # thumbnails the grey button read brightness 84 / saturation 6-12 and the lit
 # 取消 next to it 222 / 13.  A grey button is colourless and mid bright; a lit
-# one is coloured or near white, and a black frame (no capture) is neither, so
-# anything outside this band is pressed as before.
+# one is coloured or near white, and a black frame (no capture) is neither.
+# The button is pressed either way; grey after a press with no reward means it
+# was already collected today (Leo 2026-10-11).
 BUSINESS_CLAIM_GREY_VALUE = (50.0, 175.0)
 BUSINESS_CLAIM_GREY_MAX_SATURATION = 45.0
-# A popup still fading in is dim too, so grey counts only when a second frame
-# this much later still shows it grey (1.5 s for slow PCs, Leo 2026-10-10).
-BUSINESS_CLAIM_GREY_RECHECK_SECONDS = 1.5
 # The guild entry is looked for on a few frames (about 2 s, slow PCs) before
 # it counts as absent; a match ends the looks at once.
 GUILD_ENTRY_LOOKS = 5
@@ -514,48 +517,48 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 continue
             frame, boxes = again, again_boxes
             claim = self._business_popup_box(boxes, frame, BUSINESS_COLLECT_CLAIM_TEXT)
-        claimed = True
-        if claim is not None and self._business_claim_greyed(frame, claim):
-            self.sleep(BUSINESS_CLAIM_GREY_RECHECK_SECONDS)
-            again = self.capture_frame()
-            again_boxes = self._daily_ocr_boxes(again, "business_collect")
-            again_claim = self._business_popup_box(again_boxes, again, BUSINESS_COLLECT_CLAIM_TEXT)
-            # A missed read keeps the box: the button does not move.
-            frame = again
-            if again_claim is not None:
-                boxes, claim = again_boxes, again_claim
-        if claim is None:
-            self.log_info("一键收菜：弹窗内未识别到「一键获得」按钮，视为无可收取，关闭弹窗。")
-            self._status_set("一键收菜结果", "未找到一键获得")
-            self._close_business_popup(boxes, frame)
-        elif self._business_claim_greyed(frame, claim):
-            self.log_info(
-                "一键收菜：「一键获得」是灰的，视为无可收取，关闭弹窗。"
-                f"（按钮亮度 {self._business_claim_colour(frame, claim)}）"
-            )
-            self._status_set("一键收菜结果", "按钮是灰的")
-            self._close_business_popup(boxes, frame)
+        # Lit or grey, read or not, 一键获得 is pressed (Leo 2026-10-11 「灰的
+        # 亮的 都要按」): a player's run left it lit (B站 渐崩渐晰, 结算营业额
+        # missed with no failure), and pressing does nothing when it is grey.
+        read = claim is not None
+        if not read:
+            claim = self._business_claim_spot(boxes, frame)
+            self.log_info("一键收菜：没认到「一键获得」的字，照平常位置按一下。")
+        self.sleep(0.5)
+        self.log_info(
+            "一键收菜：点击「一键获得」。"
+            f"（按钮亮度 {self._business_claim_colour(frame, claim)}）"
+        )
+        # A lost click leaves the popup up, and closing it then looked
+        # like a claim: only the reward overlay counts.
+        claimed = self.press_and_confirm(
+            "一键收菜：一键获得",
+            lambda: self._click_ocr_box(claim, frame, after_sleep=0.5),
+            self._business_reward_shown,
+            still_before=(
+                self._business_claim_still_offered if read else self._business_popup_shown
+            ),
+            timeout=BUSINESS_CLAIM_CONFIRM_SECONDS,
+        ).confirmed
+        if claimed:
+            self._status_set("一键收菜结果", "已领取")
         else:
-            self.sleep(0.5)
-            self.log_info(
-                "一键收菜：点击 OCR 识别到的「一键获得」。"
-                f"（按钮亮度 {self._business_claim_colour(frame, claim)}）"
-            )
-            # A lost click leaves the popup up, and closing it then looked
-            # like a claim: only the reward overlay counts.
-            claimed = self.press_and_confirm(
-                "一键收菜：一键获得",
-                lambda: self._click_ocr_box(claim, frame, after_sleep=0.5),
-                self._business_reward_shown,
-                still_before=self._business_claim_still_offered,
-                timeout=BUSINESS_CLAIM_CONFIRM_SECONDS,
-            ).confirmed
-            if claimed:
-                self._status_set("一键收菜结果", "已领取")
+            after = self.capture_frame()
+            if self._business_claim_greyed(after, claim):
+                # Grey only once collected (Leo: 「如果是灰的 代表一定有點到」).
+                claimed = True
+                self.log_info(
+                    "一键收菜：「一键获得」是灰的，今天已经领过。"
+                    f"（按钮亮度 {self._business_claim_colour(after, claim)}）"
+                )
+                self._status_set("一键收菜结果", "按钮是灰的")
             else:
                 self._status_set("一键收菜结果", "未确认领取")
-                self.log_info("一键收菜：按了「一键获得」没看到领取结果，本次不算完成。")
-            self._settle_business_collect()
+                self.log_info(
+                    "一键收菜：按了「一键获得」没看到领取结果，按钮也不是灰的，本次不算完成。"
+                    f"（按钮亮度 {self._business_claim_colour(after, claim)}）"
+                )
+        self._settle_business_collect()
         home_ok = self._wait_for_home_confirmation("一键收菜返回主页")
         self._status_set("一键收菜返回主页结果", "通过" if home_ok else "失败")
         return home_ok and claimed
@@ -588,6 +591,37 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         if self._first_box_with(boxes, OVERLAY_DISMISS_KEYWORDS) is not None:
             return True
         return self._keyword_match_count(self._boxes_text(boxes), list(REWARD_DIALOG_TITLES)) >= 1
+
+    def _business_claim_spot(self, boxes: list, frame):
+        """A box where 一键获得 sits: right of 取消, in its row.
+
+        10-10 problem-summary frame (1080p): 取消 at x≈834 and 一键获得 at
+        x≈1091 in the same row; the row moves with the popup height.
+        """
+        height, width = frame.shape[:2]
+        cancel = self._business_popup_box(boxes, frame, BUSINESS_COLLECT_CANCEL_TEXT)
+        centre = self._ocr_box_center(cancel) if cancel is not None else None
+        if centre is not None:
+            y = centre[1]
+        else:
+            y = BUSINESS_COLLECT_CLAIM_REFERENCE_POINT[1] * height / REFERENCE_HEIGHT
+        x = BUSINESS_COLLECT_CLAIM_REFERENCE_POINT[0] * width / REFERENCE_WIDTH
+        half_w = BUSINESS_COLLECT_CLAIM_SPOT_SIZE[0] / 2 * width / REFERENCE_WIDTH
+        half_h = BUSINESS_COLLECT_CLAIM_SPOT_SIZE[1] / 2 * height / REFERENCE_HEIGHT
+        return SimpleNamespace(
+            name=BUSINESS_COLLECT_CLAIM_TEXT,
+            x=x - half_w,
+            y=y - half_h,
+            width=2 * half_w,
+            height=2 * half_h,
+        )
+
+    def _business_popup_shown(self) -> bool:
+        """The 经营管理 popup with nothing over it."""
+        boxes = self._daily_ocr_boxes(self.capture_frame(), "business_collect")
+        if self._first_box_with(boxes, OVERLAY_DISMISS_KEYWORDS) is not None:
+            return False
+        return self._keyword_match_count(self._boxes_text(boxes), BUSINESS_COLLECT_KEYWORDS) >= 2
 
     def _business_claim_still_offered(self) -> bool:
         """The popup with its 一键获得 still up and nothing over it."""

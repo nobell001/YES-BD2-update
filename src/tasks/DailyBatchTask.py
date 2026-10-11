@@ -18,7 +18,7 @@ from src.tasks.EventBattleTask import EventBattleTask
 from src.tasks.EventRewardTask import EventRewardTask
 from src.tasks.FreeGachaTask import FreeGachaTask
 from src.tasks.GearTasks import DailyRefineTask
-from src.tasks.JunkGearTask import JunkGearTask
+from src.tasks.JunkGearTask import AFTER_GACHA_KEY, JunkGearTask
 from src.tasks.map_trade.phase_ledger import ONLY_INCOMPLETE_KEY
 from src.tasks.MapCollectionTask import MapCollectionTask
 from src.tasks.MapTradeTask import MapTradeTask
@@ -110,11 +110,13 @@ class DailyBatchChild:
     weekly: bool = False
 
 
+GACHA_CHILD_KEY = "免费抽抽乐"
+
 DAILY_BATCH_CHILDREN = (
     DailyBatchChild("公会、小屋、酒馆", DailyTask),
     DailyBatchChild("领取常客圣石", RestaurantStoneTask),
     DailyBatchChild("快速狩猎", QuickHuntTask),
-    DailyBatchChild("免费抽抽乐", FreeGachaTask),
+    DailyBatchChild(GACHA_CHILD_KEY, FreeGachaTask),
     DailyBatchChild("爛装强化分解", JunkGearTask),
     DailyBatchChild("每日精炼一次", DailyRefineTask),
     DailyBatchChild("广场女神像", SquareGoddessTask),
@@ -480,6 +482,9 @@ class ChildBatchTask(BaseTask):
         failed: list[str] = []
         skipped: list[str] = []
         stop_remaining = False
+        # The child that ran last and whether it finished (爛装强化分解 right
+        # after a finished 抽抽乐 looks at the new 「!」 items first).
+        last_ran: tuple[str, bool] | None = None
         # Each child's own finish time: run_history stamps children with it,
         # not with the batch's end (a child done at 07:58 is yesterday's).
         self._child_finished: dict[str, float] = {}
@@ -602,13 +607,15 @@ class ChildBatchTask(BaseTask):
                 # 执行剩余 also tells the child to skip its own finished parts
                 # (trade phases); a full run redoes everything (user,
                 # 2026-09-27: "我選擇再點一次就應該再做一次").
-                task.config = ChainMap(
-                    {"启用": True, ONLY_INCOMPLETE_KEY: only_incomplete},
-                    original_config or {},
-                )
+                overlay = {"启用": True, ONLY_INCOMPLETE_KEY: only_incomplete}
+                if child.task_class is JunkGearTask:
+                    overlay[AFTER_GACHA_KEY] = last_ran == (GACHA_CHILD_KEY, True)
+                task.config = ChainMap(overlay, original_config or {})
                 task.info_clear()
+                last_ran = (child.config_key, False)
                 with suppress_task_completion_notifications(task):
                     child_ok = bool(task.run())
+                    last_ran = (child.config_key, child_ok)
                     self._raise_if_stopped()
                     self._child_finished[child.config_key] = time.time()
                     if child_ok:

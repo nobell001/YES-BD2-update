@@ -79,75 +79,10 @@ def parse_craft_result(text: str) -> tuple[int, int] | None:
     return (int(match.group(1)), int(match.group(2))) if match else None
 
 
-class CraftGearTask(EnhanceDialogMixin, DailyRefineTask):
-    claim_log_name = "craft_gear"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.name = "每周制作装备"
-        self.description = (
-            "背包 → 装备制作 → 第一件 N 装备，开启自动分解、强化到 +5 后按「强化」："
-            "制作、强化、分解一次完成（每周任务：制作装备）。只做 N 装备。"
-        )
-        self.icon = FluentIcon.DEVELOPER_TOOLS
-        self.default_config.update(
-            {
-                "强化目标等级": 5,
-                "制作数量": 1,
-            }
-        )
-        self.config_description.update(
-            {
-                "强化目标等级": "制作后强化到的等级，达到后游戏自动分解。",
-                "制作数量": "制作几件 N 装备（1~10）。",
-            }
-        )
-        # The settings box refuses numbers the task would reject anyway.
-        self.config_type["强化目标等级"] = {"min": 1, "max": 9}
-        self.config_type["制作数量"] = {"min": 1, "max": 10}
-
-    # -- entry ------------------------------------------------------------------
-
-    def run_claim(self) -> bool:
-        target = self._setting_in_range("强化目标等级", 5)
-        count = self._setting_in_range("制作数量", 1)
-        if not self._open_equipment_bag(grid_view=False):
-            return self._claim_fail("打开背包装备页")
-        if not self._open_craft_page():
-            return self._claim_fail("打开装备制作")
-        failed_stage = None
-        if not self._open_n_recipe():
-            failed_stage = "选择 N 装备"
-        elif not self._craft(target, count):
-            failed_stage = "制作强化"
-        if not self._back_to_bag():
-            return self._claim_fail(failed_stage or "返回背包")
-        home = self._leave_to_home("背包", EQUIPMENT_TITLE_KEYWORDS)
-        if failed_stage:
-            return self._claim_fail(failed_stage)
-        return home
-
-    def _setting_in_range(self, key: str, default: int) -> int:
-        """The saved setting, pulled back into the settings box's range.
-
-        Live 4K 2026-10-06: a saved value outside the box's range failed the
-        weekly craft at once with 「检查设置失败」, although the box showed a
-        value in range. The box can only save values in range, so a stray
-        saved value is fixed here and written back instead.
-        """
-
-        limits = self.config_type[key]
-        low, high = int(limits["min"]), int(limits["max"])
-        raw = self.config.get(key, default)
-        try:
-            value = int(raw)
-        except (TypeError, ValueError):
-            value = default
-        fixed = min(max(value, low), high)
-        if fixed != raw:
-            self.log_info(f"{LABEL}：设置「{key}」为 {raw!r}，超出 {low}~{high}，改用 {fixed}。")
-            self.config[key] = fixed
-        return fixed
+class NGearCraftMixin:
+    """Bag → 装备制作 → first N recipe → 强化 with 自动分解: one N item is
+    crafted, enhanced and dismantled.  Shared by the weekly 制作装备 and by
+    爛装强化分解 on a day without junk (Leo 2026-10-11)."""
 
     # -- navigation -----------------------------------------------------------------
 
@@ -233,7 +168,7 @@ class CraftGearTask(EnhanceDialogMixin, DailyRefineTask):
             return "other"
         return "closed"
 
-    def _back_to_bag(self) -> bool:
+    def _craft_back_to_bag(self) -> bool:
         """Back out of the recipe / list pages until the bag's equipment page."""
         for _attempt in range(4):
             if self._bag_title_within(0.0):
@@ -348,3 +283,74 @@ class CraftGearTask(EnhanceDialogMixin, DailyRefineTask):
             self.sleep(0.8)
         self.log_info(f"{LABEL}：未确认制作结果。")
         return False
+
+
+class CraftGearTask(NGearCraftMixin, EnhanceDialogMixin, DailyRefineTask):
+    claim_log_name = "craft_gear"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = "每周制作装备"
+        self.description = (
+            "背包 → 装备制作 → 第一件 N 装备，开启自动分解、强化到 +5 后按「强化」："
+            "制作、强化、分解一次完成（每周任务：制作装备）。只做 N 装备。"
+        )
+        self.icon = FluentIcon.DEVELOPER_TOOLS
+        self.default_config.update(
+            {
+                "强化目标等级": 5,
+                "制作数量": 1,
+            }
+        )
+        self.config_description.update(
+            {
+                "强化目标等级": "制作后强化到的等级，达到后游戏自动分解。",
+                "制作数量": "制作几件 N 装备（1~10）。",
+            }
+        )
+        # The settings box refuses numbers the task would reject anyway.
+        self.config_type["强化目标等级"] = {"min": 1, "max": 9}
+        self.config_type["制作数量"] = {"min": 1, "max": 10}
+
+    # -- entry ------------------------------------------------------------------
+
+    def run_claim(self) -> bool:
+        target = self._setting_in_range("强化目标等级", 5)
+        count = self._setting_in_range("制作数量", 1)
+        if not self._open_equipment_bag(grid_view=False):
+            return self._claim_fail("打开背包装备页")
+        if not self._open_craft_page():
+            return self._claim_fail("打开装备制作")
+        failed_stage = None
+        if not self._open_n_recipe():
+            failed_stage = "选择 N 装备"
+        elif not self._craft(target, count):
+            failed_stage = "制作强化"
+        if not self._craft_back_to_bag():
+            return self._claim_fail(failed_stage or "返回背包")
+        home = self._leave_to_home("背包", EQUIPMENT_TITLE_KEYWORDS)
+        if failed_stage:
+            return self._claim_fail(failed_stage)
+        return home
+
+    def _setting_in_range(self, key: str, default: int) -> int:
+        """The saved setting, pulled back into the settings box's range.
+
+        Live 4K 2026-10-06: a saved value outside the box's range failed the
+        weekly craft at once with 「检查设置失败」, although the box showed a
+        value in range. The box can only save values in range, so a stray
+        saved value is fixed here and written back instead.
+        """
+
+        limits = self.config_type[key]
+        low, high = int(limits["min"]), int(limits["max"])
+        raw = self.config.get(key, default)
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = default
+        fixed = min(max(value, low), high)
+        if fixed != raw:
+            self.log_info(f"{LABEL}：设置「{key}」为 {raw!r}，超出 {low}~{high}，改用 {fixed}。")
+            self.config[key] = fixed
+        return fixed

@@ -33,7 +33,7 @@ SEGMENTED_MAX_TEXT = 26
 HINTS_KEPT = {
     "DailyTask": (),
     "QuickHuntTask": (),
-    "JunkGearTask": ("分解3星4星角色的UR专用",),
+    "JunkGearTask": (),
     "PVPTask": ("舞台移动方式",),
     "EventBattleTask": ("全部通关后快速战斗",),
     "MissionRewardTask": (),

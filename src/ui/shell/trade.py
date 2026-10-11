@@ -34,6 +34,7 @@ from src.ui.shell.widgets import (
 )
 
 TASK_NAME = "每日跑商"
+BARGAIN_TASK = "循环砍价"
 BATCH_KEY = "跑商"
 LAST_DISH = "街头烤鸡肉串"
 
@@ -104,6 +105,74 @@ class DishTile(QWidget):
             painter.drawRoundedRect(badge, theme.corner(4), theme.corner(4))
             painter.setPen(theme.color("dish_badge_ink"))
             painter.drawText(badge, Qt.AlignCenter, self._label)
+
+
+class StickerButton(QWidget):
+    """循环砍价's picture in the 买 card, a button.
+
+    Leo 2026-10-11: hovered, her eye glints red; the mouse gone, the picture
+    is as it was.
+    """
+
+    clicked = Signal()
+    # Her visible (closed) eye in the sticker, as a share of its side.
+    EYE = (0.51, 0.515)  # on the closed eyelid (Leo: start lower)
+
+    def __init__(self, path: str, size: int = 96, parent=None):
+        super().__init__(parent)
+        self._pixmap = QPixmap(path)
+        self.setFixedSize(size, size)
+        self.setCursor(Qt.PointingHandCursor)
+        self._hover = motion.HoverFade(self, self.update)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self.isEnabled():
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        self.update()
+
+    def paintEvent(self, _event):
+        # Only the sticker, no frame behind it (Leo 2026-10-11: 「去背乾淨」).
+        if self._pixmap.isNull():
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        painter.setOpacity(1.0 if self.isEnabled() else 0.4)
+        inner = QRectF(self.rect())
+        draw_fitted(painter, inner, self._pixmap, self.devicePixelRatioF())
+        glow = self._hover.value if self.isEnabled() else 0.0
+        if glow > 0.01:
+            self._paint_glint(painter, inner, glow)
+
+    def _paint_glint(self, painter: QPainter, inner: QRectF, glow: float) -> None:
+        """A red glint and beam: stronger than a glint, short of scary (Leo 2026-10-11)."""
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QColor, QRadialGradient
+
+        eye = QPointF(
+            inner.x() + inner.width() * self.EYE[0], inner.y() + inner.height() * self.EYE[1]
+        )
+        side = inner.width()
+        painter.save()
+        end = QPointF(eye.x() + side * 0.45, eye.y() + side * 0.12)
+        for width, alpha in ((side * 0.09, 70), (side * 0.04, 170), (side * 0.014, 255)):
+            pen = QPen(QColor(255, 60, 70, int(alpha * glow)), width)
+            pen.setCapStyle(Qt.RoundCap)
+            painter.setPen(pen)
+            painter.drawLine(eye, end)
+        radius = side * 0.13
+        gradient = QRadialGradient(eye, radius)
+        gradient.setColorAt(0.0, QColor(255, 245, 245, int(255 * glow)))
+        gradient.setColorAt(0.3, QColor(255, 50, 60, int(210 * glow)))
+        gradient.setColorAt(1.0, QColor(255, 50, 60, 0))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(gradient)
+        painter.drawEllipse(eye, radius, radius)
+        painter.restore()
 
 
 class ItemIcon(QWidget):
@@ -311,7 +380,23 @@ class TradePage(Page):
         texts.addWidget(Text("第一章商人", "h3"))
         texts.addWidget(Text("砍价，买下收藏的商品", "muted", wrap=True))
         row.addLayout(texts, 1)
+        self.bargain_button = StickerButton(data.bargain_picture(), 96)
+        self.bargain_button.clicked.connect(self._open_bargain)
+        attach_hint(self.bargain_button, t("练砍价技能"), below=True)
+        row.addWidget(self.bargain_button, 0, Qt.AlignTop)
         column.addLayout(row)
+        self.bargain_running = QWidget()
+        running = hbox(self.bargain_running, (0, 0, 0, 0), 8)
+        running.addWidget(IconLabel("loader-circle", 15, "primary"))
+        self.bargain_state = Text("砍价执行中", "sub")
+        running.addWidget(self.bargain_state, 1)
+        self.bargain_stop = Button("停止", "danger", "square", size="sm", on_click=self._stop_bargain)
+        running.addWidget(self.bargain_stop)
+        self.bargain_running.hide()
+        column.addWidget(self.bargain_running)
+        self.bargain_key = Text("", "muted")
+        self.bargain_key.hide()
+        column.addWidget(self.bargain_key)
         column.addStretch(1)
         # Leo (2026-10-05): the tool buys only the game's favourites.
         column.addWidget(self._tip(("先在游戏里把要买的商品加入收藏", "工具只买「收藏」里的商品")))
@@ -390,6 +475,137 @@ class TradePage(Page):
             self._tip(("只卖出售日历里当天勾选的商品", "标「留」的商品会留下那个数量，其余卖掉"))
         )
         self._today_items_key = None
+
+    # ---------------------------------------------------------------- bargain
+    # 循环砍价 (Leo 2026-10-11): a small icon in the 买 card opens the loop
+    # count; while it runs the card says so with a 停止 that works like
+    # 首页's, and the page stays here.
+
+    def _bargain_task(self):
+        return data.task_by_name(BARGAIN_TASK)
+
+    def _open_bargain(self) -> None:
+        from src.tasks.BargainLoopTask import LOOP_COUNT_KEY, loop_count
+
+        task = self._bargain_task()
+        if task is None:
+            actions.start(None, self.window())
+            return
+        box, spin = self._bargain_dialog(task)
+        if not box.exec():
+            return
+        task.config[LOOP_COUNT_KEY] = loop_count(spin.value())
+        self._stay_on_start = True
+        try:
+            actions.start(task, self.window())
+        finally:
+            self._stay_on_start = False
+        self.refresh()
+
+    def _bargain_dialog(self, task):
+        from qfluentwidgets import MessageBoxBase, SpinBox
+
+        from src.tasks.BargainLoopTask import DEFAULT_LOOPS, LOOP_COUNT_KEY, MAX_LOOPS, loop_count
+
+        box = MessageBoxBase(self.window())
+        # The box hangs on the main window, outside the page and its style
+        # sheet (live 4K 2026-10-11: grey buttons, plain text), so the
+        # content and the buttons carry the shell style themselves.
+        body = QWidget()
+        body.setStyleSheet(theme.style_sheet())
+        box.viewLayout.addWidget(body)
+        column = vbox(body, (0, 0, 0, 0), 12)
+        head = hbox(None, (0, 0, 0, 0), 10)
+        head.addWidget(Picture(data.bargain_picture(), fixed=QSize(40, 40)))
+        texts = vbox(None, (0, 0, 0, 0), 2)
+        texts.addWidget(Text("循环砍价", "h2"))
+        texts.addWidget(Text("找商人 → 砍价 → 关商店", "muted"))
+        head.addLayout(texts, 1)
+        column.addLayout(head)
+        row = hbox(None, (0, 8, 0, 0), 10)
+        row.addWidget(Text("次数", "h3"))
+        row.addStretch(1)
+        spin = SpinBox()
+        spin.setRange(1, MAX_LOOPS)
+        spin.setValue(loop_count(task.config.get(LOOP_COUNT_KEY, DEFAULT_LOOPS)))
+        row.addWidget(spin)
+        column.addLayout(row)
+        # Leo 2026-10-11: show the 停止 key as set in 设置, not changed here.
+        column.addWidget(Text(self._stop_key_hint(), "sub", wrap=True))
+        # Leo 2026-10-11: standing at the merchant skips 主页 and the
+        # cartridge; the auto stop is not proven live yet, say so.
+        column.addWidget(
+            self._tip(
+                (
+                    "最好先站在第一章商人（无聊收集狂大叔）面前再开始，会直接砍价",
+                    "砍价技能到传说或出现升星提示时会自动停下，但这点还没实测过，建议自己留意，以免浪费资源",
+                )
+            )
+        )
+        box.widget.setMinimumWidth(380)
+        # The tool's own violet buttons, not the Fluent default teal.
+        box.yesButton.hide()
+        box.cancelButton.hide()
+        start = Button("开始砍价", "primary", "play", on_click=box.accept)
+        cancel = Button("取消", "secondary", on_click=box.reject)
+        for button in (start, cancel):
+            button.setStyleSheet(theme.style_sheet())
+            box.buttonLayout.addWidget(button, 1)
+        return box, spin
+
+    @staticmethod
+    def _stop_key_hint() -> str:
+        from src.ui.shell import hotkeys
+
+        return tf("按 {stop} 可随时停止，按键在设置里改", stop=hotkeys.keys()[hotkeys.STOP])
+
+    def keep_page_on_start(self) -> bool:
+        """A start from here that stays on this page (循环砍价)."""
+        return bool(getattr(self, "_stay_on_start", False))
+
+    def _stop_bargain(self) -> None:
+        from src.ui.shell import clone_flow
+
+        self._bargain_stopping = True
+        self._show_bargain_stopping(True)
+        self.bargain_stop.repaint()
+        if not data.busy() and clone_flow.remote_task() is not None:
+            clone_flow.remote_control("stop")
+        else:
+            actions.stop(data.current_task())
+        self.refresh()
+
+    def _show_bargain_stopping(self, on: bool) -> None:
+        self.bargain_stop.set_label("正在停止…" if on else "停止")
+        self.bargain_stop.set_icon_name("loader-circle" if on else "square")
+        self.bargain_stop.setEnabled(not on)
+
+    def _refresh_bargain(self) -> None:
+        from src.ui.shell import clone_flow
+
+        task = self._bargain_task()
+        current = data.current_task()
+        if current is None:
+            # A run handed to the 桌面分身 is shown here too.
+            remote = clone_flow.remote_task()
+            current = remote if getattr(remote, "name", "") == BARGAIN_TASK else None
+        running = task is not None and (current is task or getattr(current, "remote", False))
+        if running:
+            done = str((getattr(current, "info", None) or {}).get("已砍价次数") or "")
+            self.bargain_state.set_text(
+                tf("砍价执行中 {done}", done=done) if done else "砍价执行中"
+            )
+            stopping = current is task and not getattr(task, "enabled", True)
+            self._show_bargain_stopping(stopping or getattr(self, "_bargain_stopping", False))
+        else:
+            self._bargain_stopping = False
+            self._show_bargain_stopping(False)
+        self.bargain_running.setVisible(running)
+        if running:
+            self.bargain_key.set_text(self._stop_key_hint())
+        self.bargain_key.setVisible(running)
+        self.bargain_button.setVisible(not running)
+        self.bargain_button.setEnabled(task is not None and actions.can_start())
 
     # ---------------------------------------------------------------- calendar
 
@@ -565,6 +781,7 @@ class TradePage(Page):
         else:
             set_pill(self.status, "今天还没跑")
         self.start_button.setEnabled(actions.can_start())
+        self._refresh_bargain()
 
         for card, phase in (
             (self.buy_card, "买"),

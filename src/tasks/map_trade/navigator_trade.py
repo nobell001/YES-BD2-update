@@ -61,6 +61,7 @@ from src.tasks.map_trade.navigator_constants import (
     SHOP_ENTRY_RECLICK_HITS,
     TRADE_CARD_SANDBOX_HITS,
     TRADE_MERCHANT_OPTIONS_REGION,
+    TRADE_MERCHANT_TALENTS_REGION,
 )
 from src.tasks.map_trade.trader_constants import (
     BUY_TO_SELL_SOLD_OUT_STABLE_HITS,
@@ -80,6 +81,15 @@ from src.utils.field_followers import dismiss_once_per_run
 # 2026-09-28: skip buying and say so, never buy at full price).
 BARGAIN_UPGRADE_HINT = "强化砍价"
 BARGAIN_UPGRADE_MESSAGE = "砍价技能可以升星了，请先在游戏里手动升星；本次跳过购买。"
+# 循环砍价 refuses a 砍价 popup that names a paid currency (never spend paid
+# resources); today's popup only shows the field currency icon and its cost.
+BARGAIN_PAID_WORDS = ("钻石", "付费", "鸡尾酒")
+BARGAIN_PAID_MESSAGE = "砍价弹窗提到付费货币，为了不花钱没有按砍价"
+# 循环砍价 trains the skill up to 传说 (Leo 2026-10-11: the best buying
+# discount comes at 传说); once the 砍价 card reads 传说 it stops pressing.
+BARGAIN_LEGEND_RANK = "传说"
+BARGAIN_LEGEND_MESSAGE = "砍价技能已经是传说等级，不用再砍了"
+BARGAIN_LEGEND_READS = 2
 
 
 class TradeNavigationMixin:
@@ -91,7 +101,9 @@ class TradeNavigationMixin:
     ``q_sp6`` wording.
     """
 
-    def enter_q_sp6_buy_flow(self, *, bargain: bool = True) -> NavigationResult:
+    def enter_q_sp6_buy_flow(
+        self, *, bargain: bool = True, refuse_paid: bool = False, stop_at_legend: bool = False
+    ) -> NavigationResult:
         """Reach the merchant and open his shop, bargaining only to buy.
 
         砍价 (costs currency) only discounts purchases; selling goes through
@@ -127,7 +139,17 @@ class TradeNavigationMixin:
             if not self._wait_for_bargain_shop_confirmation(reclick_plain_option=True):
                 return NavigationResult(False, self.classify(), "进入商店后未通过OCR确认商店页面")
             return NavigationResult(True, ScreenState.SHOP, "已进入商店（未砍价）")
+        return self.bargain_in_menu(refuse_paid=refuse_paid, stop_at_legend=stop_at_legend)
+
+    def bargain_in_menu(
+        self, *, refuse_paid: bool = False, stop_at_legend: bool = False
+    ) -> NavigationResult:
+        """From the open merchant menu: press 砍价, confirm, reach the discount shop."""
+
+        self.shop_bargained = True
         self.task.sleep(Q_SP6_BARGAIN_CLICK_DELAY)
+        if stop_at_legend and self._bargain_card_is_legend():
+            return NavigationResult(False, ScreenState.MERCHANT_DIALOG, BARGAIN_LEGEND_MESSAGE)
         self.task.operate_click(*BARGAIN_POINT, after_sleep=0.0)
 
         bargain_tip = "使用砍价技能后可享受商店折扣价"
@@ -136,6 +158,8 @@ class TradeNavigationMixin:
             return NavigationResult(False, self.classify(), BARGAIN_UPGRADE_MESSAGE)
         if tip != "tip":
             return NavigationResult(False, self.classify(), "未识别到砍价技能折扣说明")
+        if refuse_paid and self._bargain_popup_names_paid_currency():
+            return NavigationResult(False, self.classify(), BARGAIN_PAID_MESSAGE)
         self.task.operate_click(*BARGAIN_CONFIRM_POINT, after_sleep=0.0)
         if not self._wait_for_bargain_shop_confirmation():
             return NavigationResult(
@@ -144,6 +168,51 @@ class TradeNavigationMixin:
                 "砍价确认后未通过OCR确认商店页面",
             )
         return NavigationResult(True, ScreenState.SHOP, "已通过OCR确认商店页面")
+
+    def _bargain_card_is_legend(self) -> bool:
+        """The 砍价 talent card shows 传说 under it (any of two reads)."""
+        for read in range(BARGAIN_LEGEND_READS):
+            if read:
+                self.task.sleep(0.3)
+            if self._legend_under_bargain_card(self.vision.capture()):
+                self._status("砍价技能等级", "传说")
+                return True
+        self._status("砍价技能等级", "未到传说")
+        return False
+
+    def _legend_under_bargain_card(self, frame) -> bool:
+        height, width = frame.shape[:2]
+        boxes = []
+        for box in self.vision.ocr_boxes(
+            frame, "砍价技能卡等级", relative_roi=TRADE_MERCHANT_TALENTS_REGION
+        ):
+            center = self._ocr_box_center(box)
+            if center is None:
+                continue
+            text = normalize_text(self.vision.simplify(getattr(box, "name", "")))
+            boxes.append((text, center))
+        # The card is about 120 px wide at 1080p (6.4 % of the width); its rank
+        # sits about 70 px below the skill name (live 4K 2026-10-11).
+        half_card = width * 0.032
+        below = height * 0.12
+        for text, (x, y) in boxes:
+            if "砍价" not in text or "天赋" in text:
+                continue
+            if BARGAIN_LEGEND_RANK in text:
+                return True
+            for other, (ox, oy) in boxes:
+                if (
+                    BARGAIN_LEGEND_RANK in other
+                    and abs(ox - x) <= half_card
+                    and 0 < oy - y <= below
+                ):
+                    return True
+        return False
+
+    def _bargain_popup_names_paid_currency(self) -> bool:
+        popup = getattr(self, "bargain_popup_text", "") or ""
+        popup = normalize_text(self.vision.simplify(popup))
+        return any(word in popup for word in BARGAIN_PAID_WORDS)
 
     def _enter_q_sp6_shop(
         self,
@@ -178,6 +247,7 @@ class TradeNavigationMixin:
             passed, text = self._ocr_keywords_in_frame(
                 self.vision.capture(), (bargain_tip,), "砍价说明"
             )
+            self.bargain_popup_text = text or ""
             if passed:
                 return "tip"
             if BARGAIN_UPGRADE_HINT in normalize_text(text):
@@ -769,6 +839,14 @@ class TradeNavigationMixin:
             allow_return_announcement_cleanup=True,
         ):
             return NavigationResult(True, ScreenState.HOME, "已从箱庭返回主页")
+        home_by_key = getattr(self.task, "home_by_key", None)
+        if callable(home_by_key) and home_by_key(
+            lambda seconds: self._wait_for_cartridge_home(
+                timeout=seconds, allow_return_announcement_cleanup=True
+            ),
+            "箱庭返回主页",
+        ):
+            return NavigationResult(True, ScreenState.HOME, "已用快捷键 H 从箱庭返回主页")
         return NavigationResult(
             False,
             self.classify(),
@@ -800,6 +878,51 @@ class TradeNavigationMixin:
             )
         self._click_shop_close_control(after_sleep=0.8)
         return NavigationResult(True, ScreenState.SANDBOX, "已关闭商店")
+
+    def close_discount_shop_to_menu(self) -> NavigationResult:
+        """Close only the discount shop; stay in the merchant's 砍价 menu.
+
+        Leo (2026-10-11): the bargain loop must not leave and talk to the
+        merchant again; closing the discount shop lands back on his menu.
+        """
+
+        if not self._close_sale_dialog_before_return():
+            return NavigationResult(False, ScreenState.SHOP, "关闭前未确认出售弹窗已关闭")
+        self._click_shop_close_control()
+        if not self._wait_for_ocr_keywords(
+            DISCOUNT_SHOP_CLOSE_KEYWORDS,
+            DISCOUNT_SHOP_CLOSE_TIMEOUT,
+            "折扣商店关闭确认",
+            interval=0.25,
+            relative_roi=DISCOUNT_SHOP_CLOSE_DIALOG_REGION,
+            quiet=True,
+        ):
+            if self._menu_bargain_readable():
+                return NavigationResult(True, ScreenState.MERCHANT_DIALOG, "已回到商人菜单")
+            return NavigationResult(
+                False, self.classify(), "点击返回后未识别到折扣商店关闭确认"
+            )
+        self.task.operate_click(*DISCOUNT_SHOP_CLOSE_POINT, after_sleep=0.8)  # 不用确认：下一行读商人菜单
+        if self._menu_bargain_readable():
+            return NavigationResult(True, ScreenState.MERCHANT_DIALOG, "已回到商人菜单")
+        return NavigationResult(False, self.classify(), "关闭折扣商店后没看到商人菜单（砍价）")
+
+    def _menu_bargain_readable(self, timeout: float = Q_SP6_BARGAIN_OCR_TIMEOUT) -> bool:
+        end_at = monotonic() + timeout
+        while True:
+            # Read the 砍价 talent card itself, not anywhere on screen: the
+            # discount shop page must not pass for the menu.
+            matched, _text = self._ocr_keywords_in_frame(
+                self.vision.capture(),
+                ("砍价",),
+                "商人菜单砍价",
+                relative_roi=TRADE_MERCHANT_TALENTS_REGION,
+            )
+            if matched:
+                return True
+            if monotonic() >= end_at:
+                return False
+            self.task.sleep(0.5)
 
     def leave_shop_to_merchant(self) -> NavigationResult:
         """After buying, stand beside the merchant again (cooking follows)."""

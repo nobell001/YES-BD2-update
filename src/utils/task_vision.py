@@ -200,7 +200,46 @@ def match_template(
             pixel_score=candidate.pixel_score,
             zncc_score=float(getattr(candidate, "zncc_score", -1.0)),
         )
+    if best.score < 0 and spec.brightness_tolerant and spec.min_pixel_score:
+        return _brightness_shifted_match(
+            frame, spec, config, template_dir, cache, min_size=min_size,
+            skip_scale_errors=skip_scale_errors, template_threshold=template_threshold,
+            roi_reference_size=roi_reference_size, loader=loader,
+        )
     return best
+
+
+# A whole frame shifted brighter (HDR) or a little darker still matches; a
+# special page's overlay dims what lies behind it to well under this share.
+BRIGHTNESS_SHIFT_MIN_RATIO = 0.75
+
+
+def _brightness_shifted_match(frame, spec, config, template_dir, cache, *, loader, **kwargs):
+    """The best shape match with the pixel gate taken after brightness matching
+    (YES-BD2 #16: template 0.95+, plain pixel score 0.81-0.87 under HDR)."""
+    loose = match_template(
+        frame, replace(spec, min_pixel_score=0.0, brightness_tolerant=False),
+        config, template_dir, cache, loader=loader, **kwargs,
+    )
+    width, height = loose.size
+    if loose.score < 0 or width <= 0 or height <= 0:
+        return EMPTY_MATCH
+    if loader is None:
+        template, mask = load_template(template_dir, spec, cache=cache)
+    else:
+        template, mask = loader(template_dir, spec)
+    x, y = loose.position
+    region = image_utils.to_gray(frame)[y : y + height, x : x + width]
+    scaled = cv2.resize(template, (width, height), interpolation=cv2.INTER_AREA)
+    scaled_mask = (
+        cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
+        if mask is not None
+        else None
+    )
+    similarity, ratio = image_utils.brightness_matched_similarity(region, scaled, scaled_mask)
+    if ratio < BRIGHTNESS_SHIFT_MIN_RATIO or similarity < spec.min_pixel_score:
+        return EMPTY_MATCH
+    return replace(loose, pixel_score=similarity)
 
 
 def passes_match(

@@ -33,6 +33,9 @@ class GearItem:
     equipped: bool
     locked: bool
     enhanced: bool
+    # The line above 「专用装备」 in the detail popup: the owner's star badge
+    # and name ("☆艾玛"); None when the popup shows no such line.
+    owner_line: str | None = None
 
 
 def load_exclusive_stars(path: Path = EXCLUSIVE_TABLE) -> dict[str, int]:
@@ -44,6 +47,21 @@ def load_exclusive_stars(path: Path = EXCLUSIVE_TABLE) -> dict[str, int]:
             if row.get(key):
                 stars[normalize_name(row[key])] = int(row["star"])
     return stars
+
+
+def load_exclusive_owners(path: Path = EXCLUSIVE_TABLE) -> dict[str, frozenset[str]]:
+    """Map exclusive item names (Simplified and Traditional) to the owner's
+    names in both scripts."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    owners: dict[str, frozenset[str]] = {}
+    for row in data["items"]:
+        names = frozenset(
+            normalize_name(row[key]) for key in ("character_cn", "character_tw") if row.get(key)
+        )
+        for key in ("zh_cn", "zh_tw"):
+            if row.get(key):
+                owners[normalize_name(row[key])] = names
+    return owners
 
 
 def normalize_name(name: str) -> str:
@@ -195,8 +213,15 @@ def classify(
     *,
     dismantle_r_sr: bool = True,
     dismantle_low_star_ur: bool = True,
+    exclusive_owners: dict[str, frozenset[str]] | None = None,
 ) -> tuple[bool, str]:
-    """Return (is_junk, reason)."""
+    """Return (is_junk, reason).
+
+    With ``exclusive_owners``, a 3★/4★ UR exclusive is junk only when the
+    popup's owner line also names its 3★/4★ owner: a 5★ exclusive shows a
+    5★ name there, and an unread line keeps the item (Leo 2026-10-11
+    「點開裝備是五星 一定不要拆」「寧願不拆也不要誤拆」).
+    """
     if item.equipped:
         return False, "穿戴中"
     if item.locked:
@@ -215,8 +240,85 @@ def classify(
             return False, "5★角色UR专用"
         if not dismantle_low_star_ur:
             return False, "未开启分解3★/4★专用UR"
+        if exclusive_owners is not None:
+            names = exclusive_owners.get(normalize_name(item.name), frozenset())
+            line = normalize_name(item.owner_line or "")
+            if not line:
+                return False, "详情没读到专用角色"
+            if not any(name in line for name in names):
+                return False, f"详情的专用角色不是{star}★角色"
         return True, f"{star}★角色UR专用"
     return False, f"{item.rarity} 不在规则内"
+
+
+EXCLUSIVE_TEXT = ("专用", "專用")
+
+
+def classify_low_grade(
+    item: GearItem,
+    grade: str,
+    exclusive_stars: dict[str, int],
+    exclusive_owners: dict[str, frozenset[str]],
+    popup_text: str = "",
+    five_star_sr: bool = False,
+) -> tuple[bool, str]:
+    """R/SR shown by the bag filter, judged from its opened detail.
+
+    R/SR come as character exclusives too, 5★ ones included (Leo's bag
+    2026-10-11: 翼角头盔 SR of 格兰希特, 名剑飞燕 SR of 斑鸠).  An item is an
+    exclusive when its name is on the table or the popup says 专用; such an
+    item is junk only as a 3★/4★ exclusive whose owner line names that
+    owner (Leo 「寧願不拆也不要誤拆」).  An SR that is no exclusive is kept.
+    ``five_star_sr``: the player also lets 5★ characters' exclusives go (Leo
+    2026-10-11 「讓玩家選擇要不要分解5星角色的SR」), still with the owner proven.
+    """
+    if item.equipped:
+        return False, "穿戴中"
+    if item.locked:
+        return False, "已上锁"
+    if item.enhanced:
+        return False, "已强化"
+    if item.rarity != grade:
+        return False, f"详情稀有度{item.rarity or '?'}不是{grade}"
+    name = normalize_name(item.name)
+    star = exclusive_stars.get(name)
+    exclusive = star is not None or any(word in str(popup_text) for word in EXCLUSIVE_TEXT)
+    if not exclusive:
+        # An SR is junk only as a proven 3★/4★ exclusive (Leo 2026-10-11 on
+        # his 顶级英雄盔甲: 「他點開沒有寫 3星 專用裝備 … 你怎麼想把它強化拆了」).
+        if grade == "SR":
+            return False, "SR 不是3★/4★角色专用"
+        return True, grade
+    if star is None:
+        return False, "专用装备不在表中"
+    if star >= 5 and not five_star_sr:
+        return False, "5★角色专用"
+    line = normalize_name(item.owner_line or "")
+    if not any(owner in line for owner in exclusive_owners.get(name, frozenset())):
+        return False, f"详情没读到{star}★专用角色"
+    return True, f"{grade} {star}★角色专用"
+
+
+def occupied_cells(frame_1080, columns, rows, cap: int) -> list[tuple[int, int]]:
+    """The leading cells that hold an item (an empty cell is flat: live 4K
+    2026-10-11, empty std ≤ 4, items ≥ 22), at most ``cap``."""
+    cells = []
+    for cell in front_cells(columns, rows, cap):
+        row, column = cell
+        dx, dy, w, h = OCCUPIED_ICON_BOX
+        x, y = columns[column] + dx, rows[row] + dy
+        patch = frame_1080[max(0, y) : y + h, max(0, x) : x + w]
+        if patch.size == 0:
+            break
+        grey = cv2.cvtColor(patch[:, :, :3], cv2.COLOR_BGR2GRAY)
+        if float(grey.std()) < OCCUPIED_MIN_STD:
+            break
+        cells.append(cell)
+    return cells
+
+
+OCCUPIED_ICON_BOX = (-45, -40, 75, 85)
+OCCUPIED_MIN_STD = 12.0
 
 
 # The yellow "!" badge at a cell's top-right marks gear acquired since the bag
@@ -259,3 +361,71 @@ def leading_new_cells(
                 return cells
             cells.append((row, column))
     return cells
+
+
+# Top-left of a bag cell: a gear not worn shows its slot icon (a light glyph
+# on a dark slate rounded square); a worn one shows the wearer's round
+# portrait with a light ring (Leo's 4K bag, 2026-10-11, R/SR/UR filters).
+# Offsets from the cell centre in 1920x1080 reference.  Measured on the PNGs
+# and their q90 JPEG fixtures: slot icons slate 0.73-0.82 with ring <= 0.03;
+# portraits slate <= 0.49 (ring 0.17-0.81); empty cells slate <= 0.15.  The
+# slot square is V≈55 S≈50, so the band leaves room for JPEG and dim screens.
+SLOT_ICON_BOX = (-60, -58, 34, 34)
+SLOT_ICON_MIN_SLATE = 0.60
+SLOT_ICON_MAX_RING = 0.10
+
+
+def slot_icon_scores(frame_1080: np.ndarray, centre: tuple[int, int]) -> tuple[float, float]:
+    """(slate share, light-ring share) of a cell's top-left icon."""
+    dx, dy, w, h = SLOT_ICON_BOX
+    x, y = centre[0] + dx, centre[1] + dy
+    patch = frame_1080[max(0, y) : y + h, max(0, x) : x + w]
+    if patch.size == 0:
+        return 0.0, 1.0
+    hsv = cv2.cvtColor(np.ascontiguousarray(patch[:, :, :3]), cv2.COLOR_BGR2HSV).astype(int)
+    value, saturation = hsv[..., 2], hsv[..., 1]
+    slate = float(((value >= 35) & (value <= 80) & (saturation <= 80)).mean())
+    rows, cols = value.shape
+    yy, xx = np.mgrid[:rows, :cols]
+    distance = np.hypot(yy - rows / 2, xx - cols / 2)
+    ring = (distance >= 14) & (distance <= 17)
+    light = (value >= 120) & (saturation <= 50)
+    return slate, float(light[ring].mean()) if ring.any() else 1.0
+
+
+# The enhance / refine badge right of the cell centre: white digits in a
+# diamond (「15」) or a plain 「+7」.  Leo's 4K bag 2026-10-11, 70 cells:
+# badged 0.044-0.173 white, unbadged <= 0.005.  The grid OCR missed many of
+# the diamonds, so a fully enhanced 顶级英雄盔甲 (15) was taken as +0.
+BADGE_WHITE_BOX = (15, -5, 45, 40)
+BADGE_WHITE_MIN = 0.02
+
+
+def badge_white_ratio(frame_1080: np.ndarray, centre: tuple[int, int]) -> float:
+    dx, dy, width, height = BADGE_WHITE_BOX
+    x, y = centre[0] + dx, centre[1] + dy
+    patch = frame_1080[max(0, y) : y + height, max(0, x) : x + width, :3]
+    if patch.size == 0:
+        return 1.0
+    hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+    return float(((hsv[:, :, 1] < 60) & (hsv[:, :, 2] > 200)).mean())
+
+
+def badge_shown(frame_1080: np.ndarray, centre: tuple[int, int]) -> bool:
+    """The cell shows an enhance or refine number (or anything unsure)."""
+    return badge_white_ratio(frame_1080, centre) >= BADGE_WHITE_MIN
+
+
+def slot_icon_shown(frame_1080: np.ndarray, centre: tuple[int, int]) -> bool:
+    """True only for the not-worn slot icon; a portrait or anything unsure is False."""
+    slate, ring = slot_icon_scores(frame_1080, centre)
+    return slate >= SLOT_ICON_MIN_SLATE and ring <= SLOT_ICON_MAX_RING
+
+
+def front_cells(
+    columns: tuple[int, ...], rows: tuple[int, ...], cap: int
+) -> list[tuple[int, int]]:
+    """The first ``cap`` cells, row by row: with the bag sorted newest first
+    these are the latest items, marked new or not (Leo 2026-10-11)."""
+    cells = [(row, column) for row in range(len(rows)) for column in range(len(columns))]
+    return cells[: max(0, cap)]

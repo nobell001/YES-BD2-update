@@ -1917,8 +1917,12 @@ class PVPTask(BaseBD2Task):
         )
         if not in_pvp_hub:
             self.info_set("PVP 返回主页", "未确认 PVP 箱庭")
-            return self._wait_for_home(
+            if self._wait_for_home(
                 timeout=float(self.config.get("PVP 返回主页等待秒数", 20.0))
+            ):
+                return True
+            return self.home_by_key(
+                lambda seconds: self._wait_for_home(timeout=seconds), "镜中之战返回主页"
             )
 
         self.info_set("PVP 返回主页", "已确认 PVP 箱庭")
@@ -1957,6 +1961,10 @@ class PVPTask(BaseBD2Task):
                     self.info_set("PVP 返回主页", "未确认主页且未确认仍处PVP箱庭")
                     home_ok = self._wait_for_home(timeout=second_home_timeout)
 
+        if not home_ok:
+            home_ok = self.home_by_key(
+                lambda seconds: self._wait_for_home(timeout=seconds), "镜中之战返回主页"
+            )
         self.info_set("PVP 返回主页", "通过" if home_ok else "失败")
         return home_ok
 
@@ -2564,6 +2572,9 @@ PVP_MEDALS_TEMPLATE = TemplateSpec(
     roi=(793, 29, 340, 55),
     scale_ratios=(0.944, 0.96, 0.976, 1.0, 1.04),
     min_pixel_score=0.88,
+    # YES-BD2 #16 (HDR on): the medal matched 0.95+ but the whole frame was
+    # brighter, so the plain pixel score stayed under 0.88 (hub=-1.000).
+    brightness_tolerant=True,
 )
 
 PVP_STAGE_TEMPLATE = TemplateSpec(

@@ -62,6 +62,8 @@ SQUARE_CARTRIDGE_SLOT_POINT = (331 / REFERENCE_WIDTH, 970 / REFERENCE_HEIGHT)
 # Swallowed quick-switch clicks: up to this many category / slot clicks.
 SQUARE_CLICK_VERIFY_ATTEMPTS = 3
 SQUARE_HOME_POINT = (1797 / REFERENCE_WIDTH, 63 / REFERENCE_HEIGHT)
+# The game's shortcut shown under that button (Leo 2026-10-11 「我點H就回到主頁了」).
+SQUARE_HOME_KEY = "H"
 GODDESS_NAVIGATION_CLICKED = "navigation_clicked"
 GODDESS_NAVIGATION_RETRIES = 2
 GODDESS_ALREADY_COMPLETE = "already_complete"
@@ -209,8 +211,15 @@ class SquareGoddessTask(BaseBD2Task):
 
         self.info_set("状态", "已进入梦幻广场，开始寻找女神像。")
         if not self._pray_at_goddess():
-            self.info_set("状态", "广场女神像失败：未能完成女神像许愿。")
             self._status_set("女神像许愿结果", "失败")
+            # Leo 2026-10-11 「哪怕我有沒有點到女神像 我都是要離開廣場進行下一步的」
+            self.log_info("广场女神像：许愿没有完成，照样离开广场，继续下一步。")
+            left = self._return_home_from_square()
+            self.info_set(
+                "状态",
+                "广场女神像失败：未能完成女神像许愿"
+                + ("，已离开广场。" if left else "，也未能确认回到主页。"),
+            )
             return False
 
         self._record_wish()
@@ -375,8 +384,7 @@ class SquareGoddessTask(BaseBD2Task):
                 gacha_ocr_text=last_gacha_text,
                 context="广场女神像返回主页",
             )
-            still_in_square = False
-            if remaining_home_clicks > 0:
+            if remaining_home_clicks > 0 and monotonic() >= next_home_retry_at:
                 quick_switch_result = self._match(frame, QUICK_SWITCH_TEMPLATE)
                 self.info_set(
                     "快速切换按钮",
@@ -386,22 +394,28 @@ class SquareGoddessTask(BaseBD2Task):
                     quick_switch_result,
                     QUICK_SWITCH_TEMPLATE,
                 )
-            if (
-                remaining_home_clicks > 0
-                and still_in_square
-                and monotonic() >= next_home_retry_at
-            ):
                 completed_home_clicks += 1
                 remaining_home_clicks -= 1
                 self.info_set(
                     "广场主页点击次数",
                     f"{completed_home_clicks}/{total_home_clicks}",
                 )
-                self.log_info(
-                    "广场女神像：返回主页点击未生效，"
-                    f"仍识别到快速切换卡带按钮，执行第{completed_home_clicks}次点击。"
-                )
-                self.operate_click(*SQUARE_HOME_POINT, after_sleep=1.0)
+                if still_in_square:
+                    self.log_info(
+                        "广场女神像：返回主页点击未生效，"
+                        f"仍识别到快速切换卡带按钮，执行第{completed_home_clicks}次点击。"
+                    )
+                    self.operate_click(*SQUARE_HOME_POINT, after_sleep=1.0)
+                else:
+                    # Neither home nor the square's buttons read (HDR, a
+                    # popup...): never stuck (Leo 2026-10-11 「不可以說認不到辨識
+                    # 不到就卡住 你可以用快捷鍵」).  The game's own H key goes to
+                    # 主页; a click could land on home's menu icon instead.
+                    self.log_info(
+                        "广场女神像：没认出主页，也没认出广场按钮，"
+                        f"第{completed_home_clicks}次改按快捷键 H 回主页。"
+                    )
+                    self.tap_key(SQUARE_HOME_KEY, after_sleep=1.0)
                 next_home_retry_at = monotonic() + retry_interval
                 continue
             self.sleep(interval)
@@ -1152,6 +1166,9 @@ QUICK_SWITCH_TEMPLATE = TemplateSpec(
     # 样式存在结构差异：1600x901 实机帧 zncc 最高 0.838（RPT-20260902-225925），
     # 0.85 门禁会确定性误拒；同帧误检位置 zncc 最高 0.43，0.78 仍有足够余量。
     min_zncc_score=0.78,
+    # 2026-10-11, same HDR player as YES-BD2 #16: shape 0.964 / zncc 0.83 but
+    # pixel 0.81 in the square, so the home click was never repeated.
+    brightness_tolerant=True,
 )
 
 FANTASIA_SQUARE_TEMPLATE = TemplateSpec(

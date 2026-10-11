@@ -54,6 +54,17 @@ SCROLL_POINTER_SETTLE_SECONDS = 0.15
 RECENT_CARTRIDGE_SPECIAL_PAGE_MAX_ACTIONS = 3
 # Windows may refuse to raise the game while the user works elsewhere.
 FOREGROUND_ATTEMPTS = 3
+# A shortcut tap: long enough for the PC client to read it (WASD holds work live).
+KEY_TAP_SECONDS = 0.08
+# The game's own shortcuts, shown under its buttons: H 主页 in every field
+# (广场、餐厅、箱庭、镜中之战...); F on 主页 goes back to the recent
+# cartridge (Leo 「f上面是直接返回卡帶」); P in a field opens the quick switch.
+# P on 主页 opens the 游戏卡珍藏集 instead, which H cannot leave (live 4K
+# 2026-10-11), so P is never sent while 主页 shows.
+HOME_KEY = "H"
+RECENT_CARTRIDGE_KEY = "F"
+QUICK_SWITCH_KEY = "P"
+HOME_KEY_WAIT_SECONDS = 10.0
 # The field's quick-switch (P) button, 1080p reference.
 FIELD_QUICK_SWITCH_POINT = (851, 997)
 FIEND_HUNT_REWARD_TITLE = "魔兽追踪者赛季奖励"
@@ -772,7 +783,50 @@ class BaseBD2Task(BaseTask):
         a key can never land in another program.
         """
         codes = {"w": 0x57, "a": 0x41, "s": 0x53, "d": 0x44}
-        code = codes[key]
+        if not self._send_game_key(codes[key], seconds):
+            self.info_set("按键移动", f"{key} 未发送：游戏窗口不在最前面")
+            self.log_warning(
+                "游戏窗口不在最前面，已停止键盘移动，避免按键打到其他窗口。"
+                "运行需要走位的任务时请不要操作其他窗口。"
+            )
+            return False
+        self.info_set("按键移动", f"{key} {seconds:.2f}s")
+        self.sleep(after_sleep)
+        return True
+
+    def tap_key(self, key: str, after_sleep: float = 0.0) -> bool:
+        """Tap one of the game's own shortcut keys (one letter, as the game
+        shows it under a button, e.g. H 主页 / P 卡带) as the fallback when a
+        mouse press or a read failed (Leo 2026-10-11 「不可以說認不到辨識不到就
+        卡住 你可以用快捷鍵」).  Sent only with the game in the foreground."""
+        letter = key.strip().upper()
+        if len(letter) != 1 or not letter.isalnum():
+            raise ValueError(f"not a single shortcut key: {key!r}")
+        if not self._send_game_key(ord(letter), KEY_TAP_SECONDS):
+            self.info_set("快捷键", f"{letter} 未发送：游戏窗口不在最前面")
+            self.log_warning(f"游戏窗口不在最前面，快捷键 {letter} 没有发送。")
+            return False
+        self.info_set("快捷键", letter)
+        self.sleep(after_sleep)
+        return True
+
+    def home_by_key(
+        self,
+        wait_home: Callable[[float], object],
+        label: str,
+        timeout: float = HOME_KEY_WAIT_SECONDS,
+    ) -> bool:
+        """Last resort once the usual way home did not confirm 主页: the
+        game's H shortcut, then look again (Leo 2026-10-11 「在餐廳也可以按H回
+        主頁」「凡事總要有備用方案 不要失敗就卡死」)."""
+        self.log_info(f"{label}：没确认回到主页，改按快捷键 {HOME_KEY}。")
+        if not self.tap_key(HOME_KEY, after_sleep=1.0):
+            return False
+        return bool(wait_home(timeout))
+
+    def _send_game_key(self, code: int, seconds: float) -> bool:
+        """Press ``code`` for ``seconds`` with the game in the foreground; the
+        key is injected, so the takeover guard ignores it."""
         sent = []
 
         def action():
@@ -790,16 +844,7 @@ class BaseBD2Task(BaseTask):
                 win32api.keybd_event(code, scan, win32con.KEYEVENTF_KEYUP, 0)
 
         self.operate(action, block=True, restore_cursor=True)
-        if not sent:
-            self.info_set("按键移动", f"{key} 未发送：游戏窗口不在最前面")
-            self.log_warning(
-                "游戏窗口不在最前面，已停止键盘移动，避免按键打到其他窗口。"
-                "运行需要走位的任务时请不要操作其他窗口。"
-            )
-            return False
-        self.info_set("按键移动", f"{key} {seconds:.2f}s")
-        self.sleep(after_sleep)
-        return True
+        return bool(sent)
 
     def scroll_client(
         self,
@@ -936,9 +981,33 @@ class BaseBD2Task(BaseTask):
                     click_quick_switch=click_quick_switch,
                 )
         if not quick_switch_opened:
-            self._save_flow_diagnostic("cartridge_quick_switch_failed")
-            return False
+            return self._quick_switch_by_key(ensure_home, confirm_quick_switch_page)
         return bool(confirm_quick_switch_page())
+
+    def _quick_switch_by_key(
+        self,
+        ensure_home: Callable[[], bool],
+        confirm_quick_switch_page: Callable[[], bool],
+    ) -> bool:
+        """Last resort when the quick-switch button never read: the game's own
+        keys (Leo 2026-10-11 「主頁進卡帶右下角那個P 也是快捷鍵」).  Still on 主页:
+        F into the recent cartridge first.  Then P in the field, twice at most;
+        P is never sent while 主页 shows (there it opens the collection)."""
+        if ensure_home():
+            self.log_info(f"还在主页，改按快捷键 {RECENT_CARTRIDGE_KEY} 进最近的卡带。")
+            if not self.tap_key(RECENT_CARTRIDGE_KEY, after_sleep=2.0) or ensure_home():
+                self._save_flow_diagnostic("cartridge_quick_switch_failed")
+                return False
+        for press in (1, 2):
+            if press > 1 and ensure_home():
+                break
+            self.log_info(f"没认出快速切换按钮，第{press}次改按快捷键 {QUICK_SWITCH_KEY}。")
+            if not self.tap_key(QUICK_SWITCH_KEY, after_sleep=1.5):
+                break
+            if confirm_quick_switch_page():
+                return True
+        self._save_flow_diagnostic("cartridge_quick_switch_failed")
+        return False
 
     def _press_field_quick_switch_by_keycaps(self) -> bool:
         """Press the field P button at its place when only the key caps prove the field.

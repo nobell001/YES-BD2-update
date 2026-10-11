@@ -171,7 +171,12 @@ class Shell(QObject):
     def _after_start(self) -> None:
         """A start goes to 首页, except from the 魔兽追踪者 page (Leo 2026-10-06:
         recording and replaying are watched there, with the save's turns)."""
-        if self.window.stackedWidget.currentWidget() is self.pages.get("fiend"):
+        current = self.window.stackedWidget.currentWidget()
+        if current is self.pages.get("fiend"):
+            return
+        # 循环砍价 is watched on the 跑商 page (Leo 2026-10-11).
+        keep = getattr(current, "keep_page_on_start", None)
+        if callable(keep) and keep():
             return
         self.navigate("home")
 

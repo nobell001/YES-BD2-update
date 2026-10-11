@@ -13,3 +13,6 @@ Pictures used only by the new main window (`src/ui/shell`).
   The 地狱火紫菜包饭 template was captured greyed out, so its copy here is
   brightened (×2.2 per channel) to match the other dishes.
 - `items/`: sale-item icons, see `items/SOURCE.md`.
+- `bargain/sticker.png`: the 循环砍价 picture, a 贴纸 (sticker) cut out of
+  Leo's 4K game screenshot (2026-10-11), dark background made transparent.
+  Game art belongs to the game's publisher.

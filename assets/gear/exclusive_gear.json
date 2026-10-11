@@ -8,6 +8,7 @@
    "en": "Royaldite",
    "character_id": "Justia",
    "character_tw": "悠絲緹亞",
+   "character_cn": "悠丝缇亚",
    "star": 5,
    "part": "Weapon"
   },
@@ -17,6 +18,7 @@
    "en": "Artha Lugo",
    "character_id": "Lathel",
    "character_tw": "拉德爾",
+   "character_cn": "拉德尔",
    "star": 5,
    "part": "Armor"
   },
@@ -26,6 +28,7 @@
    "en": "Plentithoum",
    "character_id": "Scheherazade",
    "character_tw": "莎赫拉查德",
+   "character_cn": "莎赫拉查德",
    "star": 5,
    "part": "Weapon"
   },
@@ -35,6 +38,7 @@
    "en": "Diathema",
    "character_id": "Gray",
    "character_tw": "格雷",
+   "character_cn": "格雷",
    "star": 5,
    "part": "Weapon"
   },
@@ -44,6 +48,7 @@
    "en": "Dark Restraint",
    "character_id": "Rou",
    "character_tw": "魯",
+   "character_cn": "鲁",
    "star": 5,
    "part": "Weapon"
   },
@@ -53,6 +58,7 @@
    "en": "Verum Lux",
    "character_id": "Olstein",
    "character_tw": "奧爾施塔因",
+   "character_cn": "奥尔施塔因",
    "star": 5,
    "part": "Helmet"
   },
@@ -62,6 +68,7 @@
    "en": "Carneliana",
    "character_id": "Rubia",
    "character_tw": "露比雅",
+   "character_cn": "露比雅",
    "star": 5,
    "part": "Weapon"
   },
@@ -71,6 +78,7 @@
    "en": "Primulan",
    "character_id": "Sylvia",
    "character_tw": "席比雅",
+   "character_cn": "席比雅",
    "star": 5,
    "part": "Weapon"
   },
@@ -80,6 +88,7 @@
    "en": "Star Caller Ornament",
    "character_id": "Eclipse",
    "character_tw": "伊柯利普斯",
+   "character_cn": "伊柯利普斯",
    "star": 5,
    "part": "Jewelry"
   },
@@ -89,6 +98,7 @@
    "en": "Gravior",
    "character_id": "Teresse",
    "character_tw": "泰瑞絲",
+   "character_cn": "泰瑞丝",
    "star": 5,
    "part": "Weapon"
   },
@@ -98,6 +108,7 @@
    "en": "Lunar Piercer",
    "character_id": "Liatris",
    "character_tw": "莉亞特里斯",
+   "character_cn": "莉亚特里斯",
    "star": 5,
    "part": "Weapon"
   },
@@ -107,6 +118,7 @@
    "en": "Predator",
    "character_id": "Alec",
    "character_tw": "艾瑞克",
+   "character_cn": "艾瑞克",
    "star": 5,
    "part": "Weapon"
   },
@@ -116,6 +128,7 @@
    "en": "Terra Concealer",
    "character_id": "Celia",
    "character_tw": "西利亞",
+   "character_cn": "西利亚",
    "star": 5,
    "part": "Jewelry"
   },
@@ -125,6 +138,7 @@
    "en": "M.A.I.D C",
    "character_id": "Anastasia",
    "character_tw": "安娜塔西亞",
+   "character_cn": "安娜塔西亚",
    "star": 5,
    "part": "Weapon"
   },
@@ -134,6 +148,7 @@
    "en": "Soul Curtana",
    "character_id": "Lecliss",
    "character_tw": "萊克莉斯",
+   "character_cn": "莱克莉斯",
    "star": 5,
    "part": "Helmet"
   },
@@ -143,6 +158,7 @@
    "en": "E.P.G",
    "character_id": "Rafina",
    "character_tw": "拉菲娜",
+   "character_cn": "拉菲娜",
    "star": 5,
    "part": "Gloves"
   },
@@ -152,6 +168,7 @@
    "en": "Rose Selection",
    "character_id": "Elise",
    "character_tw": "愛麗潔",
+   "character_cn": "爱丽洁",
    "star": 5,
    "part": "Armor"
   },
@@ -161,6 +178,7 @@
    "en": "Arch Demons",
    "character_id": "Seir",
    "character_tw": "賽爾",
+   "character_cn": "赛尔",
    "star": 5,
    "part": "Jewelry"
   },
@@ -170,6 +188,7 @@
    "en": "Top Idol",
    "character_id": "Helena",
    "character_tw": "海倫娜",
+   "character_cn": "海伦娜",
    "star": 5,
    "part": "Helmet"
   },
@@ -179,6 +198,7 @@
    "en": "Freischutz",
    "character_id": "Eleaneer",
    "character_tw": "艾尼爾",
+   "character_cn": "艾尼尔",
    "star": 5,
    "part": "Weapon"
   },
@@ -188,6 +208,7 @@
    "en": "Evil Sword Jormun",
    "character_id": "Angelica",
    "character_tw": "安潔莉卡",
+   "character_cn": "安洁莉卡",
    "star": 5,
    "part": "Weapon"
   },
@@ -197,6 +218,7 @@
    "en": "Frost Queen",
    "character_id": "Glacia",
    "character_tw": "克蕾西亞",
+   "character_cn": "克蕾西亚",
    "star": 5,
    "part": "Weapon"
   },
@@ -206,6 +228,7 @@
    "en": "Evil Sword Purple Moon",
    "character_id": "Ventana",
    "character_tw": "班塔納",
+   "character_cn": "班塔纳",
    "star": 5,
    "part": "Weapon"
   },
@@ -215,6 +238,7 @@
    "en": "White Pixie",
    "character_id": "Diana",
    "character_tw": "黛安娜",
+   "character_cn": "黛安娜",
    "star": 5,
    "part": "Helmet"
   },
@@ -224,6 +248,7 @@
    "en": "Rabbit Ranger",
    "character_id": "Zenith",
    "character_tw": "傑尼斯",
+   "character_cn": "杰尼斯",
    "star": 5,
    "part": "Weapon"
   },
@@ -233,6 +258,7 @@
    "en": "Black Snow Tiger Sword",
    "character_id": "Yuri",
    "character_tw": "尤里",
+   "character_cn": "尤里",
    "star": 5,
    "part": "Weapon"
   },
@@ -242,6 +268,7 @@
    "en": "Thousand-year-old Hairpin",
    "character_id": "Dalvi",
    "character_tw": "達非",
+   "character_cn": "达非",
    "star": 5,
    "part": "Helmet"
   },
@@ -251,6 +278,7 @@
    "en": "Seal of Hell",
    "character_id": "Nartas",
    "character_tw": "納羅達斯",
+   "character_cn": "纳罗达斯",
    "star": 5,
    "part": "Gloves"
   },
@@ -260,6 +288,7 @@
    "en": "Freinir",
    "character_id": "Granhildr",
    "character_tw": "葛蘭西特",
+   "character_cn": "格兰希特",
    "star": 5,
    "part": "Weapon"
   },
@@ -269,6 +298,7 @@
    "en": "Little Fairy",
    "character_id": "Refithea",
    "character_tw": "芮彼泰雅",
+   "character_cn": "芮彼泰雅",
    "star": 5,
    "part": "Armor"
   },
@@ -278,6 +308,7 @@
    "en": "Lost Magic",
    "character_id": "Loen",
    "character_tw": "羅安",
+   "character_cn": "罗安",
    "star": 5,
    "part": "Weapon"
   },
@@ -287,6 +318,7 @@
    "en": "Roxy's Staff",
    "character_id": "Roxy",
    "character_tw": "洛琪希",
+   "character_cn": "洛琪希",
    "star": 5,
    "part": "Weapon"
   },
@@ -296,6 +328,7 @@
    "en": "Eris's Sword",
    "character_id": "Eris",
    "character_tw": "艾莉絲",
+   "character_cn": "艾莉丝",
    "star": 5,
    "part": "Weapon"
   },
@@ -305,6 +338,7 @@
    "en": "Sing in Harmony",
    "character_id": "Venaka",
    "character_tw": "貝那卡",
+   "character_cn": "贝那卡",
    "star": 5,
    "part": "Weapon"
   },
@@ -314,6 +348,7 @@
    "en": "Moon Shadow",
    "character_id": "Nebris",
    "character_tw": "內布利斯",
+   "character_cn": "内布利斯",
    "star": 5,
    "part": "Weapon"
   },
@@ -323,6 +358,7 @@
    "en": "Mistilteinn",
    "character_id": "SacredJustia",
    "character_tw": "神聖悠絲緹亞",
+   "character_cn": "神圣悠丝缇亚",
    "star": 5,
    "part": "Weapon"
   },
@@ -332,6 +368,7 @@
    "en": "Tome of Liberation",
    "character_id": "Levia",
    "character_tw": "萊維亞",
+   "character_cn": "莱维亚",
    "star": 5,
    "part": "Weapon"
   },
@@ -341,6 +378,7 @@
    "en": "La Hypnos",
    "character_id": "Morpeah",
    "character_tw": "墨菲亞",
+   "character_cn": "墨菲亚",
    "star": 5,
    "part": "Jewelry"
   },
@@ -350,6 +388,7 @@
    "en": "Prelude",
    "character_id": "Michaela",
    "character_tw": "米卡埃拉",
+   "character_cn": "米卡艾拉",
    "star": 5,
    "part": "Weapon"
   },
@@ -359,6 +398,7 @@
    "en": "Roaring Sword - Ragnarok",
    "character_id": "Yomi",
    "character_tw": "詠",
+   "character_cn": "咏",
    "star": 5,
    "part": "Weapon"
   },
@@ -368,6 +408,7 @@
    "en": "Expandable Pile Bunker Gauntlets",
    "character_id": "Yozakura",
    "character_tw": "夜櫻",
+   "character_cn": "夜樱",
    "star": 5,
    "part": "Weapon"
   },
@@ -377,6 +418,7 @@
    "en": "Hinata's Knife",
    "character_id": "Hikage",
    "character_tw": "日影",
+   "character_cn": "日影",
    "star": 5,
    "part": "Weapon"
   },
@@ -386,6 +428,7 @@
    "en": "Kurokage's Fan",
    "character_id": "Yumi",
    "character_tw": "雪泉",
+   "character_cn": "雪泉",
    "star": 5,
    "part": "Weapon"
   },
@@ -395,6 +438,7 @@
    "en": "Superbia",
    "character_id": "Luvencia",
    "character_tw": "盧班希亞",
+   "character_cn": "卢班希亚",
    "star": 5,
    "part": "Weapon"
   },
@@ -404,6 +448,7 @@
    "en": "Dark Rosarium",
    "character_id": "Liberta",
    "character_tw": "黎維塔",
+   "character_cn": "黎维塔",
    "star": 5,
    "part": "Jewelry"
   },
@@ -413,6 +458,7 @@
    "en": "Blade",
    "character_id": "Blade",
    "character_tw": "布萊德",
+   "character_cn": "布莱德",
    "star": 5,
    "part": "Weapon"
   },
@@ -422,6 +468,7 @@
    "en": "Fleur Stinger",
    "character_id": "Wilhelmina",
    "character_tw": "威廉明娜",
+   "character_cn": "威廉明娜",
    "star": 5,
    "part": "Weapon"
   },
@@ -431,6 +478,7 @@
    "en": "Short Sword",
    "character_id": "GoblinSlayer",
    "character_tw": "哥布林殺手",
+   "character_cn": "哥布林杀手",
    "star": 5,
    "part": "Weapon"
   },
@@ -440,6 +488,7 @@
    "en": "Staff",
    "character_id": "Priestess",
    "character_tw": "女神官",
+   "character_cn": "女神官",
    "star": 5,
    "part": "Weapon"
   },
@@ -449,6 +498,7 @@
    "en": "Yew Wood Bow",
    "character_id": "HighElfArcher",
    "character_tw": "妖精弓手",
+   "character_cn": "妖精弓手",
    "star": 5,
    "part": "Weapon"
   },
@@ -458,6 +508,7 @@
    "en": "Sword-and-Scales Staff",
    "character_id": "SwordMaiden",
    "character_tw": "劍之聖女",
+   "character_cn": "剑之圣女",
    "star": 5,
    "part": "Weapon"
   },
@@ -467,6 +518,7 @@
    "en": "Tyrfing",
    "character_id": "Olivier",
    "character_tw": "奧利維爾",
+   "character_cn": "奥利维耶",
    "star": 5,
    "part": "Weapon"
   },
@@ -476,6 +528,7 @@
    "en": "Ater Hecate",
    "character_id": "Sonya",
    "character_tw": "索妮亞",
+   "character_cn": "索尼娅",
    "star": 5,
    "part": "Jewelry"
   },
@@ -485,6 +538,7 @@
    "en": "Brionac",
    "character_id": "Tyr",
    "character_tw": "提爾",
+   "character_cn": "提尔",
    "star": 5,
    "part": "Weapon"
   },
@@ -494,6 +548,7 @@
    "en": "Revelatio",
    "character_id": "Darian",
    "character_tw": "達麗安",
+   "character_cn": "达丽安",
    "star": 5,
    "part": "Weapon"
   },
@@ -503,6 +558,7 @@
    "en": "Glutti Queen",
    "character_id": "Granadair",
    "character_tw": "葛拉娜德",
+   "character_cn": "葛拉娜德",
    "star": 5,
    "part": "Armor"
   },
@@ -512,6 +568,7 @@
    "en": "Delineo",
    "character_id": "Palette",
    "character_tw": "帕萊特",
+   "character_cn": "帕莱特",
    "star": 5,
    "part": "Weapon"
   },
@@ -521,6 +578,7 @@
    "en": "Grim Surge",
    "character_id": "Mamonir",
    "character_tw": "馬莫尼勒",
+   "character_cn": "马莫尼勒",
    "star": 5,
    "part": "Weapon"
   },
@@ -530,6 +588,7 @@
    "en": "The Exquisite Hien",
    "character_id": "Ikaruga",
    "character_tw": "斑鳩",
+   "character_cn": "斑鸠",
    "star": 5,
    "part": "Weapon"
   },
@@ -539,6 +598,7 @@
    "en": "Leukos Leipsana",
    "character_id": "Nekyndalia",
    "character_tw": "涅肯達莉亞",
+   "character_cn": "内肯达莉亚",
    "star": 5,
    "part": "Weapon"
   },
@@ -548,6 +608,7 @@
    "en": "Blood Devourer",
    "character_id": "Aquila",
    "character_tw": "阿奇拉",
+   "character_cn": "阿奇拉",
    "star": 5,
    "part": "Weapon"
   },
@@ -557,6 +618,7 @@
    "en": "Kyouka's Sword",
    "character_id": "KyoukaUzen",
    "character_tw": "羽前京香",
+   "character_cn": "羽前京香",
    "star": 5,
    "part": "Weapon"
   },
@@ -566,6 +628,7 @@
    "en": "Tenka's Earring",
    "character_id": "TenkaIzumo",
    "character_tw": "出雲天花",
+   "character_cn": "出云天花",
    "star": 5,
    "part": "Jewelry"
   },
@@ -575,6 +638,7 @@
    "en": "Ren's Hair Accessory",
    "character_id": "RenYamashiro",
    "character_tw": "山城戀",
+   "character_cn": "山城恋",
    "star": 5,
    "part": "Helmet"
   },
@@ -584,6 +648,7 @@
    "en": "Amitie",
    "character_id": "Lisianne",
    "character_tw": "莉西安",
+   "character_cn": "莉西安",
    "star": 4,
    "part": "Jewelry"
   },
@@ -593,6 +658,7 @@
    "en": "Stealer Hand",
    "character_id": "Bernie",
    "character_tw": "維爾尼",
+   "character_cn": "维尔尼",
    "star": 4,
    "part": "Gloves"
   },
@@ -602,6 +668,7 @@
    "en": "Pigsmith",
    "character_id": "Layla",
    "character_tw": "蕾拉",
+   "character_cn": "蕾拉",
    "star": 4,
    "part": "Weapon"
   },
@@ -611,6 +678,7 @@
    "en": "Winged Skull",
    "character_id": "Lucrezia",
    "character_tw": "盧克雷齊亞",
+   "character_cn": "卢克雷齐亚",
    "star": 4,
    "part": "Jewelry"
   },
@@ -620,6 +688,7 @@
    "en": "Seventh Hell",
    "character_id": "Samay",
    "character_tw": "莎美",
+   "character_cn": "莎美",
    "star": 4,
    "part": "Gloves"
   },
@@ -629,6 +698,7 @@
    "en": "Demon's Suit",
    "character_id": "Andrew",
    "character_tw": "安德魯",
+   "character_cn": "安德鲁",
    "star": 4,
    "part": "Armor"
   },
@@ -638,6 +708,7 @@
    "en": "Crying Devil",
    "character_id": "Kry",
    "character_tw": "克萊",
+   "character_cn": "克莱",
    "star": 4,
    "part": "Weapon"
   },
@@ -647,6 +718,7 @@
    "en": "J Collection",
    "character_id": "Jayden",
    "character_tw": "傑登",
+   "character_cn": "杰登",
    "star": 4,
    "part": "Jewelry"
   },
@@ -656,6 +728,7 @@
    "en": "Arkrasion",
    "character_id": "Elpis",
    "character_tw": "厄爾比斯",
+   "character_cn": "厄尔比斯",
    "star": 4,
    "part": "Jewelry"
   },
@@ -665,6 +738,7 @@
    "en": "Arbalest",
    "character_id": "Remnunt",
    "character_tw": "雷南特",
+   "character_cn": "雷南特",
    "star": 3,
    "part": "Weapon"
   },
@@ -674,6 +748,7 @@
    "en": "Handmade",
    "character_id": "Gynt",
    "character_tw": "君特",
+   "character_cn": "君特",
    "star": 3,
    "part": "Gloves"
   },
@@ -683,6 +758,7 @@
    "en": "Lugo Shirt",
    "character_id": "Fred",
    "character_tw": "弗雷德",
+   "character_cn": "弗雷德",
    "star": 3,
    "part": "Armor"
   },
@@ -692,6 +768,7 @@
    "en": "Dangerous Bomb",
    "character_id": "Wiggle",
    "character_tw": "威格",
+   "character_cn": "威格",
    "star": 3,
    "part": "Weapon"
   },
@@ -701,6 +778,7 @@
    "en": "Ruiner",
    "character_id": "Maria",
    "character_tw": "瑪麗亞",
+   "character_cn": "玛丽亚",
    "star": 3,
    "part": "Weapon"
   },
@@ -710,6 +788,7 @@
    "en": "Holy Gaze",
    "character_id": "Arines",
    "character_tw": "阿里內斯",
+   "character_cn": "阿里内斯",
    "star": 3,
    "part": "Helmet"
   },
@@ -719,6 +798,7 @@
    "en": "Scholar's Emblem",
    "character_id": "Emma",
    "character_tw": "艾瑪",
+   "character_cn": "艾玛",
    "star": 3,
    "part": "Jewelry"
   },
@@ -728,6 +808,7 @@
    "en": "Double Trouble",
    "character_id": "Ingrid",
    "character_tw": "英格利得",
+   "character_cn": "英格利得",
    "star": 3,
    "part": "Weapon"
   },
@@ -737,6 +818,7 @@
    "en": "Frozen Ruby",
    "character_id": "Cynthia",
    "character_tw": "辛西亞",
+   "character_cn": "辛西亚",
    "star": 3,
    "part": "Jewelry"
   },
@@ -746,6 +828,7 @@
    "en": "Spirit Ribbon",
    "character_id": "Julie",
    "character_tw": "茱莉",
+   "character_cn": "茱莉",
    "star": 3,
    "part": "Helmet"
   },
@@ -755,6 +838,7 @@
    "en": "Evoren Guard",
    "character_id": "Carlson",
    "character_tw": "卡森",
+   "character_cn": "卡森",
    "star": 3,
    "part": "Armor"
   },
@@ -764,6 +848,7 @@
    "en": "Simple Spear",
    "character_id": "Lydia",
    "character_tw": "黎迪雅",
+   "character_cn": "黎迪雅",
    "star": 3,
    "part": "Weapon"
   },
@@ -773,6 +858,7 @@
    "en": "Hunter's Bow",
    "character_id": "Rigenette",
    "character_tw": "莉茲內",
+   "character_cn": "莉兹内",
    "star": 3,
    "part": "Weapon"
   },
@@ -782,8 +868,10 @@
    "en": "Earth Shaker",
    "character_id": "Beatrice",
    "character_tw": "比阿特麗絲",
+   "character_cn": "比阿特丽丝",
    "star": 3,
    "part": "Weapon"
   }
- ]
+ ],
+ "checked": "2026-10-11: same 87 exclusives (23 for 3★/4★) on the site; character_cn from src/tasks/fiend_hunt/data/characters.json"
 }

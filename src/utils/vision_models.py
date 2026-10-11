@@ -28,6 +28,10 @@ class TemplateSpec:
     candidate_threshold: float | None = None
     crop: tuple[float, float, float, float] | None = None
     relative_rois: tuple[tuple[float, float, float, float], ...] = ()
+    # The pixel gate may also pass after the region's brightness and contrast
+    # are matched to the template (HDR, screen filters shift a whole frame).
+    # Only for icons without a lit / grey state that matters.
+    brightness_tolerant: bool = False
 
 
 @dataclass(frozen=True)

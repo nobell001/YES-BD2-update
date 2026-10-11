@@ -225,6 +225,10 @@ class MapAutomationTaskBase(BaseBD2Task):
 class MapTradeTask(MapAutomationTaskBase):
     """Daily merchant task, separated from weekly map collection."""
     recover_home_on_failure = True
+    # Started on another page (live 4K 2026-10-11, the Loyal Maid event page):
+    # the trade navigator knows only its own screens, pressed nothing, and
+    # 买 and 料理 were lost.  The generic way home runs first (Leo: 可以改).
+    start_from_home = True
 
     vision_threshold_key = TRADE_VISION_THRESHOLD_KEY
     ocr_threshold_key = TRADE_OCR_THRESHOLD_KEY

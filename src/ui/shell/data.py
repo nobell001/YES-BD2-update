@@ -370,6 +370,11 @@ def dish_picture(name: str) -> str | None:
     return str(ASSET_DIR / "dishes" / file) if file else None
 
 
+def bargain_picture() -> str:
+    """循环砍价's picture: the 砍价 talent character's sticker (Leo 2026-10-11)."""
+    return str(ASSET_DIR / "bargain" / "sticker.png")
+
+
 def item_picture(name: str) -> str | None:
     file = _index("items").get(name)
     return str(ASSET_DIR / "items" / file) if file else None

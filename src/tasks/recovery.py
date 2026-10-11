@@ -17,7 +17,7 @@ import numpy as np
 from ok.task.exceptions import FinishedException, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
-from src.tasks.BaseBD2Task import BaseBD2Task
+from src.tasks.BaseBD2Task import HOME_KEY, BaseBD2Task
 from src.tasks.claim_page import OVERLAY_DISMISS_KEYWORDS, REWARD_DIALOG_TITLES
 from src.tasks.map_trade.models import ScreenState
 from src.tasks.map_trade.navigator import Navigator
@@ -239,6 +239,7 @@ def recover_to_home(task, attempts: int = RECOVERY_ATTEMPTS) -> bool:
     vision = Vision(task)
     navigator = Navigator(task, vision)
     task._recovery_saw_title = False
+    home_key_pressed = False
     for attempt in range(1, attempts + 1):
         if _home_now(navigator):
             return True
@@ -288,6 +289,18 @@ def recover_to_home(task, attempts: int = RECOVERY_ATTEMPTS) -> bool:
         # after the last press must not get another back press.
         if attempt > 1 and _wait_home_briefly(task, navigator, 0.3):
             return True
+        if attempt > 1 and not home_key_pressed and callable(getattr(task, "tap_key", None)):
+            # A back press did not bring 主页 and the screen reads as none
+            # of the known pages (HDR, a field the navigator doesn't know,
+            # 餐厅...): the game's own H once (Leo 2026-10-11 「在餐廳也可以按
+            # H回主頁」「凡事總要有備用方案 不要失敗就卡死」).
+            home_key_pressed = True
+            task.log_info("恢复主页：返回没回到主页，改按快捷键 H。")
+            if task.tap_key(HOME_KEY, after_sleep=0.5) and _wait_after_back(
+                task, navigator, frame
+            ):
+                return True
+            continue
         task.log_info("恢复主页：点击左上角返回。")
         task.operate_click(*BACK_BUTTON_POINT, after_sleep=0.5)
         # Live 2026-09-27: a fixed 1.5 s sleep plus a full classification per

@@ -674,4 +674,9 @@ class DoomBookTask(_ClaimTaskBase):
                 return True
             if not self._field_visible(self.capture_frame()):
                 break
-        return self._wait_for_home_confirmation("末日之书返回主页", timeout=10.0)
+        if self._wait_for_home_confirmation("末日之书返回主页", timeout=10.0):
+            return True
+        return self.home_by_key(
+            lambda seconds: self._wait_for_home_confirmation("末日之书返回主页", timeout=seconds),
+            "末日之书返回主页",
+        )

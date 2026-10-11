@@ -190,20 +190,11 @@ msgstr "When enabled, cook one of each dish. When disabled, select MAX."
 msgid "开启时每种普通目标只卖最小数量；默认关闭并选择 MAX。价表中带保留量的商品始终优先执行保留规则。"
 msgstr "When enabled, sell only the minimum amount of each normal target. By default this is disabled and MAX is selected. Reserve rules in the price table always take priority."
 
-msgid "强制双倍"
-msgstr "Force double"
-
-msgid "强制双倍策略下优先检查金币或经验。"
-msgstr "Under Force double, checks Gold or EXP first."
-
 msgid "快速狩猎"
 msgstr "Quick Hunt"
 
 msgid "快速狩猎双倍策略"
 msgstr "Quick Hunt double strategy"
-
-msgid "快速狩猎米饭分配"
-msgstr "Quick Hunt Cooked rice split"
 
 msgid "快速狩猎资源倾向"
 msgstr "Quick Hunt resource preference"
@@ -345,15 +336,6 @@ msgstr "Use reference pixel coordinates"
 
 msgid "煤炭饼干"
 msgstr "Charcoal Cookie"
-
-msgid "狩猎场 MIN 时双倍冒险航线使用 MAX；狩猎场 MAX 时跳过冒险航线。"
-msgstr "With Hunting Ground at MIN, double Path of Adventure uses MAX; with Hunting Ground at MAX, Path of Adventure is skipped."
-
-msgid "狩猎场MAX / 跳过冒险航线"
-msgstr "Hunting Ground MAX / skip Path of Adventure"
-
-msgid "狩猎场x1 / 双倍图MAX"
-msgstr "Hunting Ground x1 / double MAX"
 
 msgid "用逗号、分号或换行填写禁止出售的商品。"
 msgstr "Enter items that must not be sold, separated by commas, semicolons, or line breaks."
@@ -508,8 +490,8 @@ msgstr "Mon"
 msgid "一二三四五六日"
 msgstr "一二三四五六日"
 
-msgid "一次最多处理的新装备件数（带黄色!新获得标记的装备），1~10 件。"
-msgstr "Max new Gear to handle per run (Gear with the yellow ! new mark), 1~10."
+msgid "整次最多处理几件（黄色!新装备、R、SR 和 N 装备都算在内），1~10 件。"
+msgstr "Max Gear handled in one run (new Gear with the yellow !, R, SR and the N Gear all count), 1~10."
 
 msgid "一次运行最多进行的战斗场数（0 表示用完可用AP）。"
 msgstr "Max battles per run (0 means use all available AP)."
@@ -643,9 +625,6 @@ msgstr "Today's Dailies"
 msgid "任务奖励"
 msgstr "Quest rewards"
 
-msgid "优先双倍：只打有双倍的冒险航线（都双倍时选金币，都没有就跳过）；强制双倍：按资源倾向先找双倍；忽视双倍：不看双倍，固定只打金币航线（适合史莱姆/经验已溢出的后期玩家）。"
-msgstr "Prefer double: only runs a Path of Adventure that has double (Gold if both do, skip if neither). Force double: looks for double first based on the resource preference. Ignore double: ignores double and always runs the Gold route (for late-game players with Slime/EXP to spare)."
-
 msgid "依次打开每张通行证，领取通行证任务经验与等级奖励（只点全部获得，绝不点购买）。"
 msgstr "Opens each Pass in turn and claims Pass quest EXP and level rewards (only taps Claim All, never Buy)."
 
@@ -709,8 +688,8 @@ msgstr "If something goes wrong, send the files here to the developer"
 msgid "分解3星4星角色的UR专用"
 msgstr "Dismantle UR Exclusive of 3★/4★ Characters"
 
-msgid "分解R和SR"
-msgstr "Dismantle R and SR"
+msgid "分解5★角色的SR专用装备"
+msgstr "Dismantle 5★ Characters' SR Exclusive Gear"
 
 msgid "到「日常设定」把要跑的项目加进一键日常"
 msgstr "Add the items to run to Run All Dailies in \"Daily Setup\""
@@ -976,8 +955,8 @@ msgstr "Recipe list"
 msgid "料酒"
 msgstr "Cooking Wine"
 
-msgid "新获得的 R / SR 装备算爛装。"
-msgstr "Newly obtained R / SR Gear counts as junk gear."
+msgid "开启后，5★ 角色的 SR 专用装备也会分解；关闭时保留（默认）。"
+msgstr "When on, SR Exclusive Gear of 5★ Characters is dismantled too; when off it is kept (default)."
 
 msgid "日"
 msgstr "Sun"
@@ -1543,8 +1522,8 @@ msgstr "What to buy, which dishes to cook and what to sell each day are set ther
 msgid "出售日历"
 msgstr "Sale calendar"
 
-msgid "只处理带黄色!新获得标记的装备：R/SR 与 3★/4★ 角色的 UR 专用装备强化到 +7 并自动分解；5★ 角色 UR 专用、上锁、穿戴中、已强化的一律保留。"
-msgstr "Only handles Gear with the yellow ! new mark: R/SR and UR Exclusive Gear of 3★/4★ Characters are upgraded to +7 and dismantled automatically; 5★ Characters' UR Exclusive Gear and locked, equipped or already upgraded Gear are always kept."
+msgid "一键日常里紧接免费抽抽乐时，先只处理带黄色!的新装备，不动背包筛选和排序；没有拆到时，背包先筛选出 R、再筛选出 SR（按获得时间排序），看最前面几件：强化到 +7 并自动分解；SR 会点开核对，只拆 3★/4★ 角色专用的（5★ 角色的可在设定里选）；上锁、穿戴中、已强化的一律保留，UR 不碰。背包筛选和排序会改回原样。没有可分解的爛装时，做一件 N 装备强化后分解（每日任务）。"
+msgstr "Right after the free Gacha in Daily One-Click, it first handles only the new Gear with the yellow !, leaving the bag filter and sort as they are. If none is dismantled, it filters the bag to R, then SR (sorted by time acquired), and checks the Gear at the front: it is upgraded to +7 and dismantled automatically. SR is opened and checked first, and only 3★/4★ Characters' Exclusive Gear is dismantled (5★ Characters' can be chosen in the settings); locked, equipped or already upgraded Gear is always kept, and UR is never touched. The bag filter and sort are put back afterwards. With nothing to dismantle, one N Gear is crafted, upgraded and dismantled (daily mission)."
 
 msgid "每日按配置依次执行购买、制作料理和出售。"
 msgstr "Each day, buys, cooks and sells in order, as configured."
@@ -2737,3 +2716,50 @@ msgstr ""
 "• Windows 10: turn off \"Require Windows Hello sign-in for Microsoft accounts\"\n"
 "• Switch greyed out: first go to account.microsoft.com → \"Security\" → \"Advanced security options\", turn off \"Passwordless account\", restart, then turn it off\n"
 "• Then press this button again"
+
+msgid "消耗免费米饭和火把：米饭全部打冒险航线（不打狩猎场），火把打圣石洞穴。"
+msgstr "Uses free Cooked Rice and Torches: all rice goes to the Path of Adventure (no Hunting Ground), torches go to the Sacred Stone Cave."
+
+msgid "优先双倍：打有双倍的冒险航线（都双倍或都没有时，打资源倾向的航线）；忽视双倍：不看双倍，固定只打金币航线（适合史莱姆/经验已溢出的后期玩家）。"
+msgstr "Prefer double: runs the Path of Adventure that has double (if both or neither do, the preferred resource's route). Ignore double: ignores double and always runs the Gold route (for late-game players with Slime/EXP to spare)."
+
+msgid "优先双倍时两条都双倍或都没有双倍，就打这条航线。"
+msgstr "Under Prefer double, this route is run when both routes or neither route has double."
+msgid "循环砍价"
+msgstr "Bargain Loop"
+
+msgid "找商人 → 砍价 → 关商店"
+msgstr "Find merchant → Bargain → Close shop"
+
+msgid "次数"
+msgstr "Times"
+
+msgid "开始砍价"
+msgstr "Start Bargaining"
+
+msgid "到第一章商人处：砍价 → 关闭商店，重复设定的次数，不买东西。"
+msgstr "At the Chapter 1 merchant: Bargain → close the shop, repeated the set number of times; buys nothing."
+
+msgid "循环次数"
+msgstr "Loop count"
+
+msgid "找商人 → 砍价 → 关闭商店 算一次；砍价技能要升星时提前停下。"
+msgstr "Find merchant → Bargain → close shop counts as one; stops early when the Bargain skill needs a star-up."
+
+msgid "砍价执行中"
+msgstr "Bargaining"
+
+msgid "砍价执行中 {done}"
+msgstr "Bargaining {done}"
+
+msgid "砍价技能到传说或出现升星提示时会自动停下，但这点还没实测过，建议自己留意，以免浪费资源"
+msgstr "Stops by itself once the Bargain skill is Legendary or the game asks for a star-up. This has not been tested in the game yet, so keep an eye on it to avoid wasting resources."
+
+msgid "最好先站在第一章商人（无聊收集狂大叔）面前再开始，会直接砍价"
+msgstr "Best to stand in front of the Chapter 1 merchant (无聊收集狂大叔) before starting; it then bargains right away"
+
+msgid "按 {stop} 可随时停止，按键在设置里改"
+msgstr "Press {stop} to stop at any time; the key is set in Settings"
+
+msgid "练砍价技能"
+msgstr "Train the Bargain skill"

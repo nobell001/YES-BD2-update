@@ -24,7 +24,6 @@ from src.utils.press_confirm import wait_for
 QUICK_HUNT_CHILD_CONFIG_KEYS = (
     "快速狩猎双倍策略",
     "快速狩猎资源倾向",
-    "快速狩猎米饭分配",
     "快速狩猎模板阈值",
     "快速狩猎像素相似度阈值",
     "快速狩猎界面等待秒数",
@@ -255,7 +254,6 @@ class QuickHuntConfigMixin:
         '执行快速狩猎': True,
         '快速狩猎双倍策略': "优先双倍",
         '快速狩猎资源倾向': "金币",
-        '快速狩猎米饭分配': "狩猎场x1 / 双倍图MAX",
         '快速狩猎模板阈值': 0.78,
         '快速狩猎像素相似度阈值': 0.72,
         '快速狩猎界面等待秒数': 8.0,
@@ -267,13 +265,10 @@ class QuickHuntConfigMixin:
     }
 
     quick_hunt_config_description = {
-        '执行快速狩猎': "消耗免费米饭和火把。",
-        '快速狩猎双倍策略': "优先双倍：只打有双倍的冒险航线（都双倍时选金币，都没有就跳过）；"
-        "强制双倍：按资源倾向先找双倍；"
+        '执行快速狩猎': "消耗免费米饭和火把：米饭全部打冒险航线（不打狩猎场），火把打圣石洞穴。",
+        '快速狩猎双倍策略': "优先双倍：打有双倍的冒险航线（都双倍或都没有时，打资源倾向的航线）；"
         "忽视双倍：不看双倍，固定只打金币航线（适合史莱姆/经验已溢出的后期玩家）。",
-        '快速狩猎资源倾向': "强制双倍策略下优先检查金币或经验。",
-        '快速狩猎米饭分配': "狩猎场 MIN 时双倍冒险航线使用 MAX；"
-        "狩猎场 MAX 时跳过冒险航线。",
+        '快速狩猎资源倾向': "优先双倍时两条都双倍或都没有双倍，就打这条航线。",
         '快速狩猎模板阈值': "快速狩猎模板匹配最低分数。",
         '快速狩猎像素相似度阈值': "快速狩猎模板还必须达到的像素相似度。",
         '快速狩猎界面等待秒数': "等待狩猎菜单、地图和按钮出现的最长时间。",
@@ -294,7 +289,6 @@ class QuickHuntConfigMixin:
                     True: [
                         "快速狩猎双倍策略",
                         "快速狩猎资源倾向",
-                        "快速狩猎米饭分配",
                         "快速狩猎模板阈值",
                         "快速狩猎像素相似度阈值",
                         "快速狩猎界面等待秒数",
@@ -308,15 +302,11 @@ class QuickHuntConfigMixin:
             },
             '快速狩猎双倍策略': {
                 "type": "drop_down",
-                "options": ["优先双倍", "强制双倍", "忽视双倍"],
+                "options": ["优先双倍", "忽视双倍"],
             },
             '快速狩猎资源倾向': {
                 "type": "drop_down",
                 "options": ["金币", "经验"],
-            },
-            '快速狩猎米饭分配': {
-                "type": "drop_down",
-                "options": ["狩猎场x1 / 双倍图MAX", "狩猎场MAX / 跳过冒险航线"],
             },
             '快速狩猎模板阈值': {"min": 0.5, "max": 0.95, "step": 0.01},
             '快速狩猎像素相似度阈值': {
@@ -547,8 +537,8 @@ class QuickHuntFeatureMixin:
         try:
             rice_ok = self._quick_hunt_run_rice_scheduler()
             success = success and rice_ok
-            # 狩猎场、冒险航线、圣石洞穴 always run (Leo 2026-10-04: removed the
-            # three switches from the settings).
+            # 冒险航线 and 圣石洞穴 always run (Leo 2026-10-04: no switches);
+            # 狩猎场 is no longer hunted (Leo 2026-10-11).
             if rice_ok:
                 crystal_ok = self._quick_hunt_run_crystal_cave()
                 success = success and crystal_ok
@@ -684,54 +674,43 @@ class QuickHuntFeatureMixin:
         return "failed"
 
     def _quick_hunt_run_rice_scheduler(self) -> bool:
-        """Run hunting ground first, then an optional MAX adventure route."""
+        """Spend all free rice on one adventure route (MAX).
+
+        Leo 2026-10-11: 「現在已經不用打狩獵場了 設定也不用狩獵場 直接全體力冒險航線」.
+        """
 
         self._status_set("快速狩猎当前阶段", "米饭调度")
         if self._quick_hunt_resource_empty("米饭"):
             self._status_set("快速狩猎米饭", "0，跳过")
             return True
 
-        hunting_mode, adventure_mode = self._quick_hunt_count_modes()
-
-        self.log_info("快速狩猎：狩猎场使用游戏当前默认关卡，不切换章节。")
-        result = self._quick_hunt_execute_current_map(hunting_mode, "狩猎场")
-        if result == "failed":
+        adventure_selected = self._quick_hunt_select_adventure_route()
+        if not adventure_selected:
+            self._status_set("快速狩猎米饭", "没有要打的冒险航线")
+            return True
+        expected_map_pattern = QUICK_HUNT_ADVENTURE_MAP_PATTERNS[adventure_selected]
+        result = self._quick_hunt_execute_current_map(
+            "MAX",
+            "冒险航线",
+            expected_map_pattern=expected_map_pattern,
+        )
+        if result == "wrong_map":
+            self.log_info(
+                f"快速狩猎：{adventure_selected}航线首次选择未生效，"
+                "重新 OCR 选择一次。"
+            )
+            if not self._quick_hunt_click_adventure(adventure_selected):
+                return False
+            result = self._quick_hunt_execute_current_map(
+                "MAX",
+                "冒险航线重试",
+                expected_map_pattern=expected_map_pattern,
+            )
+        if result in {"failed", "wrong_map"}:
             return False
         if result == "depleted" or self._quick_hunt_resource_empty("米饭"):
             self._status_set("快速狩猎米饭", "已耗尽")
             return True
-
-        if adventure_mode is not None:
-            adventure_selected = self._quick_hunt_select_adventure_route()
-            if adventure_selected:
-                expected_map_pattern = QUICK_HUNT_ADVENTURE_MAP_PATTERNS[
-                    adventure_selected
-                ]
-                result = self._quick_hunt_execute_current_map(
-                    adventure_mode,
-                    "冒险航线",
-                    expected_map_pattern=expected_map_pattern,
-                )
-                if result == "wrong_map":
-                    self.log_info(
-                        f"快速狩猎：{adventure_selected}航线首次选择未生效，"
-                        "重新 OCR 选择一次。"
-                    )
-                    if not self._quick_hunt_click_adventure(adventure_selected):
-                        return False
-                    result = self._quick_hunt_execute_current_map(
-                        adventure_mode,
-                        "冒险航线重试",
-                        expected_map_pattern=expected_map_pattern,
-                    )
-                if result in {"failed", "wrong_map"}:
-                    return False
-                if result == "depleted" or self._quick_hunt_resource_empty("米饭"):
-                    self._status_set("快速狩猎米饭", "已耗尽")
-                    return True
-
-        if adventure_mode is None:
-            self.log_info("快速狩猎：狩猎场使用 MAX，按配置跳过金币和经验航线。")
         self._status_set("快速狩猎米饭", "调度结束")
         return True
 
@@ -868,6 +847,10 @@ class QuickHuntFeatureMixin:
             self.log_info(f"快速狩猎：不支持的冒险航线资源：{preferred}")
             return None
         strategy = str(self.config.get("快速狩猎双倍策略", "优先双倍"))
+        # Leo 2026-10-11: only 优先双倍 / 忽视双倍 are offered; a saved 强制双倍
+        # (the removed option) runs as 优先双倍.
+        if strategy == "强制双倍":
+            strategy = "优先双倍"
         if strategy == "忽视双倍":
             return "金币" if self._quick_hunt_click_adventure("金币") else None
         states = self._quick_hunt_double_states()
@@ -877,18 +860,17 @@ class QuickHuntFeatureMixin:
             self.sleep(0.8)
             states = self._quick_hunt_double_states()
         if strategy == "优先双倍":
-            selected = "金币" if states["金币"] else "经验" if states["经验"] else None
-            if selected is None:
-                self.log_info("快速狩猎：金币和经验均未识别到双倍，跳过冒险航线。")
-                return None
+            doubled = [resource for resource in ("金币", "经验") if states[resource]]
+            if len(doubled) == 1:
+                selected = doubled[0]
+            else:
+                # Both doubled (weekends) or neither: the 资源倾向 route (Leo
+                # 2026-10-11 「優先雙倍 如果兩個都雙倍 那就看資源傾向」; with no
+                # hunting ground any more, skipping would leave the rice unused).
+                which = "金币和经验都是双倍" if doubled else "金币和经验均未识别到双倍"
+                self.log_info(f"快速狩猎：{which}，打资源倾向的{preferred}航线。")
+                selected = preferred
             return selected if self._quick_hunt_click_adventure(selected) else None
-        if strategy == "强制双倍":
-            alternate = "经验" if preferred == "金币" else "金币"
-            for resource in (preferred, alternate):
-                if states[resource]:
-                    return resource if self._quick_hunt_click_adventure(resource) else None
-            self.log_info("快速狩猎：首选和备选资源均未识别到双倍，跳过冒险航线。")
-            return None
         self.log_info(f"快速狩猎：不支持的双倍策略：{strategy}")
         return None
 
@@ -1375,14 +1357,6 @@ class QuickHuntFeatureMixin:
         empty = re.search(pattern, normalized) is not None
         self._status_set(f"快速狩猎{resource}", text or "未识别")
         return empty
-
-    def _quick_hunt_count_modes(self) -> tuple[str, str | None]:
-        allocation = str(
-            self.config.get("快速狩猎米饭分配", "狩猎场x1 / 双倍图MAX")
-        )
-        if allocation in {"狩猎场MAX / 跳过冒险航线", "狩猎场MAX / 双倍图x1"}:
-            return "MAX", None
-        return "MIN", "MAX"
 
     def _quick_hunt_wait_ocr(
         self,

@@ -500,7 +500,7 @@ def wrap_hint(text: str) -> str:
     return "\n".join(lines)
 
 
-def attach_hint(widget: QWidget, text: str) -> bool:
+def attach_hint(widget: QWidget, text: str, below: bool = False) -> bool:
     """Show ``text`` while the mouse rests on ``widget``; False when there is none.
 
     Uses the Fluent hover box (a real widget) instead of the system tooltip,
@@ -511,7 +511,8 @@ def attach_hint(widget: QWidget, text: str) -> bool:
     text = str(text or "").strip()
     widget.setToolTip(wrap_hint(text) if text else "")
     if text and not getattr(widget, "_hint_filter", None):
-        widget._hint_filter = ToolTipFilter(widget, 250, ToolTipPosition.TOP)
+        position = ToolTipPosition.BOTTOM if below else ToolTipPosition.TOP
+        widget._hint_filter = ToolTipFilter(widget, 250, position)
         widget.installEventFilter(widget._hint_filter)
     return bool(text)
 
