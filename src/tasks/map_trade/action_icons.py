@@ -141,7 +141,13 @@ ACTION_ICON_EVIDENCE_MIN_GRADIENT = 0.35
 ACTION_ICON_EVIDENCE_MIN_EDGE = 0.72
 ACTION_ICON_EVIDENCE_MIN_COMPOSITE = 0.76
 ACTION_ICON_MIN_PHYSICAL_SIZE = 8
-LIMITED_ACTION_EVIDENCE_MIN_PIXEL = 0.66
+# A greyed (used) icon under its count reads lower: a player's 召集 at
+# 「0/7」 (v0.1.19/v0.1.21, 1080p, Q_sp1, 2026-10-11) scored p=0.649-0.650 on
+# three live samples with m=0.984, z=0.885, g=0.795, e=0.912, and the run
+# stopped 「未确认采集技能栏」 at 0.66.  Used icons in the corpus read
+# 0.68-0.72; no frame without the icon passes on pixels above 0.57 (the
+# others with a higher pixel score fail ZNCC, edges or identity).
+LIMITED_ACTION_EVIDENCE_MIN_PIXEL = 0.62
 SEARCH_ICON_EVIDENCE_MIN_PIXEL = 0.68
 SEARCH_ICON_EVIDENCE_MIN_ZNCC = 0.55
 SEARCH_ICON_EVIDENCE_MIN_GRADIENT = 0.30

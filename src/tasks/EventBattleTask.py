@@ -20,8 +20,12 @@ Safety rules:
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from time import monotonic
+from types import SimpleNamespace
 
+import cv2
+import numpy as np
 from qfluentwidgets import FluentIcon
 
 from src.tasks.claim_page import BACK_BUTTON_POINT
@@ -30,8 +34,9 @@ from src.tasks.RewardClaimTasks import _ClaimTaskBase
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
 from src.utils.colour_rules import switch_yellow_ratio
 from src.utils.free_switch import ensure_free_switch_on
+from src.utils.image_utils import template_match_response
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
-from src.utils.press_confirm import wait_for
+from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, wait_for
 
 # 1920x1080 reference coordinates / ROIs.
 HOME_BANNER_ROI = (1400, 480, 520, 420)
@@ -74,6 +79,34 @@ BANNER_CLICK_ATTEMPTS = 3
 BANNER_POSITION_TOLERANCE = 24
 HUB_RETRY_SECONDS = 6.0
 MODE_CLICK_ATTEMPTS = 3
+# The hub check reads the row's boxes as one text, so OCR cutting a button in
+# two (「挑战」「战斗」) passes it while a one-box lookup finds nothing.  A
+# player's 2560x1440 run stopped 「活动页里没找到「挑战战斗」」 right after the
+# hub check passed (2026-10-11): a cut button or a next frame without it, not
+# proven which, so the lookup joins pieces and looks again for 2 s.  Pieces on
+# one line closer than this many text heights are one button.
+MODE_BUTTON_JOIN_GAP = 1.5
+# OCR may drop or change one character of a mode's name (a 4K hub frame
+# scaled to 1080 read 「挑战战」, 2026-10-11): the first two characters, which
+# tell the modes apart, plus two of the other three are enough.
+MODE_NAME_MIN_TAIL = 1
+# The two modes' icons are the same white crossed swords: the left pair is
+# 普通战斗, the right one 挑战战斗 (Leo 2026-10-11 「左邊都是普通戰鬥 右邊是挑戰戰鬥」
+# 「白色部分」).  Matched on white pixels only, so the ornate frame and the
+# event art behind it do not count.
+SWORD_ICON_TEMPLATE = (
+    Path(__file__).resolve().parents[2]
+    / "recognition-assets" / "template-assets" / "event" / "event_battle_swords_white.png"
+)
+SWORD_ICON_ROI = (300, 760, 1320, 200)
+SWORD_ICON_SCORE = 0.7
+# White = at least this share of the band's brightest value, little colour.
+SWORD_WHITE_SHARE = 0.8
+SWORD_WHITE_FLOOR = 90
+SWORD_WHITE_MAX_SATURATION = 60
+SWORD_ICON_LABEL_OFFSET = 150  # icon centre to its name label, 1080p pixels (847 -> 997)
+# Last resort, where the labels sit on the Loyal Maid hub (4K, 2026-10-11).
+MODE_USUAL_POINTS = {"普通战斗": (678, 997), "挑战战斗": (865, 997)}
 START_CLICK_ATTEMPTS = 3
 START_CONFIRM_SECONDS = 15.0
 RESULT_BACK_ATTEMPTS = 3
@@ -143,6 +176,20 @@ def parse_battle_cost(text: str) -> int | None:
         return None
     match = COST_PATTERN.search(cleaned.strip())
     return int(match.group(1)) if match else None
+
+
+def mode_name_in(text: str, mode: str) -> bool:
+    """``mode`` in ``text``, allowing one dropped or changed later character."""
+    normalized = normalize_ocr_text(text)
+    if mode in normalized:
+        return True
+    head, tail = mode[:2], mode[2:]
+    for start in (m.start() for m in re.finditer(re.escape(head), normalized)):
+        after = normalized[start + 2 : start + 2 + len(tail)]
+        same = sum(a == b for a, b in zip(after, tail))
+        if same >= len(tail) - 1 and same >= MODE_NAME_MIN_TAIL:
+            return True
+    return False
 
 
 def parse_stage_number(text: str, mode: str) -> int | None:
@@ -350,13 +397,20 @@ class EventBattleTask(_ClaimTaskBase):
     def _wait_for_hub(self, timeout: float = 20.0) -> bool:
         end_at = monotonic() + timeout
         while monotonic() <= end_at:
-            boxes = self._roi_boxes(self.capture_frame(), HUB_BUTTON_ROI, "活动页")
+            frame = self.capture_frame()
+            boxes = self._roi_boxes(frame, HUB_BUTTON_ROI, "活动页")
             text = self._boxes_text(boxes)
             self.info_set("活动页 OCR", text or "-")
-            if keyword_match_count(text, HUB_KEYWORDS) >= 2:
+            if self._hub_shown(frame, text):
                 return True
             self.sleep(0.8)
         return False
+
+    @staticmethod
+    def _hub_shown(frame, text: str) -> bool:
+        """Both modes' names, or one name and the two crossed-swords icons."""
+        named = sum(mode_name_in(text, mode) for mode in HUB_KEYWORDS)
+        return named == len(HUB_KEYWORDS) or (named >= 1 and len(sword_icon_points(frame)) == 2)
 
     def _open_mode(self, mode: str) -> str:
         """Open one mode's stage page from home: ok / no_event / failed."""
@@ -364,14 +418,23 @@ class EventBattleTask(_ClaimTaskBase):
         if entered != "ok":
             return entered
         for attempt in range(1, MODE_CLICK_ATTEMPTS + 1):
-            boxes = self._roi_boxes(self.capture_frame(), HUB_BUTTON_ROI, "活动页")
-            button = self._box_with(boxes, (mode,))
+            self._hub_read = ""
+            button = wait_for(
+                lambda: self._mode_button(mode), SLOW_PC_GRACE_SECONDS, sleep=self.sleep, poll=0.5
+            )
+            missed = f"活动页里没找到「{mode}」（下方读到：{self._hub_read[:40] or '-'}）"
+            usual = button is None
+            if usual:
+                # Pressed once only: the hub was seen, a wrong spot opens nothing paid.
+                button = self._usual_mode_button(self.capture_frame(), mode)
             if button is None:
-                return self._failed(f"活动页里没找到「{mode}」")
+                return self._failed(missed)
             self._sleep_after_recognition()
             self._click_box(button, after_sleep=1.5)
             if self._wait_for_stage_page(mode, timeout=HUB_RETRY_SECONDS, quiet=True):
                 return "ok"
+            if usual:
+                return self._failed(f"{missed}，照平常位置点了一下也没进关卡页")
             if self._wait_for_hub(timeout=2.0):
                 self.log_info(f"活动每日战斗：第{attempt}次点击{mode}未生效，重试。")
                 continue
@@ -379,6 +442,84 @@ class EventBattleTask(_ClaimTaskBase):
                 return "ok"
             return self._failed(f"点了「{mode}」后关卡页一直没出来")
         return self._failed(f"「{mode}」点了 {MODE_CLICK_ATTEMPTS} 次都没进关卡页")
+
+    def _mode_button(self, mode: str):
+        """The hub's ``mode`` button on a fresh frame, also when OCR cut it in two."""
+        frame = self.capture_frame()
+        boxes = self._roi_boxes(frame, HUB_BUTTON_ROI, "活动页")
+        self._hub_read = self._boxes_text(boxes)
+        whole = next((b for b in boxes if mode_name_in(getattr(b, "name", ""), mode)), None)
+        return whole or self._joined_box(boxes, mode) or self._sword_button(frame, mode)
+
+    def _sword_button(self, frame, mode: str):
+        """The mode's label under its crossed-swords icon, when exactly two show."""
+        points = sword_icon_points(frame)
+        if len(points) != 2:
+            return None
+        x, y = points[0] if mode == NORMAL_MODE else points[1]
+        scale = frame.shape[0] / REFERENCE_HEIGHT
+        self.log_info(f"活动每日战斗：没读到「{mode}」的字，按双剑图示认出它的位置。")
+        return SimpleNamespace(name=mode, x=x - 1, y=y + SWORD_ICON_LABEL_OFFSET * scale - 1,
+                               width=2, height=2)
+
+    def _usual_mode_button(self, frame, mode: str):
+        """Last resort: where the mode's label usually sits (Leo 2026-10-11)."""
+        point = MODE_USUAL_POINTS.get(mode)
+        if point is None:
+            return None
+        sx = frame.shape[1] / REFERENCE_WIDTH
+        sy = frame.shape[0] / REFERENCE_HEIGHT
+        self.log_info(f"活动每日战斗：字和图示都没认出「{mode}」，照它平常的位置点一下。")
+        return SimpleNamespace(name=mode, x=point[0] * sx - 1, y=point[1] * sy - 1,
+                               width=2, height=2)
+
+    @classmethod
+    def _joined_box(cls, boxes: list, word: str):
+        """Two or three neighbouring boxes on one line that only together read ``word``."""
+        wanted = normalize_ocr_text(word)
+        placed = []
+        for box in boxes:
+            values = tuple(getattr(box, key, None) for key in ("x", "y", "width", "height"))
+            if wanted and None not in values:
+                placed.append((tuple(float(v) for v in values), normalize_ocr_text(box.name)))
+        for first in placed:
+            line = sorted(
+                (p for p in placed if p[0][0] >= first[0][0] and cls._same_line(first[0], p[0])),
+                key=lambda p: p[0][0],
+            )
+            for count in (2, 3):
+                parts = line[:count]
+                if len(parts) < count or not cls._close_together(parts):
+                    break
+                texts = [text for _box, text in parts]
+                joined = "".join(texts)
+                at = joined.find(wanted)
+                # The word must start in the first piece and end in the last.
+                last_starts = len(joined) - len(texts[-1])
+                if at < 0 or at >= len(texts[0]) or at + len(wanted) <= last_starts:
+                    continue
+                left = min(b[0] for b, _t in parts)
+                top = min(b[1] for b, _t in parts)
+                right = max(b[0] + b[2] for b, _t in parts)
+                bottom = max(b[1] + b[3] for b, _t in parts)
+                return SimpleNamespace(
+                    name=joined, x=left, y=top, width=right - left, height=bottom - top
+                )
+        return None
+
+    @staticmethod
+    def _same_line(a: tuple, b: tuple) -> bool:
+        height = max(a[3], b[3], 1.0)
+        return abs((a[1] + a[3] / 2) - (b[1] + b[3] / 2)) <= height / 2
+
+    @staticmethod
+    def _close_together(parts: list) -> bool:
+        """Left to right with gaps of at most MODE_BUTTON_JOIN_GAP text heights."""
+        for (a, _ta), (b, _tb) in zip(parts, parts[1:]):
+            height = max(a[3], b[3], 1.0)
+            if b[0] - (a[0] + a[2]) > MODE_BUTTON_JOIN_GAP * height:
+                return False
+        return True
 
     def _wait_for_stage_page(
         self,
@@ -980,3 +1121,48 @@ class EventBattleTask(_ClaimTaskBase):
             self._click_reference(*QUICK_DIALOG_CANCEL_POINT, after_sleep=1.0)
         self.log_info("活动每日战斗：快速战斗后没有看到奖励画面。")
         return "failed"
+
+
+_SWORD_TEMPLATE = None
+
+
+def _white(image):
+    """Near-white pixels, relative to the band's brightest (HDR, filters)."""
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    top = float(np.percentile(hsv[..., 2], 99.5))
+    low = max(SWORD_WHITE_FLOOR, SWORD_WHITE_SHARE * top)
+    return cv2.inRange(hsv, (0, 0, int(low)), (180, SWORD_WHITE_MAX_SATURATION, 255))
+
+
+def sword_icon_points(frame) -> list[tuple[float, float]]:
+    """Client centres of the hub's white crossed-swords icons, left to right."""
+    global _SWORD_TEMPLATE
+    if _SWORD_TEMPLATE is None:
+        _SWORD_TEMPLATE = cv2.imread(str(SWORD_ICON_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+    template = _SWORD_TEMPLATE
+    if template is None or frame is None or getattr(frame, "ndim", 0) != 3:
+        return []
+    height, width = frame.shape[:2]
+    scale = height / REFERENCE_HEIGHT
+    x, y, w, h = SWORD_ICON_ROI
+    left, top = int(x * width / REFERENCE_WIDTH), int(y * scale)
+    crop = frame[top : top + int(h * scale), left : left + int(w * width / REFERENCE_WIDTH)]
+    if crop.size == 0:
+        return []
+    if scale != 1:
+        crop = cv2.resize(crop, None, fx=1 / scale, fy=1 / scale, interpolation=cv2.INTER_AREA)
+    mask = _white(crop)
+    if mask.shape[0] < template.shape[0] or mask.shape[1] < template.shape[1]:
+        return []
+    scores = template_match_response(mask, template)
+    points = []
+    th, tw = template.shape[:2]
+    while True:
+        _low, best, _at, (bx, by) = cv2.minMaxLoc(scores)
+        if best < SWORD_ICON_SCORE:
+            break
+        points.append((left + (bx + tw / 2) * scale, top + (by + th / 2) * scale))
+        scores[max(0, by - th) : by + th, max(0, bx - tw) : bx + tw] = -1.0
+        if len(points) > 4:
+            break
+    return sorted(points)

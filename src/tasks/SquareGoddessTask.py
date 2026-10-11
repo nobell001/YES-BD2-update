@@ -65,6 +65,13 @@ SQUARE_HOME_POINT = (1797 / REFERENCE_WIDTH, 63 / REFERENCE_HEIGHT)
 GODDESS_NAVIGATION_CLICKED = "navigation_clicked"
 GODDESS_NAVIGATION_RETRIES = 2
 GODDESS_ALREADY_COMPLETE = "already_complete"
+# The prayer prompt read twice may move this far (client pixels) and still count.
+GODDESS_PROMPT_STEADY_PIXELS = 24
+# Unread daily row: press where it sits as the first task (a player's 1080p
+# frame, 2026-10-11) and go on only if a walk or the prayer prompt follows.
+# Leo: 「讀不到 不是應該還是嘗試用滑鼠點一下嗎 點到就有 沒點到不會損失甚麼」.
+GODDESS_ROW_USUAL_POINT = (1678 / REFERENCE_WIDTH, 228 / REFERENCE_HEIGHT)
+GODDESS_ROW_PRESS_CONFIRM_SECONDS = 5.0
 # The game's walk banner ("自动移动中：…", bottom centre, ✕ under it).  A player
 # (2026-10-11) saw the walk to the goddess stop on the way with the banner
 # still up and the home button hidden, so nothing could leave the square.
@@ -544,12 +551,21 @@ class SquareGoddessTask(BaseBD2Task):
             self.info_set("女神像许愿 OCR", "已确认女神像许愿任务完成")
             self.log_info("广场女神像：已确认女神像许愿任务完成。")
             return True
+        if navigation_result != GODDESS_NAVIGATION_CLICKED and self._prayer_prompt_steady():
+            # A player's 1080p frame (2026-10-11): standing at the goddess with
+            # 「向女神像许愿」 up, the daily row over the pink food truck unread.
+            self.log_info("广场女神像：没认出每日导航，但许愿提示已经在画面上，直接许愿。")
+            navigation_result = GODDESS_NAVIGATION_CLICKED
         if navigation_result != GODDESS_NAVIGATION_CLICKED and self._wished_today():
             # The wish is once a day and its navigation hint disappears once
             # made: a second run the same day is not a failure (2026-09-28).
             self.info_set("女神像许愿 OCR", "今日已许愿（导航已消失）")
             self.log_info("广场女神像：今天已经许愿过，每日导航已消失。")
             return True
+        if navigation_result != GODDESS_NAVIGATION_CLICKED and (
+            self._press_row_where_it_usually_is()
+        ):
+            navigation_result = GODDESS_NAVIGATION_CLICKED
         if navigation_result != GODDESS_NAVIGATION_CLICKED:
             self.info_set("女神像许愿 OCR", "未确认女神像每日导航，停止本次任务")
             # Player report 2026-10-11: the row was simply not there; a wish
@@ -571,6 +587,45 @@ class SquareGoddessTask(BaseBD2Task):
             timeout=float(self.config.get("祈祷完成后感叹号等待秒数", 5.0))
         )
         return True
+
+    def _prayer_prompt_steady(self) -> bool:
+        """「向女神像许愿」 at the same spot on two fresh frames."""
+        previous = None
+        for look in range(2):
+            if look:
+                self.sleep(0.35)
+            point, _text = self._ocr_pattern_click_point(
+                self.capture_frame(), GODDESS_PRAY_PATTERNS, name="女神像许愿", roi=None
+            )
+            if point is None:
+                return False
+            if previous is not None and max(
+                abs(a - b) for a, b in zip(point, previous)
+            ) > GODDESS_PROMPT_STEADY_PIXELS:
+                return False
+            previous = point
+        return True
+
+    def _press_row_where_it_usually_is(self) -> bool:
+        """Press the daily row's usual spot; True once a walk or the prompt shows."""
+        frame = self.capture_frame()
+        height, width = frame.shape[:2]
+        x, y = GODDESS_ROW_USUAL_POINT
+        self.log_info("广场女神像：每日导航读不到，照它平常的位置点一下。")
+        self._click_client(round(x * width), round(y * height), width, height, after_sleep=1.0)
+        end_at = monotonic() + GODDESS_ROW_PRESS_CONFIRM_SECONDS
+        while True:
+            frame = self.capture_frame()
+            point, text = self._ocr_pattern_click_point(
+                frame, GODDESS_PRAY_PATTERNS, name="女神像许愿", roi=None
+            )
+            if point is not None or self._walk_banner_shown(text):
+                self.log_info("广场女神像：点了以后开始走向女神像了。")
+                return True
+            if monotonic() >= end_at:
+                self.log_info("广场女神像：照平常位置点了也没开始走。")
+                return False
+            self.sleep(0.5)
 
     def _click_square_notice_if_present(self, timeout: float = 3.0) -> bool:
         # The square "!" is the field F button: it shows while the characters

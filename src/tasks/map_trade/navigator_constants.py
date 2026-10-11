@@ -938,6 +938,12 @@ SANDBOX_SKILL_GROUP_SWITCH_SETTLE_SECONDS = 0.5
 SANDBOX_TELEPORT_SKILL_TIMEOUT = 5.0
 SANDBOX_TELEPORT_SKILL_POLL_INTERVAL = 0.25
 TELEPORT_INTERACTION_CLICK_DELAY = 0.5
+# The hand was pressed once only: a press the game dropped cost the 10 s map
+# wait and then the long way round via 狩猎场 (a player 2026-10-11: 「点不到那个
+# 手，它就会找快速移动找狩猎场…跑一张图要3分钟左右」).  When the hand is still
+# shown on every look for this long after a press, it is pressed once more.
+TELEPORT_INTERACTION_RECLICK_AFTER = 1.5
+TELEPORT_INTERACTION_PRESSES = 2
 TELEPORT_MAP_OPEN_TIMEOUT = 10.0
 MAP_PAGE_MODE_STABLE_HITS = 2
 # The loading/field wait after it covers the rest (was a flat 4.5 s).

@@ -122,6 +122,8 @@ from src.tasks.map_trade.navigator_constants import (
     TELEPORT_GENERATION_OCR_INTERVAL,
     TELEPORT_GENERATION_OCR_TIMEOUT,
     TELEPORT_INTERACTION_CLICK_DELAY,
+    TELEPORT_INTERACTION_PRESSES,
+    TELEPORT_INTERACTION_RECLICK_AFTER,
     TELEPORT_MAP_BACKWARD_TEMPLATE,
     TELEPORT_MAP_FIRST_PAGE_LIMIT,
     TELEPORT_MAP_FORWARD_TEMPLATE,
@@ -995,11 +997,20 @@ class SandboxNavigationMixin:
                 ),
             )
             if passed:
-                self.vision.click_client(
-                    last.center,
-                    frame.shape,
-                    after_sleep=TELEPORT_INTERACTION_CLICK_DELAY,
-                )
+                for press in range(TELEPORT_INTERACTION_PRESSES):
+                    if press:
+                        self.task.log_info("跑图：按了传送阵交互按钮后手还在，再按一次。")
+                    self.vision.click_client(
+                        last.center,
+                        frame.shape,
+                        after_sleep=TELEPORT_INTERACTION_CLICK_DELAY,
+                    )
+                    if press + 1 == TELEPORT_INTERACTION_PRESSES:
+                        break
+                    still = self._hand_still_shown()
+                    if still is None:
+                        break
+                    last, frame = still
                 return True
             self.task.sleep(SANDBOX_INTERACTION_PROBE_INTERVAL)
         self._status(
@@ -1011,6 +1022,20 @@ class SandboxNavigationMixin:
             ),
         )
         return False
+
+    def _hand_still_shown(self):
+        """(match, frame) when the hand passes on every look for the re-press wait."""
+        end_at = monotonic() + TELEPORT_INTERACTION_RECLICK_AFTER
+        looks = 0
+        while True:
+            frame = self.vision.capture()
+            match = self.vision.match(frame, HAND_TEMPLATE)
+            if not self.vision.passes(match, HAND_TEMPLATE):
+                return None
+            looks += 1
+            if looks >= 2 and monotonic() >= end_at:
+                return match, frame
+            self.task.sleep(SANDBOX_INTERACTION_PROBE_INTERVAL)
 
     def _wait_for_sandbox_map_open(
         self,

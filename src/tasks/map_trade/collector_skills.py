@@ -65,8 +65,10 @@ SKILL_DAILY_LIMITS = {
 
 
 # Pause between back-to-back skill presses (Leo 2026-09-29: 0.5 s; 10-09
-# 0.8 s after a player's 「召集点的太快了经常点不上」 on a slower PC).
-PIPELINE_CLICK_INTERVAL = 0.8
+# 0.8 s after a player's 「召集点的太快了经常点不上」 on a slower PC; 10-11
+# 1.2 s 「現在跑圖間隔是0.8秒 可以先改成1.2秒」 after a player's 吸收 was only
+# pressed at the end).
+PIPELINE_CLICK_INTERVAL = 1.2
 PIPELINE_RECHECK_SECONDS = 0.6
 # A press the game did not take (a player 2026-10-09: 「召集点的太快了经常点
 # 不上失败」) is pressed once more after a pause, and then taken as done

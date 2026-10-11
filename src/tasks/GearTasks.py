@@ -11,15 +11,19 @@ Items without a number badge cannot be refined and are never chosen.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from time import monotonic
 from types import SimpleNamespace
 
+import cv2
+import numpy as np
 from qfluentwidgets import FluentIcon
 
 from src.tasks.claim_page import BACK_BUTTON_POINT
 from src.tasks.enhance_dialog import crop_reference, yellow_ratio
 from src.tasks.RewardClaimTasks import _ClaimTaskBase
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
+from src.utils.image_utils import template_match_response
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
 
@@ -41,8 +45,30 @@ GRID_ROWS = (207, 333, 459, 585, 711, 837)
 BADGE_OFFSET_X = (20, 56)
 BADGE_OFFSET_Y = (0, 30)
 MAX_REFINE = 24
+REFINE_PREFERRED_VALUES = (18, 19, 20)
+# The 18-20 badge star (HSV, OpenCV scale); a cell counts at this share.
+PURPLE_STAR_LOW = (130, 70, 110)
+PURPLE_STAR_HIGH = (158, 255, 255)
+PURPLE_STAR_SHARE = 0.08
+# The refine page's single 精炼 pill starts with a yellow lightning icon (Leo
+# 2026-10-11 「第二張圖也可以認雷電圖案」); 连续精炼 has a white gear.  Used only
+# to find the button when its text is not read; the press keeps its checks.
+REFINE_LIGHTNING_TEMPLATE = (
+    Path(__file__).resolve().parents[2]
+    / "recognition-assets" / "template-assets" / "gear" / "refine_lightning_yellow.png"
+)
+REFINE_LIGHTNING_SCORE = 0.75
+REFINE_LIGHTNING_YELLOW_LOW = (12, 110, 140)
+REFINE_LIGHTNING_YELLOW_HIGH = (40, 255, 255)
 
-DETAIL_BUTTONS_ROI = (1150, 700, 320, 70)
+# Where the item popup's buttons are looked for: the whole popup, above the
+# bag's own bottom row (一键强化 at y 1045).  The popup grows with its stat
+# lines: on Leo's frames the buttons sit at y 717-752, on a player's (v0.1.19,
+# 1080p, 2026-10-11, 基本能力 + three 属性 lines) at 762-796, below the old
+# (1150, 700, 320, 70), which read nothing three times.  Leo: 「只要辨別到
+# 精煉就可了吧」 - 精炼 is pressed wherever it is read (no other text in the
+# popup is exactly 精炼; 7 frames checked).
+DETAIL_BUTTONS_ROI = (450, 280, 1150, 620)
 CONTINUOUS_REFINE_TEXT = "连续精炼"
 REFINE_PAGE_TITLE = ("精炼装备分数",)
 REFINE_BUTTONS_ROI = (1150, 965, 660, 80)
@@ -96,18 +122,115 @@ def badge_cells(boxes: list) -> list[tuple[int, int, int]]:
     return sorted(cells)
 
 
-def refine_candidate(cells: list[tuple[int, int, int]]) -> tuple[int, int, int] | None:
+def refine_candidate(
+    cells: list[tuple[int, int, int]], purple: set[tuple[int, int]] | None = None
+) -> tuple[int, int, int] | None:
     """First cell (row-major) whose refine value is a real number below 24.
 
-    Leo 2026-10-05: pick one below 24 on the first try.  A lone digit is
-    often a cut-off 2x ("22" read as "2", "24" as "4"), so two-digit reads
-    (10-23) come first and single digits only when none is left.
+    Leo 2026-10-05: pick one below 24 on the first try.  Leo 2026-10-11:
+    「可以請程式先優先抓 18 19 20這三個」 - a number in the bottom-right badge
+    means fully enhanced (refinable); blank or 「+N」 means not.  So 18-20
+    come first, then other two-digit reads (10-23); a lone digit is often a
+    cut-off 2x ("22" read as "2", "24" as "4") or a 「+N」 read without its
+    plus, so single digits come only when none is left.  A purple star
+    (``purple``, see ``purple_badges``) puts an 18-20 read first, and makes a
+    cut-off read (「8」 of 18) count before other numbers.
     """
-    for low in (10, 1):
-        for row, column, value in cells:
-            if low <= value < MAX_REFINE:
-                return row, column, value
+    purple = purple or set()
+    tiers = (
+        lambda cell: cell[2] in REFINE_PREFERRED_VALUES and cell[:2] in purple,
+        lambda cell: cell[2] in REFINE_PREFERRED_VALUES,
+        lambda cell: 1 <= cell[2] < MAX_REFINE and cell[:2] in purple,
+        lambda cell: 10 <= cell[2] < MAX_REFINE,
+        lambda cell: 1 <= cell[2] < 10,
+    )
+    for wanted in tiers:
+        for cell in cells:
+            if wanted(cell):
+                return cell
     return None
+
+
+def refine_pill_point(frame) -> tuple[int, int] | None:
+    """1080 reference centre of the popup's right-hand pill (精炼), found as a
+    light band in its column; None when no such band shows."""
+    if frame is None or getattr(frame, "ndim", 0) != 3:
+        return None
+    small = cv2.resize(frame, (REFERENCE_WIDTH, REFERENCE_HEIGHT), interpolation=cv2.INTER_AREA)
+    top, bottom = REFINE_PILL_ROWS
+    left, right = REFINE_PILL_COLUMN
+    hsv = cv2.cvtColor(small[top:bottom, left:right], cv2.COLOR_BGR2HSV)
+    light = ((hsv[..., 2] >= 190) & (hsv[..., 1] <= 45)).mean(axis=1) > REFINE_PILL_LIGHT_SHARE
+    runs, start = [], None
+    for row, on in enumerate([*light, False]):
+        if on and start is None:
+            start = row
+        elif not on and start is not None:
+            runs.append((start, row))
+            start = None
+    low, high = REFINE_PILL_HEIGHT
+    bands = [(a, b) for a, b in runs if low <= b - a <= high]
+    if len(bands) != 1:
+        return None
+    a, b = bands[0]
+    return ((left + right) // 2, top + (a + b) // 2)
+
+
+_LIGHTNING = None
+
+
+def refine_lightning_point(frame) -> tuple[float, float] | None:
+    """Client centre of the single 精炼 pill's lightning icon, when one shows."""
+    global _LIGHTNING
+    if _LIGHTNING is None:
+        _LIGHTNING = cv2.imread(str(REFINE_LIGHTNING_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+    if _LIGHTNING is None or frame is None or getattr(frame, "ndim", 0) != 3:
+        return None
+    height, width = frame.shape[:2]
+    sx, sy = width / REFERENCE_WIDTH, height / REFERENCE_HEIGHT
+    x, y, w, h = REFINE_BUTTONS_ROI
+    crop = crop_reference(frame, REFINE_BUTTONS_ROI)
+    if crop.size == 0:
+        return None
+    crop = cv2.resize(crop, (w, h), interpolation=cv2.INTER_AREA)
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, REFINE_LIGHTNING_YELLOW_LOW, REFINE_LIGHTNING_YELLOW_HIGH)
+    th, tw = _LIGHTNING.shape[:2]
+    if mask.shape[0] < th or mask.shape[1] < tw:
+        return None
+    scores = template_match_response(mask, _LIGHTNING)
+    _low, best, _at, (bx, by) = cv2.minMaxLoc(scores)
+    if best < REFINE_LIGHTNING_SCORE:
+        return None
+    scores[max(0, by - th) : by + th, max(0, bx - tw) : bx + tw] = -1.0
+    if cv2.minMaxLoc(scores)[1] >= REFINE_LIGHTNING_SCORE:
+        return None  # two of them: not the page we know
+    return ((x + bx + tw / 2) * sx, (y + by + th / 2) * sy)
+
+
+def purple_badges(frame) -> set[tuple[int, int]]:
+    """Cells whose refine badge is the purple star of 18-20.
+
+    Leo 2026-10-11: 「18 19 20 底都是紫色」「數字加上優先認紫色」.  Measured on
+    his 4K bag (2026-10-11): the star's arms are about 0.2-0.35 purple on
+    every 18/19/20 and 0.00 on 9, 12, 21, 22, 24 and on blank cells; the
+    digits in the middle are left out.
+    """
+    if frame is None or getattr(frame, "ndim", 0) != 3:
+        return set()
+    small = cv2.resize(frame, (REFERENCE_WIDTH, REFERENCE_HEIGHT), interpolation=cv2.INTER_AREA)
+    hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, PURPLE_STAR_LOW, PURPLE_STAR_HIGH) > 0
+    found = set()
+    for row, cy in enumerate(GRID_ROWS):
+        for column, cx in enumerate(GRID_COLUMNS):
+            arms = np.concatenate([
+                mask[cy + 10 : cy + 19, cx + 18 : cx + 26].ravel(),
+                mask[cy + 10 : cy + 19, cx + 44 : cx + 52].ravel(),
+            ])
+            if arms.size and arms.mean() >= PURPLE_STAR_SHARE:
+                found.add((row, column))
+    return found
 
 
 # 精炼 followed only by its cost ("精炼80", "精炼●80"): rejects 连续精炼 and
@@ -115,6 +238,24 @@ def refine_candidate(cells: list[tuple[int, int, int]]) -> tuple[int, int, int] 
 # The refine page's bottom bar when the item is already at the cap.
 MAXED_TEXT = "达到最大强化级别"
 REFINE_CANDIDATE_ATTEMPTS = 3
+# Items whose popup has no 精炼 (on Leo's PC: not yet fully enhanced, only
+# 穿戴/强化) are opened and closed again, which costs nothing, so they do not
+# use up the tries above; this many are looked at at most (YES-BD2 #12,
+# 2026-10-10: it stopped on such an item).
+REFINE_NO_BUTTON_PROBES = 10
+# 强化 in the popup: the item is not fully enhanced and has no 精炼.
+NOT_REFINABLE_TEXT = "强化"
+# Last resort when the popup's buttons read as something else (YES-BD2 #12,
+# 2K: 「兴」): the right-hand pill, where 精炼 sits (Leo's 4K and 1080p frames,
+# 2026-10-10/11).  It only opens the 精炼装备分数 page, which must then show;
+# 精炼 on that page keeps all its checks.
+REFINE_BUTTON_USUAL_POINT = (1362, 734)
+# The right pill itself: a light band this many rows high in this column
+# (both heights above measured 33-36 rows; no band when no popup is open).
+REFINE_PILL_COLUMN = (1330, 1395)
+REFINE_PILL_ROWS = (600, 900)
+REFINE_PILL_HEIGHT = (24, 48)
+REFINE_PILL_LIGHT_SHARE = 0.45  # the dark 精炼 letters take up to half a row
 SINGLE_REFINE_PATTERN = re.compile(r"^精炼[^一-鿿]*$")
 # A 精炼 box this close after a 连续 box is part of 连续精炼 (1080 px).
 REFINE_SPLIT_GAP = 60
@@ -166,12 +307,17 @@ class DailyRefineTask(_ClaimTaskBase):
         self._why = ""
         if not self._open_equipment_bag():
             return self._claim_fail("打开背包装备页")
+        self._grid_frame = None
         cells = self._wait_for_grid_cells()
+        purple = purple_badges(self._grid_frame)
         self.info_set("精炼值", " ".join(f"{r},{c}={v}" for r, c, v in cells) or "-")
         tried: set[tuple[int, int]] = set()
         outcome = "none"
-        for _attempt in range(REFINE_CANDIDATE_ATTEMPTS):
-            candidate = refine_candidate([cell for cell in cells if cell[:2] not in tried])
+        maxed = no_button = 0
+        while maxed < REFINE_CANDIDATE_ATTEMPTS and no_button < REFINE_NO_BUTTON_PROBES:
+            candidate = refine_candidate(
+                [cell for cell in cells if cell[:2] not in tried], purple
+            )
             if candidate is None:
                 break
             row, column, value = candidate
@@ -181,10 +327,12 @@ class DailyRefineTask(_ClaimTaskBase):
             if outcome == "no_button":
                 # This item has no 精炼 (a player's 2560×1440 run, 2026-10-10,
                 # stopped on the first one): its popup is closed, try the next.
+                no_button += 1
                 self.log_info(f"每日精炼：第{row + 1}行第{column + 1}列不能精炼，换下一件。")
                 continue
             if outcome != "maxed":
                 break
+            maxed += 1
             # OCR can drop a digit ("24" read as "4", live 2026-09-27): the
             # item is already at the cap, so go back and try the next one.
             self.log_info(f"每日精炼：第{row + 1}行第{column + 1}列已达最大精炼，换下一件。")
@@ -192,6 +340,11 @@ class DailyRefineTask(_ClaimTaskBase):
             self.log_info("每日精炼：首屏没有可精炼的装备，跳过。")
         if outcome == "no_button":
             outcome = "failed"
+            if no_button > 1:
+                self._why = (
+                    f"试了 {no_button} 件，装备详情里都没有精炼按钮"
+                    f"（可能还没强化满；最后一件：{self._why}）"
+                )
         if outcome == "maxed" and not self._why:
             self._why = "试了几件都已达最大精炼"
         self._restore_bag_detail_view()
@@ -222,8 +375,10 @@ class DailyRefineTask(_ClaimTaskBase):
         """
         end_at = monotonic() + timeout
         while True:
-            cells = badge_cells(self._grid_boxes(self.capture_frame()))
+            frame = self.capture_frame()
+            cells = badge_cells(self._grid_boxes(frame))
             if cells or monotonic() >= end_at:
+                self._grid_frame = frame
                 return cells
             self.sleep(0.5)
 
@@ -341,10 +496,12 @@ class DailyRefineTask(_ClaimTaskBase):
             DETAIL_BUTTONS_ROI, "装备详情按钮", lambda boxes: plain_refine_box(boxes) is not None
         )
         button = plain_refine_box(detail)
+        seen = self._boxes_text(detail) or "没读到字"
+        if button is None and NOT_REFINABLE_TEXT not in normalize_ocr_text(seen):
+            return self._refine_at_usual_spot(row, column, seen)
         if button is None:
             # A player's summary (2026-10-10) had only this line and the bag it
             # went back to: what the popup showed is kept for the 问题摘要.
-            seen = self._boxes_text(detail) or "没读到字"
             self.log_info(
                 f"每日精炼：第{row + 1}行第{column + 1}列的装备详情里没有精炼按钮，"
                 f"按钮处读到「{seen}」。"
@@ -358,6 +515,33 @@ class DailyRefineTask(_ClaimTaskBase):
         if not self._wait_for_title("精炼", REFINE_PAGE_TITLE):
             self._why = "点了精炼后，精炼页没出来"
             return "failed"
+        return self._refine_on_page()
+
+    def _refine_at_usual_spot(self, row: int, column: int, seen: str) -> str:
+        """Press where 精炼 usually sits, once; the refine page must follow."""
+        self.log_info(
+            f"每日精炼：第{row + 1}行第{column + 1}列的装备详情按钮读到「{seen}」，"
+            "照精炼平常的位置点一下。"
+        )
+        self._save_flow_diagnostic("daily_refine_button_unread")
+        point = refine_pill_point(self.capture_frame()) or REFINE_BUTTON_USUAL_POINT
+        opened = self.press_and_confirm(
+            "每日精炼：照平常位置点精炼",
+            lambda: self._click_reference(*point, after_sleep=1.0),
+            lambda: self._title_visible(self.capture_frame(), REFINE_PAGE_TITLE, "精炼"),
+            timeout=REFINE_RESULT_SECONDS,
+            poll=0.5,
+        )
+        if opened:
+            return self._refine_on_page()
+        self._why = (
+            f"第{row + 1}行第{column + 1}列的装备详情里没认出精炼按钮（按钮处读到「{seen}」），"
+            "照平常位置点了也没进精炼页"
+        )
+        return "failed"
+
+    def _refine_on_page(self) -> str:
+        """On the 精炼装备分数 page: refine once with all checks, back to the bag."""
         buttons = self._wait_boxes(
             REFINE_BUTTONS_ROI,
             "精炼按钮",
@@ -367,6 +551,8 @@ class DailyRefineTask(_ClaimTaskBase):
         refine = plain_refine_box(buttons)
         button_text = self._boxes_text(buttons)
         self.info_set("精炼按钮 OCR", button_text or "-")
+        if refine is None and MAXED_TEXT not in normalize_ocr_text(button_text):
+            refine = self._lightning_refine_box()
         if refine is None:
             if MAXED_TEXT in normalize_ocr_text(button_text):
                 return self._back_to_bag("maxed")
@@ -374,6 +560,14 @@ class DailyRefineTask(_ClaimTaskBase):
             self._why = f"精炼页找不到单次精炼按钮（读到「{button_text or '没读到字'}」）"
             return self._back_to_bag("failed")
         return self._back_to_bag(self._press_refine_once(refine))
+
+    def _lightning_refine_box(self):
+        """The 精炼 pill found by its lightning icon (its text was not read)."""
+        point = refine_lightning_point(self.capture_frame())
+        if point is None:
+            return None
+        self.log_info("每日精炼：没读到「精炼」的字，按雷电图示认出单次精炼按钮。")
+        return SimpleNamespace(name="精炼", x=point[0] - 1, y=point[1] - 1, width=2, height=2)
 
     def _refine_trace(self, frame) -> int | None:
         text = normalize_ocr_text(

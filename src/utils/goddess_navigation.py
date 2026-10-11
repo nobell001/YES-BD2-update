@@ -32,8 +32,10 @@ class NavigationObservation:
 
 def is_daily_title(text):
     normalized = re.sub(r"\s", "", text)
+    # One of 奖励 may be misread over a busy backdrop (「每日买励」, a player's
+    # frame over the square's food truck, 2026-10-11).
     return normalized.startswith("每日") and len(normalized) >= 3 and (
-        "奖励" in normalized or normalized.startswith("每日奖")
+        "奖励" in normalized or normalized.startswith("每日奖") or normalized[3:4] == "励"
     )
 
 
@@ -75,6 +77,10 @@ def choose_navigation(icon_candidates, text_candidates, text):
 def scan_navigation(frame, *, ocr, normalize, match, passes, icon_specs):
     height, width = frame.shape[:2]
     broad = (int(width * 0.50), 0, width, height)
+    # The task list sits top right.  Over a busy backdrop (the square's pink
+    # food truck, a player's 1080p frame 2026-10-11; a statue before) the whole
+    # right half read at 2x missed the row, while this quarter at 2x read it.
+    task_list = (int(width * 0.62), 0, width, int(height * 0.50))
     texts = []
     saw_task = False
 
@@ -113,8 +119,8 @@ def scan_navigation(frame, *, ocr, normalize, match, passes, icon_specs):
                 return True
         return False
 
-    for scale in (1, 2):
-        boxes = read(broad, scale)
+    for region, scale in ((broad, 1), (broad, 2), (task_list, 2)):
+        boxes = read(region, scale)
         anchors = [b for b in boxes if is_daily_title(normalize(b.text))]
         anchors += [b for b in boxes if is_goddess_destination(normalize(b.text))]
         saw_task = saw_task or bool(anchors)
@@ -133,7 +139,9 @@ def scan_navigation(frame, *, ocr, normalize, match, passes, icon_specs):
                 min(width, int(anchor.x + max(anchor.width, 12 * h) + 3 * h)),
                 min(height, int(anchor.y + (5 * h if is_title else 2 * h))),
             )
-            local = read(rect, min(4, max(1, 36 / h)))
+            # The closer read may lose a line the region read had (the title
+            # over the food truck, 2026-10-11): pair from both reads.
+            local = read(rect, min(4, max(1, 36 / h))) + boxes
             titles = [b for b in local if is_daily_title(normalize(b.text))]
             navigations = [b for b in local if is_goddess_destination(normalize(b.text))]
             for title in titles:
