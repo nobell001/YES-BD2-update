@@ -14,6 +14,11 @@ QUICK_SWITCH_SEARCH_REGIONS = (
     (0.16, 0.08, 0.24, 0.19),
 )
 
+# Leo 10-11 「你一開始有認到四次為什麼不點」: two agreeing frames are enough
+# to press the quick-switch button; waiting for a one-second window let a
+# passing chef hide it and the search gave up (clone 一键日常, 格鲁菲餐厅).
+QUICK_SWITCH_STABLE_FRAMES = 2
+
 RECENT_CATEGORY_LABEL = "最近"
 SHOPKEEPER_CATEGORY_LABEL = "店长游戏卡"
 STORY_CATEGORY_LABEL = "剧情游戏卡"

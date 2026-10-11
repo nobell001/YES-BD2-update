@@ -111,6 +111,7 @@ from src.tasks.map_trade.navigator_constants import (
 )
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.calibration import FHD_1080
+from src.utils.cartridge_quick_switch import QUICK_SWITCH_STABLE_FRAMES
 
 # 从箱庭点击快速切换按钮的统一识别窗口与点击后停顿。
 QUICK_SWITCH_CLICK_TIMEOUT = 10.0
@@ -214,7 +215,10 @@ class StoryCardNavigationMixin:
         return "剧情游戏卡", STORY_CATEGORY_POINT, STORY_CATEGORY_HIGHLIGHT_REGION
 
     def _click_quick_switch(
-        self, timeout: float, after_sleep: float, window_samples: int | None = None
+        self,
+        timeout: float,
+        after_sleep: float,
+        window_samples: int = QUICK_SWITCH_STABLE_FRAMES,
     ) -> bool:
         """Press the field's quick-switch (P) button.
 
@@ -2638,14 +2642,13 @@ class StoryCardNavigationMixin:
                 return sandbox
 
         self._status("导航状态", "从卡带箱庭识别快速切换按钮")
-        # The field was just confirmed still, so three agreeing samples do
-        # instead of six (~0.7 s per cartridge switch).  The see-through
-        # button can stay unseen on snow; the key caps fallback presses its
-        # calibrated place and the page check below still has to pass.
+        # Two agreeing frames press the button (QUICK_SWITCH_STABLE_FRAMES).
+        # The see-through button can stay unseen on snow; the key caps
+        # fallback presses its calibrated place and the page check below
+        # still has to pass.
         if not self._click_quick_switch(
             QUICK_SWITCH_CLICK_TIMEOUT,
             QUICK_SWITCH_CLICK_AFTER_SLEEP,
-            window_samples=3,
         ):
             return NavigationResult(
                 False,

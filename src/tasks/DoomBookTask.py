@@ -377,7 +377,9 @@ class DoomBookTask(_ClaimTaskBase):
             arrived = self._click_to_marker() if way == STAGE_MOVE_CLICK else self._walk_to_marker()
             if arrived:
                 return True
-            if self._keys_refused or not self._field_visible(self.capture_frame()):
+            if self._keys_refused or not self.look_again(
+                lambda: self._field_visible(self.capture_frame())
+            ):
                 return False
         return False
 
@@ -468,7 +470,9 @@ class DoomBookTask(_ClaimTaskBase):
         spawn reset, already proven a field by ``_wait_for_any_field`` (the
         末日之书 check could never pass there).
         """
-        if on_doom_field and not self._field_visible(self.capture_frame()):
+        if on_doom_field and not self.look_again(
+            lambda: self._field_visible(self.capture_frame())
+        ):
             self.log_info(f"{LABEL}：不在末日之书地图上，不点卡带切换。")
             return False
         self._click_reference(*FIELD_QUICK_SWITCH_POINT, after_sleep=1.5)

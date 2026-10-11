@@ -126,7 +126,7 @@ class EnhanceDialogMixin:
                 cv2.BORDER_REPLICATE,
             )
             try:
-                boxes = self.ocr(frame=padded, threshold=0.5, target_height=0, log=False, name=name)
+                boxes = self.ocr(frame=padded, threshold=0.5, target_height=0, log=False, name=name, reread=False)
             except (TaskDisabledException, FinishedException):
                 raise
             except Exception as exc:
@@ -233,5 +233,10 @@ class EnhanceDialogMixin:
         return True
 
     def _enhance_start_box(self):
-        buttons = self._reference_boxes(self.capture_frame(), ENHANCE_START_ROI, "强化按钮")
-        return self._box_with(buttons, ("强化",))
+        return self.look_again(
+            lambda: self._box_with(
+                self._reference_boxes(self.capture_frame(), ENHANCE_START_ROI, "强化按钮"),
+                ("强化",),
+            ),
+            "强化窗口找「强化」",
+        )

@@ -83,6 +83,7 @@ from src.tasks.map_trade.trader_constants import (
     SHOP_MODE_SWITCH_MAX_CLICKS,
     SHOP_MODE_TIMEOUT,
     SHOP_MODE_TITLE_REGION,
+    SHOP_MODE_TITLE_WIDER_REGION,
     SaleItemCandidate,
 )
 from src.tasks.map_trade.vision import normalize_text
@@ -279,6 +280,23 @@ class SellFlowMixin:
                     names.add(normalized)
         return {good: tuple(sorted(names)) for good, names in goods.items() if good}
 
+    def _shop_mode_title(self, frame) -> str:
+        """The shop's 购买 / 出售 title, read again with more room when unread."""
+        text = self.vision.ocr_text(
+            frame,
+            "商店买卖页标题",
+            relative_roi=SHOP_MODE_TITLE_REGION,
+        )
+        normalized = normalize_text(self.vision.simplify(text))
+        if "出售" in normalized or "购买" in normalized:
+            return text
+        wider = self.vision.ocr_text(
+            frame,
+            "商店买卖页标题（放宽范围）",
+            relative_roi=SHOP_MODE_TITLE_WIDER_REGION,
+        )
+        return wider or text
+
     def _ensure_sell_page(
         self,
         timeout: float = SHOP_MODE_TIMEOUT,
@@ -288,11 +306,7 @@ class SellFlowMixin:
         last_text = ""
         while True:
             frame = self.vision.capture()
-            text = self.vision.ocr_text(
-                frame,
-                "商店买卖页标题",
-                relative_roi=SHOP_MODE_TITLE_REGION,
-            )
+            text = self._shop_mode_title(frame)
             last_text = text or last_text
             normalized = normalize_text(self.vision.simplify(text))
             if "出售" in normalized:

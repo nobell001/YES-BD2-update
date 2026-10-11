@@ -11,6 +11,7 @@ from src.tasks.map_trade.action_icons import (
     ActionIconDetection,
     ActionIconSpec,
     ActionIconState,
+    selected_skill_group,
 )
 from src.tasks.map_trade.collector_constants import (
     ABSORB_ACTION,
@@ -334,6 +335,15 @@ class SkillExecutionMixin:
         # The collection skills may sit in any group (the user keeps cooking
         # in group 1 and 探查/吸收/召集/压制 in group 2, 2026-09-28): try the
         # groups in turn and stay on the one that shows them.
+        # The group buttons are pressed only where they are seen: inside a
+        # shop (clone 10-11, Q_ep2 雷瓦汀据点) or under a dialogue the whole
+        # bar is gone and the three presses landed on whatever was there.
+        if selected_skill_group(self.vision.capture()) is None:
+            self.task.log_warning(
+                "地图采集：画面上没有技能栏（认不出现在是第几组技能），"
+                f"不切技能组：{states}。"
+            )
+            return False
         keeper = getattr(self, "skill_group_keeper", None)
         if keeper is not None:
             keeper.before_switch()

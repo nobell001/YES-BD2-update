@@ -15,14 +15,31 @@ from src.tasks.BaseBD2Task import (
 from src.tasks.map_trade.models import MatchResult, TemplateSpec
 from src.utils import task_vision
 from src.utils.calibration import FHD_1080, HD_720, QHD_1440
+from src.utils.cartridge_collection import (
+    BATTLE_ROW_PATTERNS,
+    COLLECTION_SCROLL_NOTCHES,
+    COLLECTION_SCROLL_POINT,
+    COLLECTION_SCROLLS_DOWN,
+    COLLECTION_SCROLLS_UP,
+    COLLECTION_TITLE_PATTERNS,
+    COLLECTION_TITLE_ROI,
+    HOME_CARTRIDGE_MACHINE_ATTEMPTS,
+    HOME_CARTRIDGE_MACHINE_POINT,
+    HOME_KEYCAP_P_ROI,
+    HOME_KEYCAP_READS,
+    HOME_KEYCAP_STEADY_FRAMES,
+    RowHeader,
+    find_row_header,
+    headers_agree,
+    row_card_point,
+)
 from src.utils.cartridge_quick_switch import (
     BATTLE_GAMEPLAY_CATEGORY_HIGHLIGHT_REGION,
     BATTLE_GAMEPLAY_CATEGORY_LABEL,
     BATTLE_GAMEPLAY_CATEGORY_OCR_ROI,
-    BATTLE_GAMEPLAY_CATEGORY_POINT,
-    FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS,
     GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO,
     QUICK_SWITCH_SEARCH_REGIONS,
+    QUICK_SWITCH_STABLE_FRAMES,
     RECENT_CATEGORY_LABEL,
     STORY_CATEGORY_LABEL,
     category_highlight_ratio,
@@ -81,6 +98,10 @@ PVP_AUTO_BATTLE_SCREEN_ROI = (1470, 910, 170, 150)
 # must exclude the gear, otherwise the OCR det box merges it into the value and the
 # anchored ^N$ match fails on artifacts such as "1倍a".
 PVP_MULTIPLIER_OCR_REFERENCE_ROI = (800, 213, 65, 33)  # 1280×720 参考
+# When that box reads no N倍, it is read once more with room around it (a
+# player's PC, v0.1.21 2026-10-11: 「-」 while 40倍 showed).  It grows left,
+# up and down only, so the gear stays out (left, top, right, bottom).
+PVP_MULTIPLIER_WIDER_GROW = (40, 20, 0, 20)  # 1920×1080 参考
 PVP_AUTO_BATTLE_CLICK_REFERENCE = (2026, 1291)  # 2560×1440 参考
 PVP_STAGE_CLICK_REFERENCE_OFFSET = (0, -75)  # 1920×1080 参考位移
 PVP_BATTLE_START_SCREEN_POINT = (1381, 1061)  # 2560×1440 参考
@@ -419,46 +440,25 @@ class PVPTask(BaseBD2Task):
         return self._enter_pvp_from_home()
 
     def _enter_pvp_from_home(self) -> bool:
-        self.info_set("当前阶段", "打开卡带快速切换")
-        if not self.open_cartridge_quick_switcher(
-            ensure_home=self._wait_for_cartridge_home,
-            click_quick_switch=lambda: self._click_template_until(
-                QUICK_PACK_TEMPLATE,
-                timeout=float(self.config.get("快速卡带等待秒数", 10.0)),
-                name="快速切换按钮",
-                after_sleep=0.0,
-                stabilize=True,
-            ),
-            confirm_quick_switch_page=self._wait_for_quick_switch_page,
-        ):
-            self.log_info("镜中之战：未能从主页打开卡带快速切换页面。")
+        """主页 → cartridge machine (P) → 游戏卡珍藏集 → 战斗玩法's first card.
+
+        Never through 返回战场; see ``src/utils/cartridge_collection.py``.
+        """
+        if not self._open_cartridge_collection():
+            self.log_info("镜中之战：未能从主页打开游戏卡珍藏集。")
             return False
 
-        self.info_set("当前阶段", "选择战斗玩法游戏卡带")
-        self.sleep(0.5)
-        # 类别点击被吞时高亮不会变：仅在卡带选择页仍在、类别仍未高亮时重点（同末日之书）。
-        for attempt in range(1, PVP_CLICK_VERIFY_ATTEMPTS + 1):
-            self.operate_click(*BATTLE_GAMEPLAY_CATEGORY_POINT, after_sleep=0.0)
-            if self._wait_for_battle_gameplay_category():
-                break
-            if attempt >= PVP_CLICK_VERIFY_ATTEMPTS or not self._quick_switch_still_shows(
-                highlighted=False, seconds=1.0
-            ):
-                self.log_info("镜中之战：点击后未确认战斗玩法游戏卡带类别高亮。")
-                return False
-            self.log_info(f"镜中之战：第{attempt}次点击战斗玩法类别未生效，重试。")
+        self.info_set("当前阶段", "找战斗玩法游戏卡带")
+        point = self._find_collection_row_card(BATTLE_ROW_PATTERNS)
+        if point is None:
+            self.log_info(
+                "镜中之战：游戏卡珍藏集里没认出「战斗玩法游戏卡带」那一排，没有点卡带。"
+            )
+            self._save_flow_diagnostic("pvp_collection_row_missing")
+            return False
 
-        self.info_set("当前阶段", "选择 PVP 卡带1号位")
-        self.sleep(FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS)
-        self.operate_click(*PVP_CARTRIDGE_SLOT_POINT, after_sleep=0.0)
-        # 卡带格点击被吞时选择页原样停住；连续数秒仍是同一页（类别仍高亮）才重点，
-        # 页面一变就不再点，避免载入中重复操作。
-        for attempt in range(1, PVP_CLICK_VERIFY_ATTEMPTS):
-            if not self._quick_switch_still_shows(highlighted=True, seconds=8.0):
-                break
-            self.log_info(f"镜中之战：第{attempt}次点击 PVP 卡带后选择页仍在，重试。")
-            self.operate_click(*PVP_CARTRIDGE_SLOT_POINT, after_sleep=0.0)
-
+        self.info_set("当前阶段", "点击镜中之战卡带")
+        self._click_reference(*point, after_sleep=0.0)
         if self._wait_for_pvp_hub_after_cart(
             timeout=float(self.config.get("PVP 入场等待秒数", 30.0)),
         ):
@@ -466,6 +466,117 @@ class PVPTask(BaseBD2Task):
             return True
 
         return False
+
+    def _open_cartridge_collection(self) -> bool:
+        """Press 主页's cartridge machine by its place and confirm 游戏卡珍藏集.
+
+        A press the game swallowed is tried once more, only after 主页 is
+        confirmed again; anything else on screen stops here.
+        """
+        for attempt in range(1, HOME_CARTRIDGE_MACHINE_ATTEMPTS + 1):
+            if not self._wait_for_cartridge_home():
+                break
+            self._sleep_after_recognition()
+            if self._home_machine_keycaps_steady():
+                self.info_set("当前阶段", "点击主页卡带机（P）")
+            else:
+                # Leo: 「如果識別不穩時 也可以按畫面上固定位置右下角那一大塊」.
+                self.info_set("当前阶段", "卡带机按键没认稳，按右下角固定位置")
+                self.log_info("镜中之战：主页卡带机的 P 按键没连续认到，改按右下角卡带机的固定位置。")
+            self._click_reference(*HOME_CARTRIDGE_MACHINE_POINT, after_sleep=0.0)
+            if self._wait_for_collection_page():
+                return True
+            self.log_info(f"镜中之战：第{attempt}次点击主页卡带机（P）后没看到游戏卡珍藏集。")
+        self._save_flow_diagnostic("cartridge_collection_failed")
+        return False
+
+    def _home_machine_keycaps_steady(self) -> bool:
+        """主页's P key cap under the cartridge machine on two frames in a row.
+
+        Only the key cap is read, never the card art inside the machine,
+        which follows the recent card.  F (返回战场) is not a cue: Leo 10-11
+        「認p就好 f上面是直接返回卡帶」.
+        """
+        steady = 0
+        for _read in range(HOME_KEYCAP_READS):
+            p_cap = self._match(self.capture_frame(), HOME_KEYCAP_P_TEMPLATE)
+            self.info_set("主页卡带机按键", f"P {p_cap.score:.2f}")
+            steady = steady + 1 if self._passes(p_cap, HOME_KEYCAP_P_TEMPLATE) else 0
+            if steady >= HOME_KEYCAP_STEADY_FRAMES:
+                return True
+            self.sleep(0.2)
+        return False
+
+    def _wait_for_collection_page(self, interval: float = 0.5) -> bool:
+        """Two reads in a row of the 游戏卡珍藏集 title."""
+        self.info_set("当前阶段", "确认游戏卡珍藏集")
+        end_at = monotonic() + float(self.config.get("卡带选择页确认等待秒数", 10.0))
+        hits = 0
+        last_text = ""
+        while monotonic() <= end_at:
+            text = self._ocr_text(
+                self.capture_frame(), name="游戏卡珍藏集", roi=COLLECTION_TITLE_ROI
+            )
+            last_text = text or last_text
+            self.info_set("游戏卡珍藏集 OCR", text or "-")
+            hits = hits + 1 if self._matches_any(text, list(COLLECTION_TITLE_PATTERNS)) else 0
+            if hits >= 2:
+                return True
+            self.sleep(interval)
+        self.log_info(f"镜中之战：没确认游戏卡珍藏集，OCR={last_text or '-'}。")
+        return False
+
+    def _find_collection_row_card(self, patterns) -> tuple[int, int] | None:
+        """The first card of the row headed by ``patterns`` (1080p reference).
+
+        The shelf may open scrolled to the recent card, so it is scrolled up,
+        then down, until the header reads the same twice and its cards show.
+        """
+        steps = [None]
+        steps += [COLLECTION_SCROLL_NOTCHES] * COLLECTION_SCROLLS_UP
+        steps += [-COLLECTION_SCROLL_NOTCHES] * COLLECTION_SCROLLS_DOWN
+        for step in steps:
+            if step is not None:
+                self.info_set("当前阶段", "滚动游戏卡珍藏集")
+                self.scroll_client(COLLECTION_SCROLL_POINT, step, after_sleep=0.6)
+            header = self._read_row_header(patterns)
+            if header is None:
+                continue
+            point = row_card_point(header)
+            if point is None:
+                # The header sits at the bottom edge: bring its cards up.
+                self.scroll_client(
+                    COLLECTION_SCROLL_POINT, -COLLECTION_SCROLL_NOTCHES, after_sleep=0.6
+                )
+                header = self._read_row_header(patterns)
+                point = row_card_point(header) if header is not None else None
+            if point is not None:
+                self.info_set("战斗玩法卡带位置", f"({point[0]},{point[1]})")
+                return point
+        return None
+
+    def _read_row_header(self, patterns) -> RowHeader | None:
+        """A row header seen at the same place on two frames (a slow PC gets
+        one more second for the first read)."""
+        first = None
+        for wait in (0.0, 1.0):
+            self.sleep(wait)
+            first = self._row_header_in_frame(patterns)
+            if first is not None:
+                break
+        if first is None:
+            return None
+        self.sleep(0.3)
+        second = self._row_header_in_frame(patterns)
+        if second is None or not headers_agree(first, second):
+            return None
+        return second
+
+    def _row_header_in_frame(self, patterns) -> RowHeader | None:
+        frame = self.capture_frame()
+        boxes = self._ocr_boxes(frame, name="游戏卡珍藏集")
+        height, width = frame.shape[:2]
+        return find_row_header(boxes, patterns, (width, height))
 
     def _wait_for_battle_gameplay_category(self, interval: float = 0.5) -> bool:
         end_at = monotonic() + float(self.config.get("玩法类别高亮确认秒数", 3.0))
@@ -1123,6 +1234,15 @@ class PVPTask(BaseBD2Task):
         self.info_set("当前阶段", "确认战斗倍率")
         if self._multiplier_matches(multiplier):
             return True
+        # A value already set can stay unread (a player's PC, v0.1.21
+        # 2026-10-11: 40倍 showing, read 「-」); 战斗开始 shows the same
+        # number as the cost of one battle.
+        if self._start_cost_is(multiplier):
+            self.log_info(
+                f"镜中之战：倍率处没读到 {multiplier}，"
+                f"战斗开始上每场消耗是 {multiplier}，倍率已经是 {multiplier}。"
+            )
+            return True
 
         if not self._open_multiplier_setting():
             return False
@@ -1204,8 +1324,8 @@ class PVPTask(BaseBD2Task):
         # check read 鲜血鸡尾酒…消耗量, and the main popup's 鲜血鸡尾酒 row
         # sits in the same area (no frame of it yet, so inferred).  Now the
         # read 确认 is pressed (the fixed point when unread), the dialog counts
-        # as open only by its own 设置 / 确认 / value, and a closed dialog
-        # whose main value is not read is confirmed by the cost on 战斗开始
+        # as open only by its own 确认 / value, and a closed dialog whose
+        # main value is not read is confirmed by the cost on 战斗开始
         # (checked again before the start in any case).
         for attempt in range(1, PVP_CLICK_VERIFY_ATTEMPTS + 1):
             if not self._click_ocr_pattern_center(
@@ -1238,19 +1358,17 @@ class PVPTask(BaseBD2Task):
         return False
 
     def _setting_dialog_open(self, multiplier: int) -> bool:
-        """The 倍率 setting dialog is still up: its title's 设置, its 确认 or its value."""
-        found, _text = self._wait_for_ocr_patterns(
-            [r"设置"],
-            timeout=1.0,
-            name="PVP 倍率设置",
-            roi=self._mf_roi(*PVP_MULTIPLIER_SETTING_OCR_REFERENCE_ROI),
-        )
-        if found:
-            return True
+        """The 倍率 setting dialog is still up: its own 确认 or its value.
+
+        Not by 设置: the main popup's 「设置鲜血鸡尾酒消耗量」 row and its
+        「…设置为1~40倍」 line sit in the same area (a player's frame,
+        v0.1.21 2026-10-11), so the closed dialog looked open and 确认 was
+        pressed again on the main popup's battle-count bar.
+        """
         # Read text is joined: the anchored pattern is for one box only.
         found, _text = self._wait_for_ocr_patterns(
             [r"确[认定]"],
-            timeout=0.5,
+            timeout=1.0,
             name="PVP 倍率确认",
             roi=PVP_SETTING_CONFIRM_REFERENCE_ROI,
         )
@@ -1456,15 +1574,42 @@ class PVPTask(BaseBD2Task):
         self._click_screen_reference(*PVP_MAX_BATTLE_COUNT_SCREEN_POINT, after_sleep=0.8)
 
     def _multiplier_matches(self, multiplier: int, timeout: float = 2.0) -> bool:
+        patterns = [rf"^{multiplier}$", rf"^{multiplier}倍$"]
+        roi = self._mf_roi(*PVP_MULTIPLIER_OCR_REFERENCE_ROI)
         found, text = self._wait_for_ocr_patterns(
-            [rf"^{multiplier}$", rf"^{multiplier}倍$"],
+            patterns,
             timeout=timeout,
             name="PVP 倍率",
-            roi=self._mf_roi(*PVP_MULTIPLIER_OCR_REFERENCE_ROI),
+            roi=roi,
             normalize_multiplier=True,
         )
+        if not found:
+            labels = [
+                label
+                for label, _confidence in self._ocr_entries(
+                    self.capture_frame(),
+                    "PVP 倍率（放宽范围）",
+                    self._grown_roi(roi, PVP_MULTIPLIER_WIDER_GROW),
+                )
+            ]
+            # One box at a time, as in the small box: a neighbour is its own box.
+            found = any(
+                self._matches_any(self._normalize_multiplier_text(label), patterns)
+                for label in labels
+            )
+            if found or not text:
+                text = " ".join(labels)
         self.info_set("PVP 倍率 OCR", text or "-")
         return found
+
+    @staticmethod
+    def _grown_roi(
+        roi: tuple[int, int, int, int], grow: tuple[int, int, int, int]
+    ) -> tuple[int, int, int, int]:
+        x, y, width, height = roi
+        left, top, right, bottom = grow
+        new_x, new_y = max(0, x - left), max(0, y - top)
+        return new_x, new_y, x + width + right - new_x, y + height + bottom - new_y
 
     def _setting_multiplier_matches(self, multiplier: int) -> bool:
         found, text = self._wait_for_ocr_patterns(
@@ -1921,6 +2066,8 @@ class PVPTask(BaseBD2Task):
                     stabilized = stabilize_template_match(
                         result,
                         frame.shape,
+                        window_samples=QUICK_SWITCH_STABLE_FRAMES,
+                        minimum_hits=QUICK_SWITCH_STABLE_FRAMES,
                         sample_match=sample_match,
                         passes=lambda candidate: self._passes(candidate, spec),
                         sleep=self.sleep,
@@ -1930,8 +2077,11 @@ class PVPTask(BaseBD2Task):
                         ),
                     )
                     if stabilized is None:
+                        # A see-through button over moving scenery (the
+                        # restaurant's chefs walk behind 立刻前往游戏卡, clone
+                        # 10-11) can miss one window: look again until timeout.
                         self.info_set(f"{name}稳定识别", "未形成稳定位置")
-                        return False
+                        continue
                     consensus, frame_shape = stabilized
                     frame_height, frame_width = frame_shape[:2]
                     stable_center = consensus.center
@@ -2188,6 +2338,7 @@ class PVPTask(BaseBD2Task):
                 target_height=720,
                 log=False,
                 name=name,
+                reread=ocr_scale == 1.0,
             )
         except (TaskDisabledException, FinishedException):
             raise
@@ -2390,6 +2541,16 @@ QUICK_PACK_TEMPLATE = TemplateSpec(
     # 圆底样式在 1600x901 实机帧 zncc 最高 0.838（RPT-20260902-225925），
     # 0.85 门禁确定性误拒；同帧误检 zncc 最高 0.43，0.78 仍有足够余量。
     min_zncc_score=0.78,
+)
+
+HOME_KEYCAP_P_TEMPLATE = TemplateSpec(
+    name="home_keycap_p",
+    file_name="home/home_keycap_P.png",
+    threshold_key="主页卡带机按键阈值",
+    default_threshold=0.8,
+    roi=HOME_KEYCAP_P_ROI,
+    scale_ratios=(0.95, 1.0, 1.05),
+    min_pixel_score=0.75,
 )
 
 PVP_MEDALS_TEMPLATE = TemplateSpec(

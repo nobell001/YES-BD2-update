@@ -33,7 +33,6 @@ from src.tasks.map_trade.trader_constants import (
     BUY_TO_SELL_SOLD_OUT_TEMPLATE,
     BUY_TO_SELL_TIMEOUT,
     SELL_MODE_POINT,
-    SHOP_MODE_TITLE_REGION,
 )
 from src.tasks.map_trade.vision import normalize_text
 
@@ -92,11 +91,7 @@ class BuyFlowMixin:
         last_match = None
         while True:
             frame = self.vision.capture()
-            title = self.vision.ocr_text(
-                frame,
-                "商店买卖页标题",
-                relative_roi=SHOP_MODE_TITLE_REGION,
-            )
+            title = self._shop_mode_title(frame)
             last_title = title or last_title
             normalized_title = normalize_text(self.vision.simplify(title))
             if "出售" in normalized_title:

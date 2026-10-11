@@ -258,8 +258,13 @@ class CraftGearTask(EnhanceDialogMixin, DailyRefineTask):
     # -- craft ------------------------------------------------------------------------
 
     def _craft(self, target: int, count: int) -> bool:
-        buttons = self._reference_boxes(self.capture_frame(), RECIPE_BUTTONS_ROI, "制作按钮")
-        settings = self._box_with(buttons, (ENHANCE_SETTINGS_TEXT,))
+        settings = self.look_again(
+            lambda: self._box_with(
+                self._reference_boxes(self.capture_frame(), RECIPE_BUTTONS_ROI, "制作按钮"),
+                (ENHANCE_SETTINGS_TEXT,),
+            ),
+            f"{LABEL}：找「{ENHANCE_SETTINGS_TEXT}」",
+        )
         if settings is None:
             return False
         self._click_reference_box(settings, after_sleep=1.5)

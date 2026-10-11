@@ -112,9 +112,9 @@ COOKING_LIST_QUICK_SECONDS = 1.5
 COOKING_MAX_CHOICE = "MAX"
 COOKING_QUANTITY_ATTEMPTS = 3
 COOKING_QUANTITY_VERIFY_SECONDS = 3.0
-# A swallowed press (skill icon / recipe card / 开始制作) failed the whole
-# phase; after this long with the pre-click screen still read on 2 frames
-# the same press is repeated once.
+# A swallowed press (skill icon / recipe card / 开始制作 / 返回 on a detail
+# page) failed the whole phase; after this long with the pre-click screen
+# still read on 2 frames the same press is repeated once.
 COOKING_RECLICK_AFTER = 3.0
 COOKING_RECLICK_HITS = 2
 
@@ -861,8 +861,7 @@ class CookingFlowMixin:
         detail = self._wait_for_cooking_detail(recipe, 2.0)
         if detail is None:
             return False
-        self._click_cooking_back(detail.frame, context=f"{recipe}详情")
-        return self._wait_for_cooking_list(COOKING_PAGE_TIMEOUT) is not None
+        return self._back_from_detail(detail.frame, context=f"{recipe}详情")
 
     def _recover_cooking_list(self) -> bool:
         if self._wait_for_cooking_list(1.0) is not None:
@@ -870,8 +869,37 @@ class CookingFlowMixin:
         detail = self._generic_cooking_detail_snapshot()
         if detail is None:
             return False
-        self._click_cooking_back(detail.frame, context="料理详情恢复")
-        return self._wait_for_cooking_list(COOKING_PAGE_TIMEOUT) is not None
+        return self._back_from_detail(detail.frame, context="料理详情恢复")
+
+    def _back_from_detail(self, frame, *, context: str) -> bool:
+        """返回 from a detail page until the list shows, pressed again once.
+
+        YES-BD2 #13 (v0.1.21, 1080p, 2026-10-11): after 香草牛排 was cooked
+        the detail page stayed up through the whole wait after one 返回
+        (frames), and the same press on the way out worked.
+        """
+        end_at = monotonic() + COOKING_PAGE_TIMEOUT
+        self._click_cooking_back(frame, context=context)
+        if self._wait_for_cooking_list(COOKING_RECLICK_AFTER) is not None:
+            return True
+        still = self._detail_still_shown()
+        if still is not None:
+            self.task.log_info(f"料理：{context}按返回后详情页还在，再按一次返回。")
+            self._click_cooking_back(still, context=f"{context}补按")
+        remaining = max(COOKING_RECLICK_AFTER, end_at - monotonic())
+        return self._wait_for_cooking_list(remaining) is not None
+
+    def _detail_still_shown(self):
+        """The frame when a cooking detail page is read on 2 frames, else None."""
+        frame = None
+        for look in range(COOKING_RECLICK_HITS):
+            if look:
+                self.task.sleep(COOKING_POLL_INTERVAL)
+            detail = self._generic_cooking_detail_snapshot()
+            if detail is None:
+                return None
+            frame = detail.frame
+        return frame
 
     def _click_cooking_back(self, frame, *, context: str) -> None:
         back = self.vision.match(frame, COOKING_BACK_TEMPLATE)

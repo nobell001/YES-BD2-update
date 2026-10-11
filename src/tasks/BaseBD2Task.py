@@ -33,8 +33,10 @@ from src.utils.image_utils import (
     template_match_response,
     to_gray,
 )
+from src.utils import ocr_reread
 from src.utils.ocr_utils import normalize_ocr_text
-from src.utils.press_confirm import PressOutcome
+from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
+from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, PressOutcome
 from src.utils.press_confirm import press_and_confirm as _press_and_confirm
 from src.utils.template_resolution import offline_template_scale
 
@@ -423,6 +425,35 @@ class BaseBD2Task(BaseTask):
         self.info_set("截图文件", str(output_path))
         return output_path
 
+    def ocr(self, *args, reread: bool = True, **kwargs):
+        """ok-script's OCR; a small box that read nothing is read again.
+
+        See ``src/utils/ocr_reread.py``: bordered, then enlarged 2× and 3×,
+        stopping at the first read that finds text.  Callers that already
+        enlarge the box themselves pass ``reread=False``.
+        """
+        boxes = super().ocr(*args, **kwargs)
+        if boxes or not reread or args:
+            return boxes
+        frame = kwargs.get("frame")
+        if frame is None or kwargs.get("box") is not None or not ocr_reread.qualifies(frame):
+            return boxes
+        name = kwargs.get("name") or ""
+        cooldown = self.__dict__.setdefault("_ocr_reread_last_empty", {})
+        now = monotonic()
+        if now - cooldown.get(name, -1e9) < ocr_reread.REREAD_COOLDOWN_SECONDS:
+            return boxes
+        height, width = frame.shape[:2]
+        for attempt in ocr_reread.reread_images(frame):
+            retry = dict(kwargs, frame=attempt.image, target_height=0, screenshot=False)
+            found = ocr_reread.trusted(super().ocr(**retry))
+            if found:
+                cooldown.pop(name, None)
+                logger.info(f"OCR {name}：第一次没读到，加边放大 {attempt.scale:g} 倍后读到")
+                return ocr_reread.map_back(found, attempt, width, height)
+        cooldown[name] = now
+        return boxes
+
     def ocr_frame(self, frame=None, threshold: float = 0.2, screenshot: bool = False):
         frame = frame if frame is not None else self.capture_frame()
         boxes = self.ocr(frame=frame, threshold=threshold, log=True, screenshot=screenshot)
@@ -566,6 +597,33 @@ class BaseBD2Task(BaseTask):
             log=self.log_info,
             **options,
         )
+
+    def look_again(
+        self,
+        look: Callable[[], object],
+        label: str = "",
+        grace: float = SLOW_PC_GRACE_SECONDS,
+    ):
+        """``look()`` on fresh frames until it finds something, for ``grace`` s.
+
+        Slow PCs draw late (Leo 2026-10-10 「都可以適當加個1~2秒等看看」「但不要
+        有已經判斷到 又空等的情況」): a read that finds nothing is looked at
+        again before it counts as absent, and a read that finds something
+        returns at once.  ``look`` must take its own new frame each call.
+        Returns the first truthy result, else the last (falsy) one.
+        """
+        result = look()
+        waited = 0.0
+        while not result and waited < grace:
+            step = min(LOOK_AGAIN_POLL_SECONDS, grace - waited)
+            self.sleep(step)
+            waited += step
+            result = look()
+        if result:
+            return result
+        if label:
+            self.log_info(f"{label}：多看了 {grace:g} 秒仍没看到")
+        return result
 
     @staticmethod
     def _click_log_message(x, y, width: int, height: int, action_name: str) -> str:

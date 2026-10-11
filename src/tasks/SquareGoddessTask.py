@@ -10,6 +10,11 @@ from qfluentwidgets import FluentIcon
 
 from src.tasks.BaseBD2Task import BaseBD2Task, CartridgeSpecialPageResult
 from src.tasks.map_trade.models import MatchResult, TemplateSpec
+from src.tasks.map_trade.navigator_constants import (
+    AUTO_MOVE_CANCEL_ATTEMPTS,
+    AUTO_MOVE_CANCEL_REFERENCE_POINT,
+    AUTO_MOVE_IDLE_READS,
+)
 from src.utils import task_vision
 from src.utils.calibration import FHD_1080, HD_720
 from src.utils.cartridge_quick_switch import (
@@ -22,6 +27,7 @@ from src.utils.cartridge_quick_switch import (
     LIFE_GAMEPLAY_CATEGORY_OCR_ROI,
     LIFE_GAMEPLAY_CATEGORY_POINT,
     QUICK_SWITCH_SEARCH_REGIONS,
+    QUICK_SWITCH_STABLE_FRAMES,
     SHOPKEEPER_CATEGORY_LABEL,
     category_highlight_ratio,
 )
@@ -59,6 +65,11 @@ SQUARE_HOME_POINT = (1797 / REFERENCE_WIDTH, 63 / REFERENCE_HEIGHT)
 GODDESS_NAVIGATION_CLICKED = "navigation_clicked"
 GODDESS_NAVIGATION_RETRIES = 2
 GODDESS_ALREADY_COMPLETE = "already_complete"
+# The game's walk banner ("自动移动中：…", bottom centre, ✕ under it).  A player
+# (2026-10-11) saw the walk to the goddess stop on the way with the banner
+# still up and the home button hidden, so nothing could leave the square.
+GODDESS_WALK_BANNER = "移动中"
+GODDESS_WALK_STUCK_SECONDS = 20.0
 QUICK_SWITCH_PAGE_PATTERNS = (
     SHOPKEEPER_CATEGORY_LABEL,
     CHARACTER_CATEGORY_LABEL,
@@ -132,6 +143,7 @@ class SquareGoddessTask(BaseBD2Task):
                 "祈祷完成后感叹号等待秒数": 5.0,
                 "女神像导航入口等待秒数": 8.0,
                 "女神像导航最长等待秒数": 90.0,
+                "女神像寻路卡住秒数": GODDESS_WALK_STUCK_SECONDS,
                 "女神像完成确认等待秒数": 8.0,
                 "女神像许愿最多点击次数": 3,
                 "广场返回主页等待秒数": 15.0,
@@ -155,6 +167,9 @@ class SquareGoddessTask(BaseBD2Task):
                     "确认祈祷完成或今日已完成后，再次等待并点击感叹号小任务的最长时间。"
                 ),
                 "女神像导航最长等待秒数": "点击每日导航后，等待角色靠近女神像的最长时间。",
+                "女神像寻路卡住秒数": (
+                    "「自动移动中」一直显示超过这么久就算卡住：按掉它，再点一次每日导航。"
+                ),
                 "女神像完成确认等待秒数": "点击许愿后等待每日导航文字消失的最长时间。",
                 "女神像许愿最多点击次数": "OCR 仍识别到许愿提示时最多重复点击几次。",
                 "广场返回主页等待秒数": "许愿完成后点击主页按钮并确认回到主页的最长时间。",
@@ -537,7 +552,12 @@ class SquareGoddessTask(BaseBD2Task):
             return True
         if navigation_result != GODDESS_NAVIGATION_CLICKED:
             self.info_set("女神像许愿 OCR", "未确认女神像每日导航，停止本次任务")
-            self.log_info("广场女神像：未确认每日导航；派遣感叹号处理不代表许愿完成。")
+            # Player report 2026-10-11: the row was simply not there; a wish
+            # made by hand removes it and the tool cannot see that.
+            self.log_info(
+                "广场女神像：广场右边没有出现「移动至艾力克史温女神像」的每日导航，"
+                "这次没有许愿（今天自己许过愿的话就是这样，工具看不到）。"
+            )
             return False
         self.info_set("当前阶段", "等待并完成女神像许愿")
         if not self._wait_for_goddess_prayer_completion(
@@ -599,6 +619,10 @@ class SquareGoddessTask(BaseBD2Task):
         renav_seconds = float(self.config.get("女神像导航重试秒数", 35.0))
         renav_left = GODDESS_NAVIGATION_RETRIES
         last_navigation_at = monotonic()
+        stuck_seconds = float(
+            self.config.get("女神像寻路卡住秒数", GODDESS_WALK_STUCK_SECONDS)
+        )
+        walking_since = None
 
         while monotonic() <= end_at:
             frame = self.capture_frame()
@@ -610,6 +634,35 @@ class SquareGoddessTask(BaseBD2Task):
                 roi=None,
             )
             self.info_set("女神像许愿 OCR", text or "-")
+
+            if point is None and self._walk_banner_shown(text):
+                now = monotonic()
+                walking_since = now if walking_since is None else walking_since
+                if now - walking_since < stuck_seconds:
+                    self.sleep(interval)
+                    continue
+                walking_since = None
+                stopped = self._cancel_goddess_walk()
+                stuck = f"广场女神像：自动寻路停在半路超过{stuck_seconds:.0f}秒"
+                if renav_left <= 0:
+                    self.log_info(
+                        f"{stuck}，重新导航后还是一样，"
+                        + ("已按掉自动移动，" if stopped else "")
+                        + "这次没有许愿。"
+                    )
+                    return False
+                if not stopped:
+                    continue
+                self.log_info(f"{stuck}，已按掉自动移动，重新点每日导航。")
+                renav_left -= 1
+                navigation = self._click_goddess_daily_navigation_until(
+                    timeout=float(self.config.get("女神像导航入口等待秒数", 8.0))
+                )
+                if navigation == GODDESS_ALREADY_COMPLETE:
+                    return True
+                last_navigation_at = monotonic()
+                continue
+            walking_since = None
 
             if point is not None and click_count < max_clicks:
                 self._click_client(
@@ -645,7 +698,34 @@ class SquareGoddessTask(BaseBD2Task):
             ):
                 return True
 
+        # A walk still under way hides the home button: stop it first.
+        self._cancel_goddess_walk()
         return False
+
+    @staticmethod
+    def _walk_banner_shown(text: str) -> bool:
+        return GODDESS_WALK_BANNER in SquareGoddessTask._normalize_text(text)
+
+    def _walk_banner_now(self) -> bool:
+        return self._walk_banner_shown(self._ocr_text(self.capture_frame(), name="自动移动"))
+
+    def _cancel_goddess_walk(self) -> bool:
+        """Press the ✕ under "自动移动中" while two frames in a row show that
+        banner; True once two reads no longer show it.  Without the banner the
+        spot holds nothing of the walk, so nothing is pressed then."""
+
+        for _attempt in range(AUTO_MOVE_CANCEL_ATTEMPTS):
+            if not (self._walk_banner_now() and self._walk_banner_now()):
+                break
+            self.info_set("当前阶段", "取消卡住的自动移动")
+            x, y = AUTO_MOVE_CANCEL_REFERENCE_POINT
+            point = (x / REFERENCE_WIDTH, y / REFERENCE_HEIGHT)
+            self.operate_click(*point, after_sleep=0.8)  # 不用确认：下面读横幅消失没有
+        for _read in range(AUTO_MOVE_IDLE_READS):
+            if self._walk_banner_now():
+                return False
+            self.sleep(0.3)
+        return True
 
     def _wait_for_daily_navigation_to_disappear(
         self,
@@ -705,6 +785,8 @@ class SquareGoddessTask(BaseBD2Task):
                     stabilized = stabilize_template_match(
                         result,
                         frame.shape,
+                        window_samples=QUICK_SWITCH_STABLE_FRAMES,
+                        minimum_hits=QUICK_SWITCH_STABLE_FRAMES,
                         sample_match=sample_match,
                         passes=lambda candidate: self._passes(candidate, spec),
                         sleep=self.sleep,
@@ -714,8 +796,11 @@ class SquareGoddessTask(BaseBD2Task):
                         ),
                     )
                     if stabilized is None:
+                        # A see-through button over moving scenery (the
+                        # restaurant's chefs walk behind 立刻前往游戏卡, clone
+                        # 10-11) can miss one window: look again until timeout.
                         self.info_set(f"{name}稳定识别", "未形成稳定位置")
-                        return False
+                        continue
                     consensus, frame_shape = stabilized
                     frame_height, frame_width = frame_shape[:2]
                     stable_center = consensus.center
@@ -762,8 +847,12 @@ class SquareGoddessTask(BaseBD2Task):
         left, top, _crop = self._roi_frame(frame, roi)
         boxes = self._ocr_boxes(frame, name=name, roi=roi)
         text = " ".join(getattr(box, "name", "") for box in boxes if getattr(box, "name", ""))
+        # The walk banner may name the goal; it is not a prompt to press.
         matched_boxes = [
-            box for box in boxes if self._matches_any(getattr(box, "name", ""), patterns)
+            box
+            for box in boxes
+            if self._matches_any(getattr(box, "name", ""), patterns)
+            and not self._walk_banner_shown(getattr(box, "name", ""))
         ]
         if not matched_boxes:
             return None, text
@@ -923,6 +1012,7 @@ class SquareGoddessTask(BaseBD2Task):
                 target_height=720,
                 log=False,
                 name=name,
+                reread=ocr_scale == 1.0,
             )
         except (TaskDisabledException, FinishedException):
             raise

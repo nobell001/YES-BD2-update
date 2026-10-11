@@ -132,7 +132,8 @@ class HomePopularityTask(_ClaimTaskBase):
 
         Never pressed twice: a second press could take the like back.
         """
-        before = self._like_count()
+        # A count drawn late reads as nothing: look again before pressing.
+        before = self.look_again(self._like_count)
         self.info_set("当前阶段", f"第{visit}间小屋：点赞")
         self._click_reference(*LIKE_BUTTON_POINT, after_sleep=0.5)
         after = self._wait_like_count_above(before)
@@ -154,7 +155,7 @@ class HomePopularityTask(_ClaimTaskBase):
         the like back: the next like waits for a count this home never had.
         """
         left = set(self._home_counts)
-        current = self._like_count()
+        current = self.look_again(self._like_count)
         if current is not None:
             left.add(current)
         if not left:

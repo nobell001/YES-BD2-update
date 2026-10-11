@@ -476,7 +476,9 @@ class EventBattleTask(_ClaimTaskBase):
         """
         while state["stage"] is not None and state["stage"] < LAST_STAGE and not state["auto"]:
             current, target = state["stage"], state["stage"] + 1
-            point = self._stage_list_point(target)
+            point = self.look_again(
+                lambda: self._stage_list_point(target), f"活动每日战斗：{mode}左边列表找第{target}关"
+            )
             if point is None:
                 self.log_info(
                     f"活动每日战斗：{mode}选在已通关的第{current}关，左边列表里没认出第{target}关。"
@@ -588,7 +590,7 @@ class EventBattleTask(_ClaimTaskBase):
             if self._dismiss_ap_shortage():
                 return 0
             # A swallowed click leaves the stage page untouched; try once more.
-            if not self._stage_state(mode)["auto"]:
+            if not self.look_again(lambda: self._stage_state(mode)["auto"]):
                 break
         if not opened:
             self._failed("按了自动战斗，选场数的窗口没出来")
@@ -889,8 +891,13 @@ class EventBattleTask(_ClaimTaskBase):
             return "no_ap"
         self.info_set("当前阶段", f"挑战战斗15：快速战斗 {cost} 场")
         self.log_info(f"活动每日战斗：挑战战斗第15关快速战斗 {cost} 场。")
-        boxes = self._roi_boxes(self.capture_frame(), QUICK_DIALOG_START_ROI, "快速战斗开始")
-        start = self._box_with(boxes, ("战斗",))
+        start = self.look_again(
+            lambda: self._box_with(
+                self._roi_boxes(self.capture_frame(), QUICK_DIALOG_START_ROI, "快速战斗开始"),
+                ("战斗",),
+            ),
+            "活动每日战斗：快速战斗窗口找「战斗」",
+        )
         if start is None:
             self._click_reference(*QUICK_DIALOG_CANCEL_POINT, after_sleep=1.0)
             return self._failed("快速战斗窗口里没找到「战斗」")

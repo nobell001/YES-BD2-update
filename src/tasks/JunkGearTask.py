@@ -834,7 +834,7 @@ class JunkGearTask(EnhanceDialogMixin, DailyRefineTask):
             crop = cv2.resize(crop, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
         padded = cv2.copyMakeBorder(crop[:, :, :3], 20, 20, 20, 20, cv2.BORDER_REPLICATE)
         try:
-            boxes = self.ocr(frame=padded, threshold=0.3, target_height=0, log=False, name="格子稀有度")
+            boxes = self.ocr(frame=padded, threshold=0.3, target_height=0, log=False, name="格子稀有度", reread=False)
         except (TaskDisabledException, FinishedException):
             raise
         except Exception as exc:

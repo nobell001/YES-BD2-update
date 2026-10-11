@@ -260,10 +260,17 @@ class PassRewardTask(_ClaimTaskBase):
     ) -> str | None:
         """Claim one card; returns the caption of the card opened, or None."""
         # Re-read the list each time: the highlighted card changes its layout.
-        frame = self.capture_frame()
-        boxes = self._roi_boxes(frame, roi, "通行证列表")
-        cards = self._pass_caption_boxes(boxes)
-        target = self._box_with(cards, (caption,))
+        seen = {"cards": [], "frame": None}
+
+        def find_caption():
+            seen["frame"] = self.capture_frame()
+            seen["cards"] = self._pass_caption_boxes(
+                self._roi_boxes(seen["frame"], roi, "通行证列表")
+            )
+            return self._box_with(seen["cards"], (caption,))
+
+        target = self.look_again(find_caption)
+        frame, cards = seen["frame"], seen["cards"]
         opened = caption
         if target is None:
             # OCR may read the caption slightly differently; fall back to order.

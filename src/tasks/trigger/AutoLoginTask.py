@@ -887,6 +887,7 @@ class AutoLoginTask(BaseBD2Task):
                     target_height=720,
                     log=False,
                     name=f"主页抽抽乐 x{scale:g}",
+                    reread=scale == 1.0,
                 )
             except Exception as exc:
                 self.info_set(f"主页抽抽乐 x{scale:g} OCR 错误", str(exc))

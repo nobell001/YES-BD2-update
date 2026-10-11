@@ -1132,8 +1132,10 @@ class Vision:
                 ),
             )
             if stabilized is None:
+                # A see-through button over moving scenery can miss one
+                # window (restaurant chefs, clone 10-11): look again.
                 self._status(f"{spec.name}稳定识别", "未形成稳定位置")
-                return False
+                continue
             consensus, frame_shape = stabilized
             self._status(
                 f"{spec.name}稳定识别",
@@ -1206,6 +1208,7 @@ class Vision:
                 target_height=max(0, int(target_height)),
                 log=False,
                 name=name,
+                reread=ocr_scale == 1.0,
             )
         except (TaskDisabledException, FinishedException):
             raise

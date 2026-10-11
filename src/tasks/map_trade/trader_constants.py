@@ -108,6 +108,16 @@ SHOP_MODE_TITLE_REGION = (
     359 / FHD_1080.width,
     80 / FHD_1080.height,
 )
+# When the title box reads neither 购买 nor 出售, it is read once more with
+# room around it (a player's PC, v0.1.21 2026-10-11: 「购买」 showing, read
+# 「-」; the same frame read 购买 every time with this room).  The back
+# arrow on the left and the cartridge list below stay out.
+SHOP_MODE_TITLE_WIDER_REGION = (
+    186 / FHD_1080.width,
+    4 / FHD_1080.height,
+    399 / FHD_1080.width,
+    100 / FHD_1080.height,
+)
 SELL_MODE_POINT = (173 / FHD_1080.width, 250 / FHD_1080.height)
 # The 购买→出售 switch clicks plus an OCR read each used up 4 s on a slow PC.
 SHOP_MODE_TIMEOUT = 8.0
