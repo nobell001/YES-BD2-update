@@ -1,0 +1,248 @@
+"""A one-time walk-through after an update that changed a player's setting.
+
+Leo 2026-10-12: the 快速狩猎 update turns 双倍策略/资源倾向 into four rows of
+switches, 「所以這次更新完第一次開工具 指引用戶去點這個設定」, shaped like a
+web site's first-visit tour (「有點像這種樣子」): the window dims, the real
+control stays lit with a ring, and a small card beside it says what it is,
+with 跳过 / 上一步 / 下一步.  The lit part can be clicked, so the switches can
+be changed during the tour.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QTimer
+from PySide6.QtGui import QPainter, QPainterPath, QPen, QRegion
+from PySide6.QtWidgets import QFrame, QWidget
+
+from src.ui.shell import data, theme
+from src.ui.shell.safe import guarded
+from src.ui.shell.widgets import Button, Text, hbox, vbox
+
+CARD_WIDTH = 300
+HOLE_PAD = 8  # air between the lit control and the ring
+GAP = 14  # between the ring and the card
+RING = 3
+FOLLOW_MS = 120  # the lit part follows page moves and window resizes
+RETRY_MS = 30_000
+
+
+@dataclass
+class Step:
+    target: Callable[[], QWidget | None]
+    title: str
+    body: str
+    before: Callable[[], None] | None = None
+
+
+class _Card(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(CARD_WIDTH)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        corner = float(theme.radius()) + 4
+        painter.setPen(QPen(theme.color("line2"), 1))
+        painter.setBrush(theme.color("card"))
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), corner, corner)
+
+
+class CoachMarks(QWidget):
+    """Covers ``window``; dims all but the current step's control."""
+
+    def __init__(self, window: QWidget, steps: list[Step], on_done: Callable[[], None]):
+        super().__init__(window)
+        self._window = window
+        self._steps = steps
+        self._on_done = on_done
+        self._index = 0
+        self._hole = QRect()
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self.setStyleSheet(theme.style_sheet())
+
+        self.card = _Card(self)
+        column = vbox(self.card, (18, 14, 18, 14), 8)
+        self.count = Text("", "muted")
+        column.addWidget(self.count)
+        self.title = Text("", "h2", wrap=True)
+        column.addWidget(self.title)
+        self.body = Text("", "sub", wrap=True)
+        column.addWidget(self.body)
+        row = hbox(None, (0, 6, 0, 0), 8)
+        self.skip = Button("跳过", "ghost", size="sm", on_click=self.finish)
+        row.addWidget(self.skip)
+        row.addStretch(1)
+        self.back = Button("上一步", "secondary", size="sm", on_click=lambda: self.go(-1))
+        row.addWidget(self.back)
+        self.next = Button("下一步", "primary", size="sm", on_click=lambda: self.go(1))
+        row.addWidget(self.next)
+        column.addLayout(row)
+
+        self._follow = QTimer(self)
+        self._follow.timeout.connect(guarded("coach marks", self._place))
+        window.installEventFilter(self)
+
+    # ------------------------------------------------------------ steps
+
+    def start(self) -> None:
+        self.setGeometry(self._window.rect())
+        self.show()
+        self.raise_()
+        self._show_step()
+        self._follow.start(FOLLOW_MS)
+
+    def go(self, delta: int) -> None:
+        index = self._index + delta
+        if index >= len(self._steps):
+            self.finish()
+            return
+        self._index = max(0, index)
+        self._show_step()
+
+    def _show_step(self) -> None:
+        step = self._steps[self._index]
+        if step.before is not None:
+            step.before()
+        last = self._index == len(self._steps) - 1
+        self.count.set_text(f"{self._index + 1} / {len(self._steps)}")
+        self.title.set_text(step.title)
+        self.body.set_text(step.body)
+        self.back.setVisible(self._index > 0)
+        self.next.set_label("知道了" if last else "下一步")
+        self.skip.setVisible(not last)
+        self._place()
+
+    def finish(self) -> None:
+        self._follow.stop()
+        self._window.removeEventFilter(self)
+        self.hide()
+        self.deleteLater()
+        self._on_done()
+
+    # ------------------------------------------------------------ look
+
+    def eventFilter(self, watched, event):
+        if watched is self._window and event.type() == event.Type.Resize:
+            self.setGeometry(self._window.rect())
+            self._place()
+        return False
+
+    def _target_rect(self) -> QRect:
+        target = self._steps[self._index].target()
+        if target is None or not target.isVisible():
+            return QRect()
+        top_left = target.mapTo(self._window, QPoint(0, 0))
+        return QRect(top_left, target.size()).adjusted(-HOLE_PAD, -HOLE_PAD, HOLE_PAD, HOLE_PAD)
+
+    def _place(self) -> None:
+        hole = self._target_rect()
+        self.card.layout().activate()
+        height = self.card.layout().heightForWidth(CARD_WIDTH)
+        self.card.setFixedHeight(height if height > 0 else self.card.sizeHint().height())
+        card = self.card.size()
+        area = self.rect()
+        if hole.isNull():
+            x, y = (area.width() - card.width()) // 2, (area.height() - card.height()) // 2
+        elif hole.right() + GAP + card.width() <= area.right() - GAP:
+            x, y = hole.right() + GAP, hole.top()  # beside, like the web tour
+        else:
+            x, y = hole.left(), hole.bottom() + GAP
+            if y + card.height() > area.bottom() - GAP:
+                y = hole.top() - GAP - card.height()
+        x = min(max(GAP, x), area.width() - card.width() - GAP)
+        y = min(max(GAP, y), area.height() - card.height() - GAP)
+        self.card.move(x, y)
+        if hole != self._hole:
+            self._hole = hole
+            # Clicks in the lit part reach the control under it.
+            mask = QRegion(area)
+            if not hole.isNull():
+                mask = mask.subtracted(QRegion(hole, QRegion.RegionType.Rectangle))
+            self.setMask(mask)
+            self.update()
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        dark = theme.tokens() is theme.DARK
+        shade = QPainterPath()
+        shade.addRect(QRectF(self.rect()))
+        corner = 8.0  # small enough to cover the square lit part's corners
+        # The ring sits just outside the lit part (which this widget does not
+        # cover, so the control under it stays clickable).
+        ring = QRectF(self._hole).adjusted(-RING, -RING, RING, RING)
+        if not self._hole.isNull():
+            hole = QPainterPath()
+            hole.addRoundedRect(ring, corner, corner)
+            shade = shade.subtracted(hole)
+        painter.fillPath(shade, theme.color("shot", 0.62 if dark else 0.42))
+        if not self._hole.isNull():
+            painter.setPen(QPen(theme.color("primary"), RING))
+            painter.setBrush(Qt.NoBrush)
+            half = RING / 2
+            painter.drawRoundedRect(ring.adjusted(half, half, -half, -half), corner, corner)
+
+    def mousePressEvent(self, event):
+        event.accept()  # the dimmed part does nothing; the card has the buttons
+
+
+def quick_hunt_steps(shell) -> list[Step]:
+    def daily_item():
+        return shell.sidebar.items.get("daily")
+
+    def rows():
+        page = shell.pages.get("daily")
+        return getattr(page, "form", None)
+
+    return [
+        Step(
+            daily_item,
+            "快速狩猎有新设定",
+            "双倍时米饭打哪里，现在可以自己选，也能打狩猎场。设定在「任务设定」里。",
+        ),
+        Step(
+            rows,
+            "双倍时米饭打哪里",
+            "每行选一个：金币、史莱姆或狩猎场，都用 MAX。"
+            "已照你原本的设定开好，确认一下就好。",
+            before=lambda: shell.open_task("daily", "快速狩猎"),
+        ),
+    ]
+
+
+def show_quick_hunt_notice(shell) -> bool:
+    """Walk the player to the 快速狩猎 rows once, when the update moved old settings."""
+    from src.tasks.QuickHuntTask import QUICK_HUNT_NOTICE_KEY
+
+    task = data.task_by_class_name("QuickHuntTask")
+    config = getattr(task, "config", None)
+    if config is None or not config.get(QUICK_HUNT_NOTICE_KEY):
+        return False
+    # Shown once, however it is closed.
+    config[QUICK_HUNT_NOTICE_KEY] = False
+    tour = CoachMarks(shell.window, quick_hunt_steps(shell), lambda: None)
+    shell._coach_marks = tour
+    tour.start()
+    return True
+
+
+def _ready() -> bool:
+    """Not over a run, nor while 打开工具就自动跑 counts down (then it waits)."""
+    from src.ui.shell import autorun
+
+    return not data.busy() and autorun.seconds_left() is None
+
+
+def schedule(shell, delay_ms: int = 2500) -> None:
+    def check() -> None:
+        if not _ready():
+            QTimer.singleShot(RETRY_MS, guarded("new setting notice", check))
+            return
+        show_quick_hunt_notice(shell)
+
+    QTimer.singleShot(delay_ms, guarded("new setting notice", check))
+

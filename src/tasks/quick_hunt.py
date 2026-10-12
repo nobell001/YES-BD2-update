@@ -21,9 +21,27 @@ from src.utils.free_switch import ensure_free_switch_on
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
 from src.utils.press_confirm import wait_for
 
+# Where the free rice goes (all of it, MAX), one setting per double case
+# (Leo 2026-10-12: 「金幣雙倍時 / 史萊姆雙倍時 / 皆雙倍時: [金幣][史萊姆][狩獵場]
+# 用滑動切換開關 都直接max」).  Value: one of QUICK_HUNT_TARGETS, always one
+# (Leo: 「沒有那種整行都關掉都不打的狀況 一定要選一個」).  One of the routes is always doubled (Leo 2026-10-12:
+# 「不會沒有雙倍」), so no badge read means the screen was not read right.
+QUICK_HUNT_TARGETS = ("金币", "史莱姆", "狩猎场")
+QUICK_HUNT_TARGET_KEYS = {
+    "金币": "金币双倍时",
+    "史莱姆": "史莱姆双倍时",
+    "都": "都双倍时",
+}
+QUICK_HUNT_TARGET_DEFAULTS = {
+    "金币双倍时": "金币",
+    "史莱姆双倍时": "史莱姆",
+    "都双倍时": "金币",
+}
+# The settings these four replace (still read once from an old config file).
+QUICK_HUNT_LEGACY_TARGET_KEYS = ("快速狩猎双倍策略", "快速狩猎资源倾向")
+
 QUICK_HUNT_CHILD_CONFIG_KEYS = (
-    "快速狩猎双倍策略",
-    "快速狩猎资源倾向",
+    *QUICK_HUNT_TARGET_DEFAULTS,
     "快速狩猎模板阈值",
     "快速狩猎像素相似度阈值",
     "快速狩猎界面等待秒数",
@@ -35,6 +53,25 @@ QUICK_HUNT_CHILD_CONFIG_KEYS = (
 )
 
 QUICK_HUNT_CONFIG_KEYS = ("执行快速狩猎", *QUICK_HUNT_CHILD_CONFIG_KEYS)
+
+
+def quick_hunt_targets_from_legacy(legacy: dict) -> dict[str, str]:
+    """The four target settings that run as a saved 双倍策略/资源倾向 did.
+
+    Empty when the file already has the new settings or never had the old ones.
+    """
+    if any(key in legacy for key in QUICK_HUNT_TARGET_DEFAULTS):
+        return {}
+    if not any(key in legacy for key in QUICK_HUNT_LEGACY_TARGET_KEYS):
+        return {}
+    if legacy.get("快速狩猎双倍策略") == "忽视双倍":
+        return {key: "金币" for key in QUICK_HUNT_TARGET_DEFAULTS}
+    preferred = "史莱姆" if legacy.get("快速狩猎资源倾向") == "经验" else "金币"
+    return {
+        "金币双倍时": "金币",
+        "史莱姆双倍时": "史莱姆",
+        "都双倍时": preferred,
+    }
 
 def quick_hunt_cost(text: str) -> int | None:
     """The cost on the start button ("狩猎●6", "狩猎 84")."""
@@ -199,6 +236,8 @@ QUICK_HUNT_STONE_COUNT_ROI = _quick_hunt_relative_roi(1794, 288, 1689, 80)
 QUICK_HUNT_FOLD_BUTTON_ROI = _quick_hunt_relative_roi(1650, 78, 1800, 170)
 
 QUICK_HUNT_DOUBLE_ROI = _quick_hunt_relative_roi(168, 337, 135, 205)
+# How long the double badges are looked for (Leo: wait at most 5 s).
+QUICK_HUNT_DOUBLE_READ_SECONDS = 5.0
 
 QUICK_HUNT_ADVENTURE_LIST_ROI = _quick_hunt_relative_roi(228, 504, 128, 116)
 
@@ -213,6 +252,16 @@ QUICK_HUNT_ADVENTURE_MAP_PATTERNS = {
 }
 
 QUICK_HUNT_CRYSTAL_POINT = (177, 449)
+
+# 狩猎场 heads the menu's left column (label about (175, 188) at 1080p, its
+# icon above it; hunt-route-1011.jpg).
+QUICK_HUNT_HUNTING_GROUND_LABEL = r"^狩猎场$"
+QUICK_HUNT_HUNTING_GROUND_ROI = _quick_hunt_relative_roi(100, 120, 260, 225)
+QUICK_HUNT_HUNTING_GROUND_POINT = (175, 160)
+# Marks the 狩猎场 stage for the dialog check: any map that is not an
+# adventure route or an attribute cave (the stage changes with the chapter).
+QUICK_HUNT_HUNTING_GROUND = "狩猎场"
+QUICK_HUNT_NOT_HUNTING_GROUND = ("哥布林遗迹", "史莱姆王国", "属性洞穴")
 
 QUICK_HUNT_RETURN_POINT = (101, 55)
 
@@ -252,8 +301,7 @@ class QuickHuntConfigMixin:
 
     quick_hunt_default_config = {
         '执行快速狩猎': True,
-        '快速狩猎双倍策略': "优先双倍",
-        '快速狩猎资源倾向': "金币",
+        **QUICK_HUNT_TARGET_DEFAULTS,
         '快速狩猎模板阈值': 0.78,
         '快速狩猎像素相似度阈值': 0.72,
         '快速狩猎界面等待秒数': 8.0,
@@ -265,10 +313,10 @@ class QuickHuntConfigMixin:
     }
 
     quick_hunt_config_description = {
-        '执行快速狩猎': "消耗免费米饭和火把：米饭全部打冒险航线（不打狩猎场），火把打圣石洞穴。",
-        '快速狩猎双倍策略': "优先双倍：打有双倍的冒险航线（都双倍或都没有时，打资源倾向的航线）；"
-        "忽视双倍：不看双倍，固定只打金币航线（适合史莱姆/经验已溢出的后期玩家）。",
-        '快速狩猎资源倾向': "优先双倍时两条都双倍或都没有双倍，就打这条航线。",
+        '执行快速狩猎': "消耗免费米饭和火把：米饭全部（MAX）打设定的地方，火把打圣石洞穴。",
+        '金币双倍时': "只有金币航线双倍时，免费米饭全部打这里。",
+        '史莱姆双倍时': "只有史莱姆航线双倍时，免费米饭全部打这里。",
+        '都双倍时': "金币和史莱姆航线都双倍时，免费米饭全部打这里。",
         '快速狩猎模板阈值': "快速狩猎模板匹配最低分数。",
         '快速狩猎像素相似度阈值': "快速狩猎模板还必须达到的像素相似度。",
         '快速狩猎界面等待秒数': "等待狩猎菜单、地图和按钮出现的最长时间。",
@@ -287,8 +335,7 @@ class QuickHuntConfigMixin:
             '执行快速狩猎': {
                 "sub_configs": {
                     True: [
-                        "快速狩猎双倍策略",
-                        "快速狩猎资源倾向",
+                        *QUICK_HUNT_TARGET_DEFAULTS,
                         "快速狩猎模板阈值",
                         "快速狩猎像素相似度阈值",
                         "快速狩猎界面等待秒数",
@@ -300,13 +347,9 @@ class QuickHuntConfigMixin:
                     ]
                 }
             },
-            '快速狩猎双倍策略': {
-                "type": "drop_down",
-                "options": ["优先双倍", "忽视双倍"],
-            },
-            '快速狩猎资源倾向': {
-                "type": "drop_down",
-                "options": ["金币", "经验"],
+            **{
+                key: {"type": "toggle_choice", "options": list(QUICK_HUNT_TARGETS)}
+                for key in QUICK_HUNT_TARGET_DEFAULTS
             },
             '快速狩猎模板阈值': {"min": 0.5, "max": 0.95, "step": 0.01},
             '快速狩猎像素相似度阈值': {
@@ -674,9 +717,9 @@ class QuickHuntFeatureMixin:
         return "failed"
 
     def _quick_hunt_run_rice_scheduler(self) -> bool:
-        """Spend all free rice on one adventure route (MAX).
+        """Spend all free rice (MAX) where the player set it for today's doubles.
 
-        Leo 2026-10-11: 「現在已經不用打狩獵場了 設定也不用狩獵場 直接全體力冒險航線」.
+        Leo 2026-10-12: 狩猎场 is back as a choice, per double case.
         """
 
         self._status_set("快速狩猎当前阶段", "米饭调度")
@@ -684,28 +727,14 @@ class QuickHuntFeatureMixin:
             self._status_set("快速狩猎米饭", "0，跳过")
             return True
 
-        adventure_selected = self._quick_hunt_select_adventure_route()
-        if not adventure_selected:
-            self._status_set("快速狩猎米饭", "没有要打的冒险航线")
-            return True
-        expected_map_pattern = QUICK_HUNT_ADVENTURE_MAP_PATTERNS[adventure_selected]
-        result = self._quick_hunt_execute_current_map(
-            "MAX",
-            "冒险航线",
-            expected_map_pattern=expected_map_pattern,
-        )
-        if result == "wrong_map":
-            self.log_info(
-                f"快速狩猎：{adventure_selected}航线首次选择未生效，"
-                "重新 OCR 选择一次。"
-            )
-            if not self._quick_hunt_click_adventure(adventure_selected):
-                return False
-            result = self._quick_hunt_execute_current_map(
-                "MAX",
-                "冒险航线重试",
-                expected_map_pattern=expected_map_pattern,
-            )
+        target = self._quick_hunt_rice_target()
+        if target is None:
+            self._status_set("快速狩猎米饭", "没认出双倍标记")
+            return False
+        if target == "狩猎场":
+            result = self._quick_hunt_run_hunting_ground()
+        else:
+            result = self._quick_hunt_run_adventure(target)
         if result in {"failed", "wrong_map"}:
             return False
         if result == "depleted" or self._quick_hunt_resource_empty("米饭"):
@@ -713,6 +742,100 @@ class QuickHuntFeatureMixin:
             return True
         self._status_set("快速狩猎米饭", "调度结束")
         return True
+
+    def _quick_hunt_run_adventure(self, target: str) -> str:
+        resource = "经验" if target == "史莱姆" else "金币"
+        if not self._quick_hunt_click_adventure(resource):
+            return "failed"
+        expected_map_pattern = QUICK_HUNT_ADVENTURE_MAP_PATTERNS[resource]
+        result = self._quick_hunt_execute_current_map(
+            "MAX",
+            "冒险航线",
+            expected_map_pattern=expected_map_pattern,
+        )
+        if result == "wrong_map":
+            self.log_info(f"快速狩猎：{target}航线首次选择未生效，重新 OCR 选择一次。")
+            if not self._quick_hunt_click_adventure(resource):
+                return "failed"
+            result = self._quick_hunt_execute_current_map(
+                "MAX",
+                "冒险航线重试",
+                expected_map_pattern=expected_map_pattern,
+            )
+        return result
+
+    def _quick_hunt_run_hunting_ground(self) -> str:
+        """All free rice on the game's current 狩猎场 stage (the chapter is not changed)."""
+        if not self._quick_hunt_click_hunting_ground():
+            return "failed"
+        result = self._quick_hunt_execute_current_map(
+            "MAX", "狩猎场", expected_map_pattern=QUICK_HUNT_HUNTING_GROUND
+        )
+        if result == "wrong_map":
+            self.log_info("快速狩猎：狩猎场首次选择未生效，重新选择一次。")
+            if not self._quick_hunt_click_hunting_ground():
+                return "failed"
+            result = self._quick_hunt_execute_current_map(
+                "MAX", "狩猎场重试", expected_map_pattern=QUICK_HUNT_HUNTING_GROUND
+            )
+        return result
+
+    def _quick_hunt_click_hunting_ground(self) -> bool:
+        """Press 狩猎场 at the top of the menu's left column."""
+        timeout = self._quick_hunt_ui_timeout()
+        if self._quick_hunt_click_ocr(
+            [QUICK_HUNT_HUNTING_GROUND_LABEL],
+            QUICK_HUNT_HUNTING_GROUND_ROI,
+            timeout,
+            name="选择狩猎场",
+        ):
+            return True
+        # Harmless page switch: its remembered place, only while the hunt
+        # menu is on screen (Leo 2026-10-11, last-resort fixed position).
+        seen = self._quick_hunt_ocr_text(self.capture_frame(), None, name="狩猎场入口整屏文字")
+        if not re.search(QUICK_HUNT_MENU_PATTERN, self._normalize_text(seen)):
+            self._quick_hunt_log_screen("没看到狩猎菜单，没按狩猎场")
+            return False
+        self.log_info("快速狩猎：没认出狩猎场字样，按它的固定位置。")
+        self._click_reference(*QUICK_HUNT_HUNTING_GROUND_POINT, after_sleep=0.8)  # 不用确认：视窗读地图
+        return True
+
+    def _quick_hunt_double_case(self) -> str | None:
+        """"金币" / "史莱姆" (only that route doubled), "都", or None when no badge was read."""
+        end_at = monotonic() + QUICK_HUNT_DOUBLE_READ_SECONDS
+        while True:
+            states = self._quick_hunt_double_states()
+            if states["金币"] and states["经验"]:
+                return "都"
+            if states["金币"]:
+                return "金币"
+            if states["经验"]:
+                return "史莱姆"
+            # The route list may still be drawing after the reward page
+            # closed, or a slow PC draws the badges late.
+            if monotonic() >= end_at:
+                return None
+            self.sleep(0.8)
+
+    def _quick_hunt_rice_target(self) -> str | None:
+        """Where the free rice goes today: 金币 / 史莱姆 / 狩猎场, or None when
+        the double badges could not be read."""
+        case = self._quick_hunt_double_case()
+        if case is None:
+            self.log_info(
+                "快速狩猎：没认出金币和史莱姆航线的双倍标记（游戏里一定有一条双倍），"
+                "米饭先不打。"
+            )
+            self._quick_hunt_log_screen("没认出双倍标记")
+            return None
+        key = QUICK_HUNT_TARGET_KEYS[case]
+        target = str(self.config.get(key, QUICK_HUNT_TARGET_DEFAULTS[key]) or "")
+        if target not in QUICK_HUNT_TARGETS:
+            self.log_info(f"快速狩猎：{key}的设定「{target}」看不懂，按默认打。")
+            target = QUICK_HUNT_TARGET_DEFAULTS[key]
+        self.log_info(f"快速狩猎：{key}，米饭全部打{target}。")
+        self._status_set("快速狩猎米饭目标", f"{key}：{target}")
+        return target
 
     def _quick_hunt_run_crystal_cave(self) -> bool:
         self._status_set("快速狩猎当前阶段", "圣石洞穴")
@@ -840,39 +963,6 @@ class QuickHuntFeatureMixin:
         text = self._quick_hunt_ocr_text(self.capture_frame(), None, name="快速狩猎当时画面")
         words = " ".join(str(text or "").split())
         self.log_info(f"快速狩猎：{what}，当时画面读到「{words[:50] or '没读到字'}」。")
-
-    def _quick_hunt_select_adventure_route(self) -> str | None:
-        preferred = str(self.config.get("快速狩猎资源倾向", "金币"))
-        if preferred not in QUICK_HUNT_ADVENTURE_LABEL_PATTERNS:
-            self.log_info(f"快速狩猎：不支持的冒险航线资源：{preferred}")
-            return None
-        strategy = str(self.config.get("快速狩猎双倍策略", "优先双倍"))
-        # Leo 2026-10-11: only 优先双倍 / 忽视双倍 are offered; a saved 强制双倍
-        # (the removed option) runs as 优先双倍.
-        if strategy == "强制双倍":
-            strategy = "优先双倍"
-        if strategy == "忽视双倍":
-            return "金币" if self._quick_hunt_click_adventure("金币") else None
-        states = self._quick_hunt_double_states()
-        if not any(states.values()):
-            # The route list may still be drawing after the reward page
-            # closed: one miss would skip the route without an error.
-            self.sleep(0.8)
-            states = self._quick_hunt_double_states()
-        if strategy == "优先双倍":
-            doubled = [resource for resource in ("金币", "经验") if states[resource]]
-            if len(doubled) == 1:
-                selected = doubled[0]
-            else:
-                # Both doubled (weekends) or neither: the 资源倾向 route (Leo
-                # 2026-10-11 「優先雙倍 如果兩個都雙倍 那就看資源傾向」; with no
-                # hunting ground any more, skipping would leave the rice unused).
-                which = "金币和经验都是双倍" if doubled else "金币和经验均未识别到双倍"
-                self.log_info(f"快速狩猎：{which}，打资源倾向的{preferred}航线。")
-                selected = preferred
-            return selected if self._quick_hunt_click_adventure(selected) else None
-        self.log_info(f"快速狩猎：不支持的双倍策略：{strategy}")
-        return None
 
     def _quick_hunt_click_adventure(self, resource: str) -> bool:
         pattern = QUICK_HUNT_ADVENTURE_LABEL_PATTERNS.get(resource)
@@ -1392,9 +1482,11 @@ class QuickHuntFeatureMixin:
         expected_pattern: str,
         name: str,
     ) -> tuple[str, str, str | None]:
+        hunting_ground = expected_pattern == QUICK_HUNT_HUNTING_GROUND
         expected = re.compile(expected_pattern, re.IGNORECASE)
         end_at = monotonic() + self._quick_hunt_ui_timeout()
         last_text = ""
+        plain_dialog_reads = 0
         while monotonic() <= end_at:
             frame = self.capture_frame()
             boxes = self._quick_vision().ocr_boxes(
@@ -1406,7 +1498,7 @@ class QuickHuntFeatureMixin:
             last_text = text
             self._status_set(f"{name} OCR", text or "-")
             normalized = self._normalize_text(text)
-            if expected.search(normalized):
+            if not hunting_ground and expected.search(normalized):
                 return "matched", text, None
             actual_map = next(
                 (
@@ -1416,6 +1508,19 @@ class QuickHuntFeatureMixin:
                 ),
                 None,
             )
+            if hunting_ground and actual_map not in QUICK_HUNT_NOT_HUNTING_GROUND:
+                if actual_map is not None:
+                    return "matched", text, None
+                # A 狩猎场 stage the list does not name: the dialog read twice
+                # in a row with no adventure route or attribute cave in it.
+                if QUICK_HUNT_DIALOG_BUTTONS.search(normalized):
+                    plain_dialog_reads += 1
+                    if plain_dialog_reads >= 2:
+                        return "matched", text, None
+                else:
+                    plain_dialog_reads = 0
+                self.sleep(0.4)
+                continue
             if actual_map is not None:
                 self.log_info(
                     f"快速狩猎：{name}明确识别到错误地图 {actual_map}。"

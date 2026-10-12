@@ -1,3 +1,8 @@
+import json
+from pathlib import Path
+
+from ok import Config
+from ok.util.file import get_relative_path
 from qfluentwidgets import FluentIcon
 
 from src.tasks import problem_report
@@ -6,7 +11,11 @@ from src.tasks.quick_hunt import (
     QUICK_HUNT_CHILD_CONFIG_KEYS,
     QuickHuntConfigMixin,
     QuickHuntFeatureMixin,
+    quick_hunt_targets_from_legacy,
 )
+
+# Set when an update moved old settings over; src/ui/shell/new_setting_notice.py.
+QUICK_HUNT_NOTICE_KEY = "_米饭目标新设定提示"
 from src.tasks.task_vision_mixin import TaskVisionMixin
 from src.utils.home_confirmation import HOME_DIMMED_P95_THRESHOLD_DEFAULT
 
@@ -113,6 +122,7 @@ class QuickHuntTask(
         visible_keys.insert(ocr_index, "快速狩猎 OCR 阈值")
         visible_keys.extend(("主页压暗阈值", "主页确认等待秒数"))
         self.default_config["启用"] = True
+        self.default_config[QUICK_HUNT_NOTICE_KEY] = False
         self.config_description["启用"] = "是否执行独立的快速狩猎任务。"
         self.config_type["启用"] = {"sub_configs": {True: visible_keys}}
         ordered_keys = ("启用", *visible_keys)
@@ -128,6 +138,23 @@ class QuickHuntTask(
                 if key not in ordered_keys
             },
         }
+
+    def load_config(self):
+        # A saved 双倍策略/资源倾向 becomes the per-case targets once, so the
+        # rice goes where it went before (ok-script drops the old keys).
+        path = Path(get_relative_path(Config.config_folder, f"{self.__class__.__name__}.json"))
+        try:
+            legacy = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, ValueError):
+            legacy = {}
+        migrated = quick_hunt_targets_from_legacy(legacy if isinstance(legacy, dict) else {})
+        super().load_config()
+        for key, value in migrated.items():
+            self.config[key] = value
+        if migrated:
+            # The tool shows the new rows once at the next start (Leo 2026-10-12:
+            # 「更新完第一次開工具 指引用戶去點這個設定」).
+            self.config[QUICK_HUNT_NOTICE_KEY] = True
 
     def run(self):
         test_action = getattr(self, "_quick_hunt_test_action", None)

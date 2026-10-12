@@ -187,6 +187,8 @@ class ConfigForm(QWidget):
             return self._drop_down(key, list(the_type.get("options") or []))
         if kind == "multi_selection":
             return self._multi(key, list(the_type.get("options") or []))
+        if kind == "toggle_choice":
+            return self._toggle_choice(key, list(the_type.get("options") or []))
         if kind == "button":
             return self._buttons(key, the_type)
         if isinstance(value, bool):
@@ -282,6 +284,32 @@ class ConfigForm(QWidget):
             for option, check in boxes.items():
                 check.set_checked_quietly(option in selected)
 
+        return box, sync
+
+    def _toggle_choice(self, key: str, options: list[str]):
+        """One switch per option, always exactly one on: switching one on turns the
+        others off, and the one that is on cannot be switched off (Leo 2026-10-12)."""
+        box = QWidget(self)
+        row = hbox(box, (0, 0, 0, 0), 18)
+        toggles = {}
+        sync_ref: list[Callable[[], None]] = []
+        for option in options:
+            pair = hbox(None, (0, 0, 0, 0), 8)
+            pair.addWidget(Text(str(option), "sub"))
+            toggle = Toggle(self.task.config.get(key) == option, box)
+            toggle.toggled.connect(
+                lambda on, k=key, o=option, s=sync_ref: self._set(k, o) if on else s[0]()
+            )
+            pair.addWidget(toggle)
+            row.addLayout(pair)
+            toggles[option] = toggle
+
+        def sync():
+            current = self.task.config.get(key)
+            for option, toggle in toggles.items():
+                toggle.set_checked_quietly(option == current)
+
+        sync_ref.append(sync)
         return box, sync
 
     def _set_multi(self, key: str, options: list[str], boxes: dict) -> None:

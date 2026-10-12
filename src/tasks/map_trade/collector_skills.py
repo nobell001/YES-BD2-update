@@ -1358,16 +1358,15 @@ class SkillExecutionMixin:
             and after[0] == before[0] + 1
             and (post_window_stable or exact_single_increment)
         )
-        # On bright ground (towns in snow or stone, live 2K 2026-09-29) the
-        # greyed icon fails its template; an exact +1 on the count, with the
-        # icon at least no longer reading "available", proves the press.
-        icon_unreadable = post_detection.state in {ActionIconState.ABSENT, ActionIconState.UNKNOWN}
-        # Its own success toast plus an exact +1 on a stable count is proof
-        # even when the icon still reads bright (压制 on 记忆裂缝, live 2K).
-        if (
-            (icon_used and (feedback_success or count_proves))
-            or (icon_unreadable and count_proves and post_window_stable)
-            or (feedback_success and count_proves and post_window_stable)
+        # The count is this action's own, so a stable exact +1 is the game
+        # taking the press whatever the icon reads: on bright ground (towns in
+        # snow or stone, live 2K 2026-09-29) the greyed icon fails its
+        # template, 压制 stays bright (记忆裂缝, live 2K), and on sand the grey
+        # 吸收 read as bright with its toast hidden behind 探查's (player
+        # 2026-10-12, Q_sp5 主城区 12/21->13/21 stopped the run as
+        # 「执行证据不一致」).
+        if (icon_used and (feedback_success or count_proves)) or (
+            count_proves and post_window_stable
         ):
             # A valid absolute snapshot is settled immediately; any
             # dim/bare/invalid post OCR remains a durable pending action.

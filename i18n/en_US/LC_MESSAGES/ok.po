@@ -2725,6 +2725,7 @@ msgstr "Prefer double: runs the Path of Adventure that has double (if both or ne
 
 msgid "优先双倍时两条都双倍或都没有双倍，就打这条航线。"
 msgstr "Under Prefer double, this route is run when both routes or neither route has double."
+
 msgid "循环砍价"
 msgstr "Bargain Loop"
 
@@ -2763,3 +2764,48 @@ msgstr "Press {stop} to stop at any time; the key is set in Settings"
 
 msgid "练砍价技能"
 msgstr "Train the Bargain skill"
+
+msgid "金币双倍时"
+msgstr "When Gold is doubled"
+
+msgid "史莱姆双倍时"
+msgstr "When Slime is doubled"
+
+msgid "都双倍时"
+msgstr "When both are doubled"
+
+msgid "狩猎场"
+msgstr "Hunting Ground"
+
+msgid "消耗免费米饭和火把：米饭全部（MAX）打设定的地方，火把打圣石洞穴。"
+msgstr "Uses free Cooked Rice and Torches: all rice (MAX) goes where you set it, torches go to the Sacred Stone Cave."
+
+msgid "只有金币航线双倍时，免费米饭全部打这里。"
+msgstr "When only the Gold route is doubled, all free rice goes here."
+
+msgid "只有史莱姆航线双倍时，免费米饭全部打这里。"
+msgstr "When only the Slime route is doubled, all free rice goes here."
+
+msgid "金币和史莱姆航线都双倍时，免费米饭全部打这里。"
+msgstr "When both the Gold and Slime routes are doubled, all free rice goes here."
+
+msgid "快速狩猎有新设定"
+msgstr "Quick Hunt has a new setting"
+
+msgid "上一步"
+msgstr "Back"
+
+msgid "下一步"
+msgstr "Next"
+
+msgid "知道了"
+msgstr "Got it"
+
+msgid "双倍时米饭打哪里，现在可以自己选，也能打狩猎场。设定在「任务设定」里。"
+msgstr "You can now choose where rice goes on double days, Hunting Ground included. It's under \"Task Setup\"."
+
+msgid "双倍时米饭打哪里"
+msgstr "Where rice goes on double days"
+
+msgid "每行选一个：金币、史莱姆或狩猎场，都用 MAX。已照你原本的设定开好，确认一下就好。"
+msgstr "Pick one per row: Gold, Slime or Hunting Ground, always MAX. Already set to match your old settings, just check them."

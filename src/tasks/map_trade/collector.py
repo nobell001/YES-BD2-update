@@ -88,6 +88,9 @@ class Collector(SkillExecutionMixin):
         # latch until the next run invocation.
         self._group_one_recovery_attempted = False
         self._skipped_cards: list = []
+        # card_id -> where and why a skill could not be confirmed (Leo
+        # 2026-10-12: skip the card, but the report must say where).
+        self._skill_skips: dict[str, str] = {}
         try:
             return self._with_skipped_cards(self._run_collection())
         except RuntimeError as exc:
@@ -284,9 +287,12 @@ class Collector(SkillExecutionMixin):
                     # its hidden items may not have been shown.
                     before_search.append(target.key)
                 if isinstance(searched, SkillExecutionResult):
-                    return self._skill_failure(
-                        card.card_id, f"{role.label}探查", searched, completed_this_run
+                    stopped = self._skip_after_skill_failure(
+                        card, f"{role.label}探查", searched, completed_this_run
                     )
+                    if stopped is not None:
+                        return stopped
+                    break
                 self._status("采集进度", f"{card.card_id} {role.label}：{target.title}")
                 actions = (
                     (ABSORB_ACTION,) if role is CollectionMapRole.MAIN_AREA else BATTLE_ACTIONS
@@ -305,7 +311,12 @@ class Collector(SkillExecutionMixin):
                         if stopped is not None:
                             return stopped
                         break
-                    return self._skill_failure(card.card_id, role.label, result, completed_this_run)
+                    stopped = self._skip_after_skill_failure(
+                        card, role.label, result, completed_this_run
+                    )
+                    if stopped is not None:
+                        return stopped
+                    break
                 committed = self.progress.mark_target(card.card_id, target.key)
                 if not committed:
                     return CollectionResult(
@@ -483,15 +494,41 @@ class Collector(SkillExecutionMixin):
             message=f"{card.label}跳过后回不到主页（{returned.message}），停止跑图",
         )
 
+    def _skip_after_skill_failure(
+        self,
+        card,
+        stage: str,
+        result: SkillExecutionResult,
+        completed_this_run: int,
+    ) -> CollectionResult | None:
+        """Leo 2026-10-12: a skill that cannot be confirmed on one map skips
+        that card and the run goes on; the report names the card, the map and
+        why.  Used-up skills still end the day's run.  None = go on."""
+        if result.depleted:
+            return self._skill_failure(card.card_id, stage, result, completed_this_run)
+        self._record_skill_failure(card.card_id, stage, result)
+        problem = f"{stage}技能操作失败" + (f"：{result.message}" if result.message else "")
+        self._skill_skips.setdefault(card.card_id, problem)
+        return self._skip_card(card, problem, completed_this_run)
+
     def _with_skipped_cards(self, result: CollectionResult) -> CollectionResult:
         """A skipped card is not done, so the run is never reported as complete."""
         if not self._skipped_cards:
             return result
-        names = "、".join(dict.fromkeys(card.label for card in self._skipped_cards))
-        note = (
-            f"{names}这次跳过，没有完成；没有这张卡带或不想跑的话，"
-            "可在「跑图章节」取消勾选（跑图页点一下这张卡带）"
-        )
+        cards = list({card.card_id: card for card in self._skipped_cards}.values())
+        notes = [
+            f"{card.label}{self._skill_skips[card.card_id]}，这张先跳过，下次运行再跑"
+            for card in cards
+            if card.card_id in self._skill_skips
+        ]
+        missing = [card for card in cards if card.card_id not in self._skill_skips]
+        if missing:
+            names = "、".join(card.label for card in missing)
+            notes.append(
+                f"{names}这次跳过，没有完成；没有这张卡带或不想跑的话，"
+                "可在「跑图章节」取消勾选（跑图页点一下这张卡带）"
+            )
+        note = "；".join(notes)
         self.task.log_warning(f"地图采集：{note}。")
         return replace(
             result,

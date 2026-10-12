@@ -101,6 +101,10 @@ class Shell(QObject):
 
         # The player's 「打开工具就自动跑」 on 首页 (Leo 2026-10-09).
         QTimer.singleShot(1500, autorun.schedule)
+        from src.ui.shell import new_setting_notice
+
+        # Settings an update changed, shown once (Leo 2026-10-12).
+        new_setting_notice.schedule(self)
         self._start_keep_awake()
 
     # ------------------------------------------------------------ keep awake
