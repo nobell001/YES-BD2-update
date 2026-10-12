@@ -348,7 +348,14 @@ class QuickHuntConfigMixin:
                 }
             },
             **{
-                key: {"type": "toggle_choice", "options": list(QUICK_HUNT_TARGETS)}
+                # ok-script also builds a card from config_type when the tool
+                # opens and stops on a type it doesn't know (v0.1.27 「打不开」),
+                # so the type stays drop_down and only our form reads "widget".
+                key: {
+                    "type": "drop_down",
+                    "options": list(QUICK_HUNT_TARGETS),
+                    "widget": "toggle_choice",
+                }
                 for key in QUICK_HUNT_TARGET_DEFAULTS
             },
             '快速狩猎模板阈值': {"min": 0.5, "max": 0.95, "step": 0.01},

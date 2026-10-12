@@ -182,7 +182,7 @@ class ConfigForm(QWidget):
     def _control(self, key: str):
         value = self.task.config.get(key)
         the_type = _type_of(self.task, key)
-        kind = the_type.get("type")
+        kind = the_type.get("widget") or the_type.get("type")
         if kind == "drop_down":
             return self._drop_down(key, list(the_type.get("options") or []))
         if kind == "multi_selection":
