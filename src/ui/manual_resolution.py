@@ -30,6 +30,13 @@ DEFAULT_MANUAL_RESOLUTION = (1920, 1080)
 RESIZE_TIMEOUT_SECONDS = 3.0
 RESIZE_POLL_INTERVAL_SECONDS = 0.05
 RESIZE_UI_TIMEOUT_MS = 6000
+# The game's own 全屏 mode puts the window back over the whole screen right
+# after any resize (a player's 2560x1600 laptop, 2026-10-12).  Only the game's
+# own setting can change that, so the message says where it is.
+GAME_FULLSCREEN_MESSAGE = (
+    "游戏现在是全屏，会自己撑满整个屏幕（{size}），工具改不了它的大小。"
+    "请在游戏里打开 设置 → 图像 → 画面模式，改成「窗口模式」，再按「调整」。"
+)
 
 
 def _text(template: str, size: tuple[int, int]) -> str:
@@ -356,6 +363,9 @@ def resize_game_window(
                 break
             sleep(RESIZE_POLL_INTERVAL_SECONDS)
 
+        left, top, right, bottom = backend.get_monitor_bounds(hwnd)
+        if actual == (right - left, bottom - top):
+            raise ManualResolutionError(_text(GAME_FULLSCREEN_MESSAGE, actual))
         raise ManualResolutionError(
             _text("窗口没有稳定到目标分辨率，当前客户区为 {size}。", actual)
         )

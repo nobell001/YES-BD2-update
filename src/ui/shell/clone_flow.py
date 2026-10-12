@@ -119,20 +119,16 @@ def ask_and_start(window, task, run_mode: str | None = None) -> bool:
         ))
         yes = "第一次设定"
     elif hello:
-        # A player turned face recognition off and still got this (2026-10-09);
-        # another could not find the switch (Leo 2026-10-10: 「他就是找不到
-        # 應該跟他說在哪找而不是打一長串原因」): where to click, no reasons.
+        # Players could not find the Settings switch: Windows hides it when
+        # face, fingerprint and PIN are all unavailable (2026-10-12).  Leo
+        # chose a button that turns it off for them.
         steps = t((
-            "要先关掉一个 Windows 开关：\n"
-            "• 按下面「打开登录选项」（设置 → 帐户 → 登录选项）\n"
-            "• Windows 11：拉到最下面「其他设置」，关掉"
-            "「为了提高安全性，仅允许对此设备上的 Microsoft 帐户使用 Windows Hello 登录(推荐)」\n"
-            "• Windows 10：关掉「需要 Windows Hello 登录 Microsoft 帐户」\n"
-            "• 开关是灰的：先到 account.microsoft.com →「安全」→「高级安全选项」"
-            "关掉「无密码帐户」，重新开机再关\n"
-            "• 关好后再按一次这个按钮"
+            "要先关掉一个 Windows 设定：\n"
+            "• 分身要用帐户密码登录，这台电脑现在只允许 Windows Hello\n"
+            "• 按「帮我关掉」，Windows 确认请按「是」\n"
+            "• 第一次进分身要打帐户密码（不是 PIN），之后会记住"
         ))
-        yes = "打开登录选项"
+        yes = "帮我关掉"
     else:
         steps = t((
             "按「前往」后：\n"
@@ -150,8 +146,7 @@ def ask_and_start(window, task, run_mode: str | None = None) -> bool:
     if not clone_desktop.ready():
         clone_desktop.run_setup()
         return False
-    if hello:
-        clone_desktop.open_sign_in_options()
+    if hello and not clone_desktop.turn_off_hello_only():
         return False
     return open_clone(window, task, run_mode)
 

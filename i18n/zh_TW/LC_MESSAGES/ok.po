@@ -274,3 +274,17 @@ msgstr "按 {stop} 可隨時停止，按鍵在設定裡改"
 
 msgid "练砍价技能"
 msgstr "練討價還價技能"
+
+msgid ""
+"要先关掉一个 Windows 设定：\n"
+"• 分身要用帐户密码登录，这台电脑现在只允许 Windows Hello\n"
+"• 按「帮我关掉」，Windows 确认请按「是」\n"
+"• 第一次进分身要打帐户密码（不是 PIN），之后会记住"
+msgstr ""
+"要先關掉一個 Windows 設定：\n"
+"• 分身要用帳戶密碼登入，這臺電腦現在只允許 Windows Hello\n"
+"• 按「幫我關掉」，Windows 確認請按「是」\n"
+"• 第一次進分身要打帳戶密碼（不是 PIN），之後會記住"
+
+msgid "帮我关掉"
+msgstr "幫我關掉"

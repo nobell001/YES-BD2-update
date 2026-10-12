@@ -95,6 +95,8 @@ MY_HOME_TITLE_OCR_RETRY_INTERVAL = 0.4
 MY_HOME_ENTRY_CLICK_ATTEMPTS = 3
 MY_HOME_ENTRY_RETRY_SECONDS = 4.0
 BUSINESS_COLLECT_ENTRY_REFERENCE_POINT = (165, 260)
+# How long a 经营管理 press waits for the popup before a lost press is redone.
+BUSINESS_ENTRY_RETRY_SECONDS = 4.0
 # Fallback only: closes the popup when 取消 is not read, and taps away an
 # unrecognised reward overlay.
 BUSINESS_COLLECT_CLOSE_REFERENCE_POINT = (832, 814)
@@ -284,13 +286,17 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
 
             self.info_set("当前任务", name)
             self.log_info(f"开始日常子任务：{name}")
-            try:
-                result = func()
-            except (TaskDisabledException, FinishedException):
-                raise
-            except Exception as exc:
-                result = False
-                self.log_error(f"日常子任务失败：{name}", exc)
+            result = self._run_step(name, func)
+            # A failed step is tried once more from home (player 2026-10-12,
+            # v0.1.24: right after 08:00 the game's announcement board
+            # covered home under 公会/小屋 and all three steps failed).
+            home_lost = False
+            if not result:
+                if self._wait_for_home_confirmation(f"{name}失败后主页确认", timeout=3.0):
+                    self.log_info(f"{name}：没成功，已回到主页，再试一次。")
+                    result = self._run_step(name, func)
+                else:
+                    home_lost = True
             if result == STEP_SKIPPED:
                 skipped.append(name)
             elif result:
@@ -299,7 +305,14 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 failed.append(name)
                 # The steps are independent: only a game that is not back
                 # on home stops the rest (finding 24).
-                if name != enabled[-1] and not self._home_after_failed_step(name):
+                if name == enabled[-1]:
+                    continue
+                back_home = (
+                    self._recover_home_after_failed_step(name)
+                    if home_lost
+                    else self._home_after_failed_step(name)
+                )
+                if not back_home:
                     stop_remaining = True
                     self.log_info(f"{name} 失败后未能确认回到主页，停止剩余子任务。")
 
@@ -312,6 +325,15 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         )
         return not failed
 
+    def _run_step(self, name: str, func):
+        try:
+            return func()
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:
+            self.log_error(f"日常子任务失败：{name}", exc)
+            return False
+
     def _home_after_failed_step(self, name: str) -> bool:
         """True once home is confirmed again after a failed sub-step.
 
@@ -320,6 +342,9 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         """
         if self._wait_for_home_confirmation(f"{name}失败后主页确认", timeout=3.0):
             return True
+        return self._recover_home_after_failed_step(name)
+
+    def _recover_home_after_failed_step(self, name: str) -> bool:
         self.log_info(f"{name}：失败后不在主页，先返回主页再继续。")
         return bool(recover_to_home(self))
 
@@ -490,10 +515,20 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         if not self._wait_for_home_confirmation("一键收菜入口前主页确认"):
             return False
 
+        wait = float(self.config.get("一键收菜菜单等待秒数", 8.0))
+        first_wait = min(wait, BUSINESS_ENTRY_RETRY_SECONDS)
         self._click_reference(*BUSINESS_COLLECT_ENTRY_REFERENCE_POINT, after_sleep=1.0)
-        found, frame, boxes = self._wait_business_collect_popup(
-            float(self.config.get("一键收菜菜单等待秒数", 8.0))
-        )
+        found, frame, boxes = self._wait_business_collect_popup(first_wait)
+        # A click the game swallowed leaves home up: only then press again
+        # (player 2026-10-12: one lost press on 经营管理 failed 一键收菜).
+        if not found and self._home_still_showing():
+            self.log_info("一键收菜：点了经营管理还在主页，再点一次。")
+            self._click_reference(*BUSINESS_COLLECT_ENTRY_REFERENCE_POINT, after_sleep=1.0)
+            found, frame, boxes = self._wait_business_collect_popup(
+                max(first_wait, wait - first_wait)
+            )
+        elif not found and wait > first_wait:
+            found, frame, boxes = self._wait_business_collect_popup(wait - first_wait)
         self.info_set("一键收菜 OCR", self._boxes_text(boxes) or "-")
         self._status_set("一键收菜弹窗", "是" if found else "否")
         if not found:

@@ -78,6 +78,9 @@ def viewer_removed() -> bool:
     return SETUP_STATE.exists() and not VIEWER.exists()
 
 
+HELLO_KEY = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device"
+
+
 def hello_only() -> bool:
     """A Microsoft account limited to Windows Hello cannot sign in to the clone.
 
@@ -85,10 +88,7 @@ def hello_only() -> bool:
     account has no such switch in Settings and must not be stopped by it
     (clone thread 2026-10-10).  Not sure what the account is -> still stop.
     """
-    value = _read_hklm(
-        r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device",
-        "DevicePasswordLessBuildVersion",
-    )
+    value = _read_hklm(HELLO_KEY, "DevicePasswordLessBuildVersion")
     return value == 2 and microsoft_account() is not False
 
 
@@ -99,6 +99,9 @@ def microsoft_account() -> bool | None:
     IdentityStore\\Cache\\<SID>; without that entry, a Microsoft account
     signed in to Windows leaves its identity under HKCU IdentityCRL.
     """
+    linked = _internet_identity()
+    if linked is not None:
+        return linked
     try:
         import winreg
     except ImportError:
@@ -121,6 +124,42 @@ def microsoft_account() -> bool | None:
         return False
     except OSError:
         return None
+
+
+class _UserInfo24(ctypes.Structure):
+    _fields_ = [
+        ("internet_identity", ctypes.c_int),
+        ("flags", ctypes.c_ulong),
+        ("provider", ctypes.c_wchar_p),
+        ("principal", ctypes.c_wchar_p),
+        ("sid", ctypes.c_void_p),
+    ]
+
+
+def _internet_identity() -> bool | None:
+    """Windows' own answer (NetUserGetInfo level 24): this Windows user is
+    linked to a Microsoft account.  None = Windows did not answer.
+
+    A local account that only signed in to the Store or Office still leaves
+    an HKCU IdentityCRL entry, so that entry alone wrongly stopped a local
+    account with no switch to turn off (B站 UP, 2026-10-12).
+    """
+    try:
+        netapi = ctypes.windll.netapi32
+        size = ctypes.c_ulong(257)
+        name = ctypes.create_unicode_buffer(size.value)
+        if not ctypes.windll.advapi32.GetUserNameW(name, ctypes.byref(size)):
+            return None
+        buffer = ctypes.c_void_p()
+        if netapi.NetUserGetInfo(None, name.value, 24, ctypes.byref(buffer)) != 0:
+            return None
+    except (AttributeError, OSError):
+        return None
+    try:
+        info = ctypes.cast(buffer, ctypes.POINTER(_UserInfo24)).contents
+        return bool(info.internet_identity)
+    finally:
+        netapi.NetApiBufferFree(buffer)
 
 
 @functools.lru_cache(maxsize=1)
@@ -431,8 +470,50 @@ def launch_result() -> str | None:
         return None
 
 
-def open_sign_in_options() -> None:
-    os.startfile("ms-settings:signinoptions")
+def turn_off_hello_only(wait: float = 20.0) -> bool:
+    """Turn off 「仅允许 Windows Hello 登录」 for the player: the same value
+    the Settings switch writes.  Windows hides that switch when face,
+    fingerprint and PIN are all unavailable, so two players could not find it
+    (Leo 2026-10-12 chose a 「帮我关掉」 button).  Not elevated: one Windows
+    confirmation for reg.exe.  True once the setting reads off.
+    """
+    if is_admin():
+        try:
+            import winreg
+
+            with winreg.CreateKeyEx(
+                winreg.HKEY_LOCAL_MACHINE, HELLO_KEY, 0, winreg.KEY_SET_VALUE
+            ) as key:
+                winreg.SetValueEx(
+                    key, "DevicePasswordLessBuildVersion", 0, winreg.REG_DWORD, 0
+                )
+        except (ImportError, OSError):
+            return False
+        return not hello_only()
+    arguments = subprocess.list2cmdline(
+        [
+            "add",
+            "HKLM\\" + HELLO_KEY,
+            "/v",
+            "DevicePasswordLessBuildVersion",
+            "/t",
+            "REG_DWORD",
+            "/d",
+            "0",
+            "/f",
+        ]
+    )
+    try:
+        shell_execute = ctypes.windll.shell32.ShellExecuteW
+        shell_execute.restype = ctypes.c_void_p
+        result = shell_execute(None, "runas", "reg.exe", arguments, None, 0)
+    except (AttributeError, OSError):
+        return False
+    if (result or 0) <= 32:
+        return False
+    from src.utils.press_confirm import wait_for
+
+    return bool(wait_for(lambda: not hello_only(), wait, sleep=time.sleep, poll=0.5))
 
 
 def request_job(task: str, run_mode: str | None = None, by_player: bool = True) -> None:
