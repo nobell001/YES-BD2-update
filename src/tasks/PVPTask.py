@@ -8,6 +8,7 @@ from ok.task.exceptions import FinishedException, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
 from src.tasks.BaseBD2Task import (
+    FIEND_HUNT_REWARD_DISMISS_TEXT,
     FIEND_HUNT_REWARD_TITLE,
     RECENT_CARTRIDGE_SPECIAL_PAGE_MAX_ACTIONS,
     BaseBD2Task,
@@ -148,6 +149,14 @@ PVP_AP_SHORTAGE_VERIFY_SECONDS = 1.0
 # dialog (e.g. a purchase prompt) is left alone.
 PVP_RANK_PAGE_TITLES = ("恭喜晋级", "段位下滑")
 PVP_SEASON_REWARD_AFTER_CLICK_SECONDS = 3.0
+# After a battle the 赛季奖励 page can cover the hub (first hub visit after the
+# Monday reset, player report 2026-10-12, v0.1.24): it is tapped away there.
+# When its 点击画面即可返回 line is not read, the tap goes to the blank spot
+# that line sits on (Leo 「不會點掉就點空白處」).
+PVP_REWARD_PAGE_BLANK_REFERENCE_POINT = (1271, 837)
+PVP_REWARD_PAGE_MAX_TAPS = 3
+# A frame with any of these is a dialog, never a reward page to tap away.
+PVP_REWARD_PAGE_BLOCKING_WORDS = ("确认", "确定", "购买", "补充", "取消")
 PVP_RANK_PAGE_AFTER_CLICK_SECONDS = 2.0
 PVP_AUTO_BATTLE_MENU_VERIFY_SECONDS = 3.5
 # BUG-20260906-01：网络波动会整枪吞掉点击，可验证的单发点击统一按该次数
@@ -1863,6 +1872,7 @@ class PVPTask(BaseBD2Task):
         last_hub_score = -1.0
         last_leave_text = ""
         last_leave_point: tuple[float, float] | None = None
+        reward_taps = 0
         while monotonic() <= end_at:
             frame = self.capture_frame()
 
@@ -1873,10 +1883,20 @@ class PVPTask(BaseBD2Task):
                 self.info_set("PVP 返回主页", "已回到 PVP 箱庭")
                 return "hub", last_text, None
 
-            text, point = self._confirm_button_ocr(frame)
+            text, kind, point = self._settlement_page_ocr(frame)
             last_text = text or last_text
-            if point is not None:
+            if kind == "confirm":
                 return "confirm", text, point
+            if kind == "reward" and reward_taps < PVP_REWARD_PAGE_MAX_TAPS:
+                reward_taps += 1
+                self.info_set("PVP 结算后奖励页", f"第{reward_taps}次点掉")
+                self.log_info("镜中之战：打完回来出现赛季奖励页面，点画面关掉。")
+                self._click_frame_point(
+                    frame, point, after_sleep=PVP_SEASON_REWARD_AFTER_CLICK_SECONDS
+                )
+                # The tap and its wait must not use up the hub wait.
+                end_at = max(end_at, monotonic() + max(1.0, timeout))
+                continue
 
             leave_text, leave_point = self._leave_button_ocr(frame)
             if leave_point is not None:
@@ -1901,6 +1921,15 @@ class PVPTask(BaseBD2Task):
         self,
         frame,
     ) -> tuple[str, tuple[float, float] | None]:
+        text, kind, point = self._settlement_page_ocr(frame)
+        return text, point if kind == "confirm" else None
+
+    def _settlement_page_ocr(
+        self,
+        frame,
+    ) -> tuple[str, str, tuple[float, float] | None]:
+        """What covers the hub after a battle: ``confirm`` (a rank page's
+        确认), ``reward`` (a reward page to tap away) or ``""``."""
         boxes = self._ocr_boxes(frame, "PVP 升降级确认")
         text = " ".join(
             str(getattr(box, "name", ""))
@@ -1914,11 +1943,30 @@ class PVPTask(BaseBD2Task):
             boxes,
             allow_season_reward=False,
         )
-        if action_name not in PVP_RANK_PAGE_TITLES or confirm_box is None:
-            if self._find_first_ocr_box(boxes, ("确认", "确定")) is not None:
-                self.info_set("PVP 升降级确认", "确认弹窗不是升降级页面，不点击")
-            return text, None
-        return text, self._ocr_box_center(confirm_box)
+        if action_name in PVP_RANK_PAGE_TITLES and confirm_box is not None:
+            return text, "confirm", self._ocr_box_center(confirm_box)
+        if self._find_first_ocr_box(boxes, ("确认", "确定")) is not None:
+            self.info_set("PVP 升降级确认", "确认弹窗不是升降级页面，不点击")
+        reward_point = self._reward_page_point(frame, boxes, text)
+        if reward_point is not None:
+            return text, "reward", reward_point
+        return text, "", None
+
+    def _reward_page_point(self, frame, boxes: list, text: str):
+        """Where to tap a reward page away: its 点击画面即可返回 line, or the
+        blank spot that line sits on when only the 赛季奖励 title is read."""
+        normalized = normalize_ocr_text(text)
+        if any(word in normalized for word in PVP_REWARD_PAGE_BLOCKING_WORDS):
+            return None
+        for dismiss in ("点击画面即可返回", FIEND_HUNT_REWARD_DISMISS_TEXT):
+            box = self._find_ocr_box(boxes, dismiss)
+            if box is not None:
+                return self._ocr_box_center(box)
+        if "赛季奖励" not in normalized:
+            return None
+        frame_height, frame_width = frame.shape[:2]
+        x, y = PVP_REWARD_PAGE_BLANK_REFERENCE_POINT
+        return (x * frame_width / REFERENCE_WIDTH, y * frame_height / REFERENCE_HEIGHT)
 
     def _return_home_from_pvp_hub(self) -> bool:
         self.info_set("当前阶段", "返回主页")
