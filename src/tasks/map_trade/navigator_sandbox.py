@@ -166,6 +166,8 @@ TELEPORT_PAGE_ARROW_REFERENCE = {"left": (380, 520), "right": (1540, 520)}
 # after such a page was dismissed.
 STORY_ENTRY_PAGE_RESERVE_SECONDS = 5.0
 STORY_ENTRY_AFTER_PAGE_SECONDS = 10.0
+# One more look when the wait ends with the field on its last frame.
+FIELD_HUD_LAST_LOOK_SECONDS = 1.5
 
 class SandboxNavigationMixin:
     @staticmethod
@@ -873,9 +875,50 @@ class SandboxNavigationMixin:
         # Walking is progress, not a stall (Leo 2026-09-30: a stall ends after
         # 15 s): time under "自动移动中" does not count, up to the walk cap.
         walk_cap = end_at + SANDBOX_NAVIGATION_WALK_TIMEOUT
+        self._field_wait_only = True
+        self._field_wait_cut = False
+        try:
+            result = self._wait_for_field_hud_loop(
+                end_at=end_at,
+                stall=stall,
+                walk_cap=walk_cap,
+                interval=interval,
+                success_message=success_message,
+                handle_intermediate=handle_intermediate,
+            )
+        finally:
+            self._field_wait_only = False
+        if isinstance(result, NavigationResult):
+            return result
+        last_state, last_frame = result
+        if self._field_wait_cut and last_state == ScreenState.UNKNOWN and last_frame is not None:
+            # Not the field in time: name the page fully for the failure.
+            last_state = self.classify(last_frame)
+        return NavigationResult(False, last_state, failure_message)
+
+    def _wait_for_field_hud_loop(
+        self,
+        *,
+        end_at: float,
+        stall: float,
+        walk_cap: float,
+        interval: float,
+        success_message: str,
+        handle_intermediate: bool,
+    ) -> NavigationResult | tuple[ScreenState, object]:
         hits = 0
         last_state = ScreenState.UNKNOWN
-        while monotonic() <= end_at:
+        frame = None
+        grace_used = False
+        while True:
+            if monotonic() > end_at:
+                if hits == 0 or grace_used:
+                    break
+                # The field was on the last frame when time ran out: look
+                # once more instead of failing (2K 10-12 Q_sp4 凯洛镇: field
+                # seen at 0.991, then 入场确认超时 and the teleport redone).
+                grace_used = True
+                end_at = monotonic() + FIELD_HUD_LAST_LOOK_SECONDS
             frame = self.vision.capture()
             # The black loading screen needs none of the home/field checks
             # (~0.6 s a read; Leo 2026-10-01: 換圖速度).
@@ -887,6 +930,9 @@ class SandboxNavigationMixin:
                 hits += 1
                 if hits >= TRADE_CARD_SANDBOX_HITS:
                     return NavigationResult(True, last_state, success_message)
+                # The second frame is taken at once: the field is already
+                # read, there is nothing to wait for (2K 10-12: +1.2 s a map).
+                continue
             else:
                 hits = 0
                 # A loading screen is progress too (audit #10: on a slow PC the
@@ -901,7 +947,7 @@ class SandboxNavigationMixin:
                         continue
             if interval > 0:
                 self.task.sleep(interval)
-        return NavigationResult(False, last_state, failure_message)
+        return last_state, frame
 
     def _wait_for_story_sandbox(
         self,

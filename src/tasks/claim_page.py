@@ -507,6 +507,7 @@ class ClaimPageMixin(TaskVisionMixin):
         stable_frames = 0
         unknown_frames = 0
         blind_taps = 0
+        escaped = False
         handled = 0
         tapped_brightness = None
         calm_since = monotonic()
@@ -572,6 +573,16 @@ class ClaimPageMixin(TaskVisionMixin):
                     self._click_reference(*OVERLAY_TAP_POINT, after_sleep=0.8)
                     blind_taps += 1
                     handled += 1
+                    unknown_frames = 0
+                    continue
+                if unknown_frames >= 3 and not escaped:
+                    # Three blank-space taps did not close it (player
+                    # 2026-10-12, 特别赛季通行证): Leo 「關不掉 就按ESC做備案」.
+                    self.log_info(f"{label}：点空白处没关掉，改按 Esc。")
+                    escaped = True
+                    if self.tap_escape(after_sleep=0.8):
+                        tapped_brightness = brightness
+                        handled += 1
                     unknown_frames = 0
                     continue
             self.sleep(0.5)

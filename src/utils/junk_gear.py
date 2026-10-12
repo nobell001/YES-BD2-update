@@ -429,3 +429,48 @@ def front_cells(
     these are the latest items, marked new or not (Leo 2026-10-11)."""
     cells = [(row, column) for row in range(len(rows)) for column in range(len(columns))]
     return cells[: max(0, cap)]
+
+
+# The detail popup's ✕ (1080 reference): x is fixed, y moves with the popup's
+# height.  The popup is centred, so an item with 基本能力 and 属性 rows shows a
+# taller popup whose ✕ sits higher (player 2026-10-12, 猎人之弓: y 196 against
+# 首席勋章's 325) and whose bottom buttons sit lower by the same amount.
+POPUP_CLOSE_REFERENCE_Y = 325
+POPUP_CLOSE_SEARCH = (1395, 40, 50, 560)  # x, y, width, height
+POPUP_CLOSE_WHITE = 190
+POPUP_CLOSE_SIDE = (14, 32)
+POPUP_CLOSE_AREA = (60, 320)
+
+
+def popup_close_point(frame_1080: np.ndarray) -> tuple[int, int] | None:
+    """Centre of the detail popup's white ✕, or None when it is not found."""
+    x0, y0, width, height = POPUP_CLOSE_SEARCH
+    strip = frame_1080[y0 : y0 + height, x0 : x0 + width, :3]
+    if strip.size == 0:
+        return None
+    mask = (strip.min(axis=2) > POPUP_CLOSE_WHITE).astype(np.uint8)
+    count, _labels, stats, _centres = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    low, high = POPUP_CLOSE_SIDE
+    found = []
+    for index in range(1, count):
+        x, y, w, h, area = (int(v) for v in stats[index])
+        if not (low <= w <= high and low <= h <= high):
+            continue
+        if not (POPUP_CLOSE_AREA[0] <= area <= POPUP_CLOSE_AREA[1]):
+            continue
+        # A cross fills well under half of its box; a white blob or text block
+        # does not.
+        if area > 0.6 * w * h:
+            continue
+        found.append((y0 + y + h // 2, x0 + x + w // 2))
+    if not found:
+        return None
+    y, x = min(found)
+    return x, y
+
+
+def popup_shift(frame_1080: np.ndarray) -> int:
+    """How far the popup's top moved from the reference (negative = up)."""
+    point = popup_close_point(frame_1080)
+    return 0 if point is None else point[1] - POPUP_CLOSE_REFERENCE_Y
+

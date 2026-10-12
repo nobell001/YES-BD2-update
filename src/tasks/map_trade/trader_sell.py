@@ -64,6 +64,7 @@ from src.tasks.map_trade.trader_constants import (
     SALE_LIST_SETTLE_SECONDS,
     SALE_LIST_TOP_ATTEMPTS,
     SALE_MARKER_MIN_MARGIN,
+    SALE_MARKER_CROP_OCR_SCALES,
     SALE_MARKER_OCR_DIGITS,
     SALE_MARKER_RELAXED_PIXEL_SCORE,
     SALE_MARKER_SEARCH_WIDTH,
@@ -947,6 +948,10 @@ class SellFlowMixin:
                     gray_frame=gray_frame,
                 )
                 if self._marker_reads_120(result, ocr_boxes)
+                or (
+                    not any(self._marker_digits(result, ocr_boxes))
+                    and self._badge_crop_reads_120(frame, result)
+                )
             )
         boxes = [
             SimpleNamespace(
@@ -976,6 +981,37 @@ class SellFlowMixin:
             if x <= center[0] <= x + width and y <= center[1] <= y + height:
                 found.append(re.sub(r"\D", "", str(getattr(box, "name", ""))))
         return found
+
+    def _badge_crop_reads_120(self, frame: np.ndarray, result) -> bool:
+        """OCR of the badge alone, enlarged, contains the digits 120.
+
+        Leo's 2K PC (2026-10-12): 卢戈山参烤串's ↑120% badge sat 8 px lower than
+        usual, scored pixel 0.923 (floor 0.93) and the page OCR put no box on
+        it, so the item was passed over until a later run.  The page OCR is
+        a whole-frame read; the badge alone, enlarged, is read on its own.
+        A badge the page OCR did read (as another rate) is not read again.
+        """
+
+        x, y = (round(value) for value in result.position)
+        width, height = (round(value) for value in result.size)
+        pad = max(4, height // 2)
+        frame_height, frame_width = frame.shape[:2]
+        left, top = max(0, x - pad), max(0, y - pad)
+        right, bottom = min(frame_width, x + width + pad), min(frame_height, y + height + pad)
+        crop = frame[top:bottom, left:right]
+        if crop.size == 0:
+            return False
+        for scale in SALE_MARKER_CROP_OCR_SCALES:
+            boxes = self.vision.ocr_boxes(
+                crop, "出售↑120%标志", target_height=0, ocr_scale=scale
+            )
+            digits = [re.sub(r"\D", "", str(getattr(box, "name", ""))) for box in boxes]
+            if any(SALE_MARKER_OCR_DIGITS in value for value in digits):
+                return True
+            if any(digits):
+                # A clear read of another rate (116, 117…): not 120.
+                return False
+        return False
 
     @classmethod
     def _marker_reads_120(cls, result, ocr_boxes) -> bool:

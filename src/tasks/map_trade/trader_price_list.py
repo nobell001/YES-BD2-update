@@ -29,9 +29,18 @@ OWNED_ONLY_CHECKBOX_POINT = (1468, 814)
 OWNED_ONLY_CHECKBOX_BOX = (1452, 800, 1484, 830)
 PRICE_LIST_CLOSE_POINT = (1480, 252)
 PRICE_LIST_SCROLL_X = 1000
+# One row is 110 px and 4 rows show.  The list keeps gliding after the
+# button is let go: on Leo's 2K PC (2026-10-12) a 300 px drag in 0.5 s moved
+# it about 630 px (5.7 rows) and the 5th row (巧克力 at 120%) was never read.
+# A shorter, slower drag leaves rows in common with the page before, and a
+# page with no row in common is dragged back once (see owned_items_at_max_rate).
 PRICE_LIST_SCROLL_FROM_Y = 720
-PRICE_LIST_SCROLL_TO_Y = 420
-PRICE_LIST_MAX_PAGES = 4
+PRICE_LIST_SCROLL_TO_Y = 560
+PRICE_LIST_SCROLL_SECONDS = 0.8
+PRICE_LIST_BACK_FROM_Y = 450
+PRICE_LIST_BACK_TO_Y = 560
+# Small steps: more pages before the list runs out of 120% rows.
+PRICE_LIST_MAX_PAGES = 6
 # Parts of the 价目表 are read this long before a miss counts.
 PRICE_LIST_READ_SECONDS = 3.0
 CURRENT_LABEL = "当前"
@@ -80,6 +89,11 @@ def owned_rates(boxes) -> list[tuple[str, bool]]:
         at_max = any(MAX_RATE_TEXT in re.sub(r"\D", "", text) for text in rate)
         rows.append((str(name), at_max))
     return rows
+
+
+def _shares_row(rows: list[tuple[str, bool]], seen: list[str]) -> bool:
+    known = {normalize_text(name) for name in seen}
+    return any(normalize_text(name) in known for name, _max in rows)
 
 
 class PriceListMixin:
@@ -164,14 +178,21 @@ class PriceListMixin:
         self.task.operate_click(*self._ref_point(*PRICE_LIST_CLOSE_POINT), after_sleep=0.6)
         return self._wait_price_list(False)
 
-    def _drag_price_list(self) -> bool:
+    def _drag_price_list(self, back: bool = False) -> bool:
+        """Show later rows, or with ``back`` a little of the rows above."""
+
         height, width = self.vision.capture().shape[:2]
         x = round(PRICE_LIST_SCROLL_X / REF_W * width)
+        from_y, to_y = (
+            (PRICE_LIST_BACK_FROM_Y, PRICE_LIST_BACK_TO_Y)
+            if back
+            else (PRICE_LIST_SCROLL_FROM_Y, PRICE_LIST_SCROLL_TO_Y)
+        )
         return bool(
             self.task.drag_client(
-                (x, round(PRICE_LIST_SCROLL_FROM_Y / REF_H * height)),
-                (x, round(PRICE_LIST_SCROLL_TO_Y / REF_H * height)),
-                duration=0.5,
+                (x, round(from_y / REF_H * height)),
+                (x, round(to_y / REF_H * height)),
+                duration=PRICE_LIST_SCROLL_SECONDS,
                 after_sleep=0.8,
             )
         )
@@ -221,6 +242,20 @@ class PriceListMixin:
             seen: list[str] = []
             for page in range(PRICE_LIST_MAX_PAGES):
                 rows = self._settled_rows()
+                if page and not rows:
+                    # Every row so far was at 120%: the rows below may be too.
+                    self.task.log_warning("卖：价目表翻页后没读到内容，改为逐个商店查找。")
+                    return None
+                if page and not _shares_row(rows, seen):
+                    # No row in common with the page before: the list may have
+                    # glided past a row, and a row never read is never sold.
+                    if not self._drag_price_list(back=True):
+                        self.task.log_warning("卖：无法拖动价目表，改为逐个商店查找。")
+                        return None
+                    rows = self._settled_rows()
+                    if rows and not _shares_row(rows, seen):
+                        self.task.log_warning("卖：价目表翻页可能漏看了几行，改为逐个商店查找。")
+                        return None
                 new_rows = [row for row in rows if row[0] not in seen]
                 seen.extend(name for name, _max in new_rows)
                 found.update(name for name, at_max in rows if at_max)
@@ -229,7 +264,11 @@ class PriceListMixin:
                 # Sorted by today's rate: a row below 120% ends the search.
                 if not rows or not all(at_max for _name, at_max in rows) or not new_rows:
                     break
-                if page + 1 < PRICE_LIST_MAX_PAGES and not self._drag_price_list():
+                if page + 1 >= PRICE_LIST_MAX_PAGES:
+                    # Still all at 120% on the last page: rows below unread.
+                    self.task.log_warning("卖：价目表 120% 的商品太多，没看完，改为逐个商店查找。")
+                    return None
+                if not self._drag_price_list():
                     self.task.log_warning("卖：无法拖动价目表，改为逐个商店查找。")
                     return None
             if not seen:

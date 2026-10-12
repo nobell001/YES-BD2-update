@@ -153,6 +153,10 @@ SALE_120_PERCENT_MARKER_TEMPLATE = SALE_120_PERCENT_MARKER_BETA_TEMPLATE
 # arrow comes out as a stray 1 or 4, 117% as "4117%").
 SALE_MARKER_RELAXED_PIXEL_SCORE = 0.85
 SALE_MARKER_OCR_DIGITS = "120"
+# When the page OCR has no box over a relaxed marker at all, the badge is
+# cut out and read alone at these enlargements (Leo's 2K PC 2026-10-12:
+# pixel 0.923 and no page box over a real ↑120%).
+SALE_MARKER_CROP_OCR_SCALES = (2.0, 3.0)
 SALE_120_PERCENT_MARKER_MAX_RESULTS = 40
 SALE_120_PERCENT_MARKER_PEAK_RADIUS = 5
 SALE_MARKER_MIN_MARGIN = 0.03

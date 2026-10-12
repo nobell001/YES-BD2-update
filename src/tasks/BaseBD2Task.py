@@ -65,6 +65,7 @@ HOME_KEY = "H"
 RECENT_CARTRIDGE_KEY = "F"
 QUICK_SWITCH_KEY = "P"
 HOME_KEY_WAIT_SECONDS = 10.0
+ESCAPE_KEY_CODE = 0x1B  # VK_ESCAPE
 # The field's quick-switch (P) button, 1080p reference.
 FIELD_QUICK_SWITCH_POINT = (851, 997)
 FIEND_HUNT_REWARD_TITLE = "魔兽追踪者赛季奖励"
@@ -807,6 +808,18 @@ class BaseBD2Task(BaseTask):
             self.log_warning(f"游戏窗口不在最前面，快捷键 {letter} 没有发送。")
             return False
         self.info_set("快捷键", letter)
+        self.sleep(after_sleep)
+        return True
+
+    def tap_escape(self, after_sleep: float = 0.0) -> bool:
+        """Esc as the last way to close a popup that its ✕ and a blank-space
+        tap did not close (Leo 2026-10-12 「關不掉 就按ESC做備案」).  Callers
+        send it only while that popup is confirmed open."""
+        if not self._send_game_key(ESCAPE_KEY_CODE, KEY_TAP_SECONDS):
+            self.info_set("快捷键", "Esc 未发送：游戏窗口不在最前面")
+            self.log_warning("游戏窗口不在最前面，Esc 没有发送。")
+            return False
+        self.info_set("快捷键", "Esc")
         self.sleep(after_sleep)
         return True
 

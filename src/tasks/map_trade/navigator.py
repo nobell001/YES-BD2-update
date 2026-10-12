@@ -411,6 +411,12 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
             # this top-left area; kept so arrival needs no map page (Leo
             # 2026-09-29: the name is already shown while switching).
             self.last_loading_title = loading_text
+        if getattr(self, "_field_wait_only", False):
+            # Waiting for the field after a teleport or entry: only field /
+            # loading matter there, so the shop, map-page, card and cooking
+            # reads (~2 s a frame at 2K, 10-12) are left for a failure.
+            self._field_wait_cut = True
+            return ScreenState.UNKNOWN
         shop_text = normalize_text(
             self.vision.simplify(
                 self.vision.ocr_text(

@@ -58,6 +58,7 @@ from src.utils.colour_check import (
 )
 from src.utils.image_utils import template_match_response
 from src.utils.junk_gear import (
+    POPUP_CLOSE_REFERENCE_Y,
     GearItem,
     agreed_rarity,
     badge_shown,
@@ -73,6 +74,7 @@ from src.utils.junk_gear import (
     load_exclusive_stars,
     occupied_cells,
     ocr_rarity,
+    popup_close_point,
     slot_icon_shown,
 )
 from src.utils.ocr_utils import normalize_ocr_text
@@ -90,9 +92,17 @@ SORT_MENU_WAIT_SECONDS = 3.0
 TIME_SORT_TEXT = "按获得时间"
 NEWEST_FIRST_TEXT = "从晚到早"
 DETAIL_ROI = (470, 300, 1000, 480)
+# Every height the popup can have (Leo 2026-10-12 「本來裝備詳情欄就有高有低」
+# 「不要視窗抓那麼緊」): the open check and the detail read look at all of it.
+DETAIL_WIDE_ROI = (470, 40, 1000, 1000)
 DETAIL_NAME_ROW = (480, 325, 520, 60)
 NAME_LINE_Y = (335, 372)
+# Boxes on the title line: centres this close to the rarity letter's.
+NAME_LINE_TOLERANCE = 20
 DETAIL_CLOSE_POINT = (1419, 325)
+# Blank space left of the detail popup: a tap there also closes it (Leo
+# 2026-10-12 「點空白處也可以關」), clear of the bag menu and the grid.
+DETAIL_BLANK_TAP_POINT = (280, 620)
 # The diamond right of the item art holds the refine level once the item is
 # fully enhanced (Leo's 顶级英雄盔甲 「15」, 4K 2026-10-11); +0 items show an
 # empty outline.  52 popups: a number 0.068-0.113 white, empty 0.000.  A
@@ -906,21 +916,52 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
 
     # -- inspection -----------------------------------------------------------------------
 
+    @staticmethod
+    def _popup_rois(shift: int) -> dict[str, tuple[int, int, int, int]]:
+        """Popup rows moved for a taller or shorter popup (see ``popup_shift``):
+        the name row and lock switch move with its top."""
+        name_x, name_y, name_w, name_h = DETAIL_NAME_ROW
+        lock_x, lock_y, lock_w, lock_h = LOCK_SWITCH_ROI
+        return {
+            "name": (name_x, name_y + shift, name_w, name_h),
+            "lock": (lock_x, lock_y + shift, lock_w, lock_h),
+        }
+
+    def _top_title_line(self, detail):
+        """Name and rarity from the popup's top line that carries a rarity
+        letter: found anywhere in the wide read, whatever the popup's height."""
+        rarity_boxes = sorted(
+            (b for b in detail
+             if ocr_rarity(b.name) is not None or self._name_and_rarity([b])[1] is not None),
+            key=lambda b: b.y,
+        )
+        for candidate in rarity_boxes:
+            centre = candidate.y + candidate.height / 2
+            line = [b for b in detail if abs(b.y + b.height / 2 - centre) <= NAME_LINE_TOLERANCE]
+            name_box, rarity_box = self._name_and_rarity(line)
+            if name_box is not None and rarity_box is not None:
+                return name_box, rarity_box
+        return None, None
+
     def _read_detail(self) -> tuple[GearItem | None, str]:
         frame = self.capture_frame()
         reference = cv2.resize(frame[:, :, :3], (REFERENCE_WIDTH, REFERENCE_HEIGHT))
-        row = self._reference_boxes(frame, DETAIL_NAME_ROW, "装备名称")
-        detail = self._reference_boxes(frame, DETAIL_ROI, "装备详情")
+        cross = popup_close_point(reference)
+        shift = 0 if cross is None else cross[1] - POPUP_CLOSE_REFERENCE_Y
+        row = self._reference_boxes(frame, self._popup_rois(shift)["name"], "装备名称")
+        detail = self._reference_boxes(frame, DETAIL_WIDE_ROI, "装备详情")
         whole = self._boxes_text(detail)
         name_box, rarity_box = self._name_and_rarity(row)
         if name_box is None or rarity_box is None:
             # A tight crop can miss the italic rarity letter (live: 掠夺之手 R);
-            # the wider detail read has both on the title line.
-            low, high = NAME_LINE_Y
-            title_line = [b for b in detail if low <= b.y + b.height / 2 <= high]
-            name_box, rarity_box = self._name_and_rarity(title_line)
+            # the wide detail read has both on the title line.
+            name_box, rarity_box = self._top_title_line(detail)
         if name_box is None or rarity_box is None:
             return None, whole
+        if cross is None:
+            # No ✕ found: the title line found tells how far the popup moved.
+            shift = round(name_box.y + name_box.height / 2 - sum(NAME_LINE_Y) / 2)
+        rois = self._popup_rois(shift)
         x, y = round(rarity_box.x), round(rarity_box.y)
         w, h = round(rarity_box.width), round(rarity_box.height)
         label = reference[max(0, y - 6) : y + h + 6, max(0, x - 6) : x + w + 6]
@@ -930,7 +971,7 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
             name=str(name_box.name),
             rarity=agreed_rarity(rarity_box.name, label),
             equipped="穿戴中" in normalized or "卸除" in normalized,
-            locked=yellow_ratio(crop_reference(frame, LOCK_SWITCH_ROI)) > YELLOW_ON_RATIO,
+            locked=yellow_ratio(crop_reference(frame, rois["lock"])) > YELLOW_ON_RATIO,
             enhanced=bool(re.search(r"\+\d", str(name_box.name)))
             or popup_level_shown(reference)
             or any(word in normalized for word in POPUP_REFINE_WORDS),
@@ -967,7 +1008,7 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         )
 
     def _detail_open(self) -> bool:
-        boxes = self._reference_boxes(self.capture_frame(), DETAIL_ROI, "详情是否打开")
+        boxes = self._reference_boxes(self.capture_frame(), DETAIL_WIDE_ROI, "详情是否打开")
         return DETAIL_OPEN_KEYWORD in normalize_ocr_text(self._boxes_text(boxes))
 
     def _wait_detail(self, open_: bool, timeout: float = DETAIL_STATE_TIMEOUT) -> bool:
@@ -1152,23 +1193,50 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
             report.append(f"{label}:{'爛装' if verdict else '保留'}[{reason}]")
             if verdict:
                 junk.append((row, column))
-            closed = self.press_and_confirm(
-                f"{LABEL}：关闭装备详情",
-                lambda: self._click_reference(*DETAIL_CLOSE_POINT, after_sleep=1.0),
-                lambda: self._wait_detail(False, timeout=0),
-                # Only while the popup still shows: without it the ✕ point is
-                # the cell at row 2, column 6 and would open another item.
-                still_before=lambda: self._wait_detail(True, timeout=0),
-                timeout=DETAIL_STATE_TIMEOUT,
-                poll=0.4,
-            )
-            if not closed:
+            if not self._close_detail():
                 self.log_warning(f"{LABEL}：装备详情关闭失败，这次不分解，下次再处理。")
                 return None
         summary = "；".join(report)
         self.info_set(f"{grade or '不筛选'} 识别", summary)
         self.log_info(f"爛装强化分解（{grade or '不筛选'}）：{summary}")
         return junk
+
+    def _close_detail(self) -> bool:
+        """Close the item popup: its ✕ where this popup has it, then a tap on
+        blank space (Leo 2026-10-12 「點空白處也可以關」), then Esc."""
+
+        def press_close() -> None:
+            frame = self.capture_frame()
+            point = None
+            if frame is not None:
+                point = popup_close_point(
+                    cv2.resize(frame[:, :, :3], (REFERENCE_WIDTH, REFERENCE_HEIGHT))
+                )
+            self._click_reference(*(point or DETAIL_CLOSE_POINT), after_sleep=1.0)
+
+        for label, press in (
+            ("关闭装备详情", press_close),
+            (
+                "点空白处关闭装备详情",
+                lambda: self._click_reference(*DETAIL_BLANK_TAP_POINT, after_sleep=1.0),
+            ),
+            # Leo 2026-10-12 「關不掉 就按ESC做備案」.
+            ("按 Esc 关闭装备详情", lambda: self.tap_escape(after_sleep=1.0)),
+        ):
+            if self.press_and_confirm(
+                f"{LABEL}：{label}",
+                press,
+                lambda: self._wait_detail(False, timeout=0),
+                # Only while the popup still shows: without it the ✕ point is
+                # the cell at row 2, column 6 and would open another item.
+                still_before=lambda: self._wait_detail(True, timeout=0),
+                timeout=DETAIL_STATE_TIMEOUT,
+                poll=0.4,
+            ):
+                return True
+            if not self._wait_detail(True, timeout=0):
+                return True  # gone by now; the next click checks again
+        return False
 
     def _badged_cells(self) -> set[tuple[int, int]] | None:
         """Cells with any number or 「+N」 in the enhance badge spot; None when

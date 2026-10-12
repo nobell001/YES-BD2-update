@@ -539,11 +539,18 @@ class SkillExecutionMixin:
         detection: ActionIconDetection | None = None,
         *,
         allow_single: bool = False,
+        expect: tuple[int, int] | None = None,
     ) -> tuple[int, int] | None:
         samples: list[tuple[int, int]] = []
         for attempt in range(ACTION_OCR_WINDOW_SAMPLES):
             count = self._read_count(action, detection)
             if count is not None:
+                if not samples and expect is not None and tuple(count) == tuple(expect):
+                    # The caller already holds other proof; a first read that
+                    # is exactly what it expects needs no second one.
+                    self._last_count_window_stable = False
+                    self._status(f"{action.name}次数窗口", f"单帧符合预期={count[0]}/{count[1]}")
+                    return count
                 samples.append(count)
                 # Two equal reads already make the window stable; the third
                 # read only cost time (~0.3 s x 6 per battle map).
@@ -682,6 +689,7 @@ class SkillExecutionMixin:
         still needs it is not started at all - no 探查, no 召集/压制 (ch.8
         battle 2 at 21/21 still got all three).  Only a stable count window
         stops the map; an unreadable one leaves the old per-action checks."""
+        self._map_absorb_count = None
         existing = self.progress.get_action_record(card_id, map_role, ABSORB_ACTION.name)
         if existing is not None and str(existing.get("state", "")) in LOCAL_DONE_STATES:
             return None
@@ -689,6 +697,10 @@ class SkillExecutionMixin:
             return None
         self._last_count_window_stable = False
         count = self._read_count_window(ABSORB_ACTION)
+        if count is not None and self._last_count_window_stable:
+            # Only a 吸收 press changes this count: the press on this map
+            # starts from it instead of reading it twice again (~0.5 s).
+            self._map_absorb_count = tuple(count)
         if count is None or count[0] < count[1]:
             return None
         return SkillExecutionResult(
@@ -1201,8 +1213,15 @@ class SkillExecutionMixin:
         card_id: str,
         map_role: CollectionMapRole,
     ) -> tuple[tuple[int, int] | None, SkillExecutionResult | None]:
-        self._last_count_window_stable = False
-        before = self._read_count_window(action, detection)
+        cached = getattr(self, "_map_absorb_count", None)
+        self._map_absorb_count = None
+        if action.name == ABSORB_ACTION.name and cached is not None:
+            before = cached
+            self._last_count_window_stable = True
+            self._status(f"{action.name}次数窗口", f"沿用本图刚读到的稳定次数={before[0]}/{before[1]}")
+        else:
+            self._last_count_window_stable = False
+            before = self._read_count_window(action, detection)
         if before is None:
             return None, SkillExecutionResult(
                 False,
@@ -1250,10 +1269,21 @@ class SkillExecutionMixin:
     ) -> SkillExecutionResult:
         count_detection = post_detection if post_detection.present else detection
         self._last_count_window_stable = False
+        expect = None
+        if (
+            feedback.outcome == "success"
+            and post_detection.state is ActionIconState.USED
+            and not self.progress.pending_count(action.name)
+        ):
+            # Its toast said success and the icon is steadily grey: one read
+            # showing exactly +1 already proves it (as a single exact +1 does
+            # below); the second read only cost time (2K 10-12, ~0.5 s each).
+            expect = (before[0] + 1, before[1])
         after = self._read_count_window(
             action,
             count_detection,
             allow_single=True,
+            expect=expect,
         )
         post_window_stable = bool(self._last_count_window_stable)
         icon_used = post_detection.state is ActionIconState.USED
