@@ -212,6 +212,11 @@ def match_template(
 # A whole frame shifted brighter (HDR) or a little darker still matches; a
 # special page's overlay dims what lies behind it to well under this share.
 BRIGHTNESS_SHIFT_MIN_RATIO = 0.75
+# Matching the contrast stretches a near-blank patch's faint texture up to the
+# template's: a player's bright 主页 glow (std 10 against the medal's 77) then
+# passed as the 镜中之战 medal (2026-10-12).  HDR flattens highlights a little
+# (广场 button at 0.55), never to a blank patch.
+BRIGHTNESS_SHIFT_MIN_CONTRAST = 0.35
 
 
 def _brightness_shifted_match(frame, spec, config, template_dir, cache, *, loader, **kwargs):
@@ -236,8 +241,14 @@ def _brightness_shifted_match(frame, spec, config, template_dir, cache, *, loade
         if mask is not None
         else None
     )
-    similarity, ratio = image_utils.brightness_matched_similarity(region, scaled, scaled_mask)
-    if ratio < BRIGHTNESS_SHIFT_MIN_RATIO or similarity < spec.min_pixel_score:
+    similarity, ratio, contrast = image_utils.brightness_matched_similarity(
+        region, scaled, scaled_mask
+    )
+    if (
+        ratio < BRIGHTNESS_SHIFT_MIN_RATIO
+        or contrast < BRIGHTNESS_SHIFT_MIN_CONTRAST
+        or similarity < spec.min_pixel_score
+    ):
         return EMPTY_MATCH
     return replace(loose, pixel_score=similarity)
 

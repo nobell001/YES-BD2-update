@@ -342,21 +342,22 @@ def brightness_matched_similarity(
     mask: np.ndarray | None = None,
 ) -> tuple[float, float]:
     """(pixel_similarity after matching the region's mean and contrast to the
-    template's, region mean / template mean).  HDR or a screen filter shifts a
-    whole frame's brightness; the shape then still matches pixel by pixel."""
+    template's, region mean / template mean, region contrast / template
+    contrast).  HDR or a screen filter shifts a whole frame's brightness; the
+    shape then still matches pixel by pixel."""
     if region.shape != template.shape:
-        return -1.0, 0.0
+        return -1.0, 0.0, 0.0
     region_f = region.astype(np.float32)
     template_f = template.astype(np.float32)
     active = mask > 0 if mask is not None else np.ones(region.shape, dtype=bool)
     if not np.any(active):
-        return -1.0, 0.0
+        return -1.0, 0.0, 0.0
     r_mean, t_mean = float(region_f[active].mean()), float(template_f[active].mean())
     r_std, t_std = float(region_f[active].std()), float(template_f[active].std())
-    if r_std < 1e-3 or t_mean < 1e-3:
-        return -1.0, 0.0
+    if r_std < 1e-3 or t_mean < 1e-3 or t_std < 1e-3:
+        return -1.0, 0.0, 0.0
     matched = np.clip((region_f - r_mean) / r_std * t_std + t_mean, 0, 255)
-    return pixel_similarity(matched, template_f, mask), r_mean / t_mean
+    return pixel_similarity(matched, template_f, mask), r_mean / t_mean, r_std / t_std
 
 
 def masked_zncc(

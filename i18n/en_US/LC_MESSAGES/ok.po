@@ -748,8 +748,8 @@ msgstr "Assemble"
 msgid "合约之战"
 msgstr "Contract Wars"
 
-msgid "同时领取商品邮箱（购买的礼包等）。默认只领普通邮箱。"
-msgstr "Also claims Purchase mail (bought bundles, etc.). By default only General mail is claimed."
+msgid "同时领取商品邮箱（购买的礼包等）。"
+msgstr "Also claims Purchase mail (bought bundles, etc.)."
 
 msgid "吐司"
 msgstr "Bread"

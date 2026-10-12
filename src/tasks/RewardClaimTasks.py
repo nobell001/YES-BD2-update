@@ -94,9 +94,9 @@ class MailRewardTask(_ClaimTaskBase):
         self.name = "领取邮件"
         self.description = "打开邮箱，一键领取普通邮箱（可选商品邮箱）的全部邮件。"
         self.icon = FluentIcon.MAIL
-        self.default_config["领取商品邮箱"] = False
+        self.default_config["领取商品邮箱"] = True
         self.config_description["领取商品邮箱"] = (
-            "同时领取商品邮箱（购买的礼包等）。默认只领普通邮箱。"
+            "同时领取商品邮箱（购买的礼包等）。"
         )
 
     def run_claim(self) -> bool:
@@ -104,7 +104,7 @@ class MailRewardTask(_ClaimTaskBase):
             return self._claim_fail("打开邮箱")
         if not self._claim_all("普通邮箱", MAIL_CLAIM_BUTTON, MAIL_TITLE_KEYWORDS):
             return self._claim_fail("领取普通邮箱")
-        if bool(self.config.get("领取商品邮箱", False)):
+        if bool(self.config.get("领取商品邮箱", True)):
             switched = self._click_until_changed(
                 "商品邮箱",
                 lambda: self._click_reference(*SECOND_TAB_POINT, after_sleep=0.2),

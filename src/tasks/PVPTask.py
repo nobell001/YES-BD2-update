@@ -429,6 +429,11 @@ class PVPTask(BaseBD2Task):
 
     def _ensure_pvp_hub(self) -> bool:
         self.info_set("当前阶段", "确认镜中之战")
+        # 主页 looks nothing like the hub: once 主页 is read, go in through
+        # 游戏卡珍藏集 and never ask the medal (player 2026-10-12: a bright
+        # 主页 skin passed as the medal, and the stage was searched on 主页).
+        if self._home_confirmation_signals(self.capture_frame())[0]:
+            return self._enter_pvp_from_home()
         if self._wait_for_template(
             PVP_MEDALS_TEMPLATE,
             timeout=2.0,
@@ -922,6 +927,13 @@ class PVPTask(BaseBD2Task):
                     self._save_flow_diagnostic("pvp_stage_not_found")
                     self.log_info("镜中之战：重试点击时未找到 PVP 舞台物件。")
                     return "failed"
+        if not found_auto and not walking:
+            # A stage click can leave the character beside the stage (player
+            # 2026-10-12: three clicks, the game's move marker behind the
+            # stage, no menu).  Standing on its centre opens the pre-battle
+            # screen, as for players who walk with WASD.
+            self.log_info("镜中之战：点了舞台没出自动战斗菜单，改用键盘走到舞台正中。")
+            found_auto = self._walk_onto_stage()
         if not found_auto:
             self.log_info("镜中之战：多次点击舞台后自动战斗菜单仍未出现。")
             self._save_flow_diagnostic("pvp_auto_battle_failed")
