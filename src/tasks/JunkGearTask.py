@@ -29,6 +29,7 @@ import numpy as np
 from ok.task.exceptions import FinishedException, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
+from src.tasks import run_report
 from src.tasks.bag_filter import BagFilterMixin
 from src.tasks.CraftGearTask import NGearCraftMixin
 from src.tasks.enhance_dialog import (
@@ -285,6 +286,20 @@ def cell_similarity(first, second, cell: tuple[int, int]) -> float:
     return float(template_match_response(a, b)[0][0])
 
 
+def new_items_kept_note(count: int, kept_reasons, junk_left: str = "") -> str:
+    """For the report: the new 「!」 items were looked at, none dismantled, and why."""
+    tally: dict[str, int] = {}
+    for reason in kept_reasons:
+        tally[reason] = tally.get(reason, 0) + 1
+    why = "、".join(f"{reason} {n} 件" for reason, n in tally.items())
+    parts = [f"新装备 {count} 件都没拆"]
+    if why:
+        parts.append(f"保留：{why}")
+    if junk_left:
+        parts.append(junk_left)
+    return "；".join(parts)
+
+
 def sort_label_core(text: str) -> str:
     """The Chinese part of a sort label; OCR adds arrows such as ↓ or ▼."""
     return re.sub(r"[^一-鿿]", "", str(text))
@@ -533,13 +548,17 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         junk = self._classify_cells(cells, stars, frame, grade=grade)
         if junk is None:
             return False, "识别装备", False
+        self._junk_left = ""
         if junk and colours_distorted:
             self.log_info(f"爛装强化分解：画面颜色异常，识别出 {len(junk)} 件爛装，未分解。")
+            self._junk_left = f"认出 {len(junk)} 件爛装，画面颜色异常没拆"
             return True, "", False
         if junk:
             done = self._enhance_and_dismantle(junk, frame)
             if done is None:
-                return True, "", False  # cancelled before enhancing: go on
+                # Cancelled before enhancing: go on.
+                self._junk_left = f"认出 {len(junk)} 件爛装，一键强化没选成没拆"
+                return True, "", False
             if not done:
                 return False, "强化分解", False
             return True, "", True
@@ -568,10 +587,24 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
             cells = wait_for(badges, SLOW_PC_GRACE_SECONDS, sleep=self.sleep, poll=0.8) or []
             frame = looked["frame"]
         self.info_set("新装备（黄色!）", len(cells))
-        self._spend_items(len(cells))
         if not cells:
             return True, "", False
-        return self._dismantle_judged(cells, stars, frame, None, colours_distorted)
+        result = self._dismantle_judged(cells, stars, frame, None, colours_distorted)
+        if result[2]:
+            # Kept items only looked at do not count: ten new UR / exclusive
+            # items used up the whole count, so the R / SR pass never ran and
+            # 一键日常 showed 完成 with nothing dismantled (player 2026-10-13).
+            self._spend_items(len(cells))
+        elif result[0]:
+            # Leo 2026-10-13 「如果真的有這種情況 報表要寫」.
+            note = new_items_kept_note(
+                len(cells),
+                self.__dict__.get("_kept_reasons", []),
+                self.__dict__.get("_junk_left", ""),
+            )
+            self.log_info(f"{LABEL}：{note}")
+            run_report.add_current_note(note)
+        return result
 
     def _dismantle_unfiltered(self, stars, colours_distorted) -> tuple[bool, str, bool]:
         """Without the filter: the first 最多处理件数 items of the newest-first
@@ -1125,6 +1158,7 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         """
         junk: list[tuple[int, int]] = []
         report = []
+        self._kept_reasons = []
         badged = self._badged_cells()
         owners = _exclusive_owners()
         five_star_sr = bool(self.config.get(FIVE_STAR_SR_KEY, False))
@@ -1132,15 +1166,18 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
             where = f"第{row + 1}行第{column + 1}列"
             if frame is not None and grid_cell_locked(frame, (row, column)):
                 report.append(f"{where}:保留[已上锁，不点开]")
+                self._kept_reasons.append("上锁")
                 continue
             kept = self._older_cell_kept(frame, (row, column), badged)
             if kept:
                 report.append(f"{where}:保留[{kept}]")
+                self._kept_reasons.append(kept)
                 continue
             rarity = self._grid_rarity(frame, (row, column)) if frame is not None else None
             wanted = grade or (rarity if rarity in FILTER_GRADES else None)
             if wanted is None or rarity != wanted:
                 report.append(f"{where}:保留[格子稀有度{rarity or '认不出'}]")
+                self._kept_reasons.append(rarity or "稀有度认不出")
                 continue
             if wanted not in OPENED_GRADES:
                 # R is junk off the grid (Leo 2026-10-11 「r不點開」).
@@ -1193,6 +1230,8 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
             report.append(f"{label}:{'爛装' if verdict else '保留'}[{reason}]")
             if verdict:
                 junk.append((row, column))
+            else:
+                self._kept_reasons.append(f"{wanted}{reason}")
             if not self._close_detail():
                 self.log_warning(f"{LABEL}：装备详情关闭失败，这次不分解，下次再处理。")
                 return None

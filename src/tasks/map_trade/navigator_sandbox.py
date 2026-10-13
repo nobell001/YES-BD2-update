@@ -162,6 +162,9 @@ AUTO_MOVE_TEXT_RELATIVE_ROI = (560 / 1920, 80 / 1080, 1360 / 1920, 980 / 1080)
 # show once the player ticked 不再显示.
 AUTO_MOVE_QUESTION_KEYWORDS = ("是否自动移动", "前往所选目的地")
 AUTO_MOVE_CANCEL_TEXT = "取消"
+# Looks (0.5 s apart) for the large map to close by itself once a walk was
+# confirmed, before it is closed by its back button.
+MAP_SELF_CLOSE_LOOKS = 3
 # Teleport-map page arrows (1920x1080 reference), measured on 华特波尔雪山 at 2K.
 TELEPORT_PAGE_ARROW_REFERENCE = {"left": (380, 520), "right": (1540, 520)}
 
@@ -1252,6 +1255,25 @@ class SandboxNavigationMixin:
             return ""
         return normalize_text(self.vision.simplify(str(text)))
 
+    def _close_map_left_open_by_walk(self) -> bool:
+        """Close the large map when it stays up after the walk was confirmed.
+
+        A player 2026-10-13 (v0.1.31, card 7): after 确认 on the 自动移动
+        dialog the map stayed on screen, and the run waited behind it for a
+        hand button the map covers.  The map gets a moment to close by
+        itself; True when it had to be closed here."""
+        for look in range(MAP_SELF_CLOSE_LOOKS):
+            if not self._sandbox_navigation_page_has_keyword(self.vision.capture()):
+                return False
+            if look + 1 < MAP_SELF_CLOSE_LOOKS:
+                self.task.sleep(SANDBOX_NAVIGATION_OCR_INTERVAL * 2)
+        self._status("导航状态", "确认自动移动后大地图还开着，关掉地图等角色走到")
+        self._close_confirmed_map_page(
+            {MapPageMode.SANDBOX_LARGE_MAP},
+            timeout=SANDBOX_NAVIGATION_CONFIRM_TIMEOUT,
+        )
+        return True
+
     @staticmethod
     def _auto_move_question_shown(walk_text: str) -> bool:
         """The 自动移动 dialog's question (「是否自动移动前往所选目的地？」)
@@ -1627,6 +1649,7 @@ class SandboxNavigationMixin:
             "导航状态",
             "已选择导航地图传送阵，等待自动移动后重新识别交互按钮",
         )
+        self._close_map_left_open_by_walk()
         # The hand prompt shows while the walk is still finishing; pressing
         # it then keeps the walk alive across the teleport and drags the
         # character back through the floors (live 2K 2026-09-29).

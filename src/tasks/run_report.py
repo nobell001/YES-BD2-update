@@ -124,7 +124,8 @@ def row_ended(key: str, state: str, note: str = "") -> None:
         if row.get("started"):
             row["finished"] = now
             row["duration"] = max(0.0, now - row["started"])
-        row["note"] = note or ""
+        # A note the task added while running stays in front of the end note.
+        row["note"] = "，".join(part for part in (row.get("note"), note) if part)
         if _active.get("current") == key:
             _active["current"] = None
         _log_row(row, _active.get("label"))
@@ -184,6 +185,13 @@ def add_note(key: str, note: str) -> None:
         row = _row(key)
         if row is not None and note:
             row["note"] = f"{row['note']}，{note}" if row.get("note") else note
+
+
+def add_current_note(note: str) -> None:
+    """A note on the running row, from the task itself (no-op outside a batch)."""
+    with _lock:
+        if _active is not None and _active.get("current"):
+            add_note(_active["current"], note)
 
 
 def set_notice(text: str) -> None:
