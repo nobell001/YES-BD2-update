@@ -34,6 +34,7 @@ from src.tasks.RewardClaimTasks import _ClaimTaskBase
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
 from src.utils.colour_rules import switch_yellow_ratio
 from src.utils.free_switch import ensure_free_switch_on
+from src.utils.frozen_screen import FrozenScreen
 from src.utils.image_utils import template_match_response
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, wait_for
@@ -121,6 +122,15 @@ STAGE_LIST_ROW_TOLERANCE = 24
 # 1080p run, 2026-10-10): the AP is read for up to this long.
 AP_READ_SECONDS = 5.0
 STATE_KEYS = ("stage", "free_ap", "auto", "quick")
+# Stuck on the event page (a player's v0.1.30 run after clearing 挑战15 by
+# hand stayed there until stopped; Leo 2026-10-13 「把保護機制加上就好」「3 分鐘
+# 太久了 卡住卡個10秒就很怪了」).  The event art moves, so the frozen-screen
+# watch (frozen_screen.py) cannot see it: this long without a press or a new
+# page, stage or battle goes home and tries once more, then 一键日常 goes on.
+# Paused while battles run.  Longer than the frozen-screen watch for the
+# loading after the banner and mode presses (about 8 s at 2K) and the
+# carousel wait on 主页 (横幅轮播等待秒数, 15 s).
+PAGE_STUCK_SECONDS = 20.0
 
 NORMAL_MODE = "普通战斗"
 CHALLENGE_MODE = "挑战战斗"
@@ -228,12 +238,53 @@ class EventBattleTask(_ClaimTaskBase):
         )
         self._battles_done = 0
         self._why = ""
+        self._page_deadline = None
+
+    # -- stuck-page guard ---------------------------------------------------
+
+    def capture_frame(self, screenshot_name: str | None = None):
+        deadline = getattr(self, "_page_deadline", None)
+        if deadline is not None and monotonic() > deadline:
+            # Raised again on every later frame until run_claim ends: a look
+            # that swallows errors (the shared popup check) or a press after
+            # it cannot turn the guard off.
+            self._page_stuck = True
+        if getattr(self, "_page_stuck", False):
+            raise _StuckOnEventPage(
+                f"在活动页 {PAGE_STUCK_SECONDS:.0f} 秒没走到下一步（点了没反应或认不出画面）"
+            )
+        return super().capture_frame(screenshot_name)
+
+    def operate(self, func, block: bool = True, restore_cursor: bool = True):
+        self._progressed()  # a press is a step too
+        return super().operate(func, block=block, restore_cursor=restore_cursor)
+
+    def _progressed(self) -> None:
+        """A page, stage or battle was reached: the guard starts over."""
+        if getattr(self, "_page_deadline", None) is not None:
+            self._page_deadline = monotonic() + PAGE_STUCK_SECONDS
+
+    def _pause_guard(self) -> None:
+        self._page_deadline = None
+        self._page_stuck = False
+
+    def _resume_guard(self) -> None:
+        self._page_deadline = monotonic() + PAGE_STUCK_SECONDS
 
     # -- task entry ---------------------------------------------------------
 
     def run_claim(self) -> bool:
         self._battles_done = 0
         self._why = ""
+        self._resume_guard()
+        try:
+            # _StuckOnEventPage goes on up: the run goes home and tries again
+            # once (BaseBD2Task._run_watched).
+            return self._run_claim()
+        finally:
+            self._pause_guard()
+
+    def _run_claim(self) -> bool:
         for mode in MODES:
             if self._battle_budget() <= 0:
                 break
@@ -277,6 +328,7 @@ class EventBattleTask(_ClaimTaskBase):
         return self._finish("未发现进行中的活动")
 
     def _finish(self, message: str) -> bool:
+        self._pause_guard()
         self.info_set("活动战斗结果", f"{message}，本次战斗 {self._battles_done} 场")
         self.log_info(f"活动每日战斗：{message}，本次战斗 {self._battles_done} 场。")
         if not recover_to_home(self):
@@ -289,6 +341,7 @@ class EventBattleTask(_ClaimTaskBase):
         return "failed"
 
     def _event_fail(self, stage: str) -> bool:
+        self._pause_guard()
         self._save_flow_diagnostic(f"{self.claim_log_name}_{stage}_failed")
         self._settle_before_recovery()
         recover_to_home(self)
@@ -402,6 +455,7 @@ class EventBattleTask(_ClaimTaskBase):
             text = self._boxes_text(boxes)
             self.info_set("活动页 OCR", text or "-")
             if self._hub_shown(frame, text):
+                self._progressed()
                 return True
             self.sleep(0.8)
         return False
@@ -533,6 +587,7 @@ class EventBattleTask(_ClaimTaskBase):
             if self._title_visible(frame, (mode,), mode):
                 panel = self._boxes_text(self._roi_boxes(frame, PANEL_TITLE_ROI, f"{mode}关卡"))
                 if parse_stage_number(panel, mode) is not None:
+                    self._progressed()
                     return True
             self.sleep(0.8)
         if not quiet:
@@ -636,6 +691,7 @@ class EventBattleTask(_ClaimTaskBase):
             if not outcome:
                 self.log_info(f"活动每日战斗：{mode}点了第{target}关，右边没换成第{target}关。")
                 return state
+            self._progressed()
             state = self._stable_stage_state(mode)
         return state
 
@@ -751,13 +807,18 @@ class EventBattleTask(_ClaimTaskBase):
             return 0
         self.info_set("当前阶段", f"{mode}：自动战斗 {cost} 场")
         self.log_info(f"活动每日战斗：{mode}第{state['stage']}关起自动战斗 {cost} 场。")
-        started = self._start_auto_battle()
-        if started == "no_ap":
-            return 0
-        if started != "started":
-            self._failed("按了「战斗」后没开始打")
-            return None
-        return self._watch_auto_battle(cost)
+        # Battles take their own time (单场战斗超时秒数): no page guard meanwhile.
+        self._pause_guard()
+        try:
+            started = self._start_auto_battle()
+            if started == "no_ap":
+                return 0
+            if started != "started":
+                self._failed("按了「战斗」后没开始打")
+                return None
+            return self._watch_auto_battle(cost)
+        finally:
+            self._resume_guard()
 
     def _start_auto_battle(self) -> str:
         """Press 战斗 N and prove a battle began: started / no_ap / failed."""
@@ -1042,8 +1103,12 @@ class EventBattleTask(_ClaimTaskBase):
         if start is None:
             self._click_reference(*QUICK_DIALOG_CANCEL_POINT, after_sleep=1.0)
             return self._failed("快速战斗窗口里没找到「战斗」")
-        self._click_box(start, after_sleep=1.0)
-        result = self._wait_quick_result()
+        self._pause_guard()
+        try:
+            self._click_box(start, after_sleep=1.0)
+            result = self._wait_quick_result()
+        finally:
+            self._resume_guard()
         if result == "no_ap":
             return "no_ap"
         if result != "done":
@@ -1121,6 +1186,10 @@ class EventBattleTask(_ClaimTaskBase):
             self._click_reference(*QUICK_DIALOG_CANCEL_POINT, after_sleep=1.0)
         self.log_info("活动每日战斗：快速战斗后没有看到奖励画面。")
         return "failed"
+
+
+class _StuckOnEventPage(FrozenScreen):
+    """PAGE_STUCK_SECONDS passed without a press or a new page or battle."""
 
 
 _SWORD_TEMPLATE = None

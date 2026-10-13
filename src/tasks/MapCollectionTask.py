@@ -17,6 +17,7 @@ class MapCollectionTask(MapAutomationTaskBase):
     """Weekly map collection card with its own UI and configuration."""
     recover_home_on_failure = True
     start_from_home = True
+    frozen_retry = True
 
     vision_threshold_key = MAP_VISION_THRESHOLD_KEY
     ocr_threshold_key = MAP_OCR_THRESHOLD_KEY

@@ -17,6 +17,9 @@ from src.utils.ocr_utils import normalize_ocr_text
 
 HOME_CARTRIDGE_MACHINE_POINT = (1691, 980)
 HOME_CARTRIDGE_MACHINE_ATTEMPTS = 2
+# The game's own key for the machine on 主页 (4K-verified 10-11), sent once
+# after both clicks were swallowed.
+COLLECTION_KEY = "P"
 # Leo 10-11: 「可以不只認p嗎 感覺不夠穩」, then 「認p就好 f上面是直接返回卡帶」 and
 # 「如果識別不穩時 也可以按畫面上固定位置右下角那一大塊」.  Before the press the P
 # key cap under the machine must show on two frames in a row; it never

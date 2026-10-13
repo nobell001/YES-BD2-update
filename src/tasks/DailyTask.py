@@ -141,6 +141,7 @@ STEP_SKIPPED = "skipped"
 class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
     recover_home_on_failure = True
     start_from_home = True
+    frozen_retry = True
     include_quick_hunt_config = False
 
     vision_threshold_key = "快速狩猎模板阈值"

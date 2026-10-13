@@ -74,6 +74,13 @@ PIPELINE_RECHECK_SECONDS = 0.6
 # 不上失败」) is pressed once more after a pause, and then taken as done
 # (Leo: 「补按后 你就不要管了」).
 PRESS_AGAIN_PAUSE_SECONDS = 1.5
+# The game added a pause after each skill (YES-BD2 #23: presses too close
+# together dropped 召集, so 压制 went first and 召集 came after).  Before the
+# next skill is pressed, the last one has to read grey (the game took it) and
+# the next one bright again; 召集 that is still bright is pressed once more
+# right there, so 压制 never goes before it.  Each look is capped.
+PRESS_TAKEN_WAIT_SECONDS = 3.0
+PRESS_TAKEN_POLL_SECONDS = 0.2
 # Slot count readers by icon name (the 压制 icon is named 制服).
 COUNT_ACTIONS_BY_ICON = {
     ABSORB_ACTION.icon.name: ABSORB_ACTION,
@@ -340,7 +347,8 @@ class SkillExecutionMixin:
         # The group buttons are pressed only where they are seen: inside a
         # shop (clone 10-11, Q_ep2 雷瓦汀据点) or under a dialogue the whole
         # bar is gone and the three presses landed on whatever was there.
-        if selected_skill_group(self.vision.capture()) is None:
+        current = selected_skill_group(self.vision.capture())
+        if current is None:
             self.task.log_warning(
                 "地图采集：画面上没有技能栏（认不出现在是第几组技能），"
                 f"不切技能组：{states}。"
@@ -349,11 +357,22 @@ class SkillExecutionMixin:
         keeper = getattr(self, "skill_group_keeper", None)
         if keeper is not None:
             keeper.before_switch()
-        for group, point in sorted(SKILL_GROUP_RELATIVE_POINTS.items()):
+        # The group that showed them last time first, the one on screen
+        # (which just showed none) last: no flip through group 1 on every
+        # card (Leo 2026-10-13 「切我的工具列」).
+        found = getattr(self, "_collection_skill_group", None)
+        groups = sorted(SKILL_GROUP_RELATIVE_POINTS)
+        order = [group for group in groups if group == found and group != current]
+        order += [group for group in groups if group not in (found, current)]
+        order += [group for group in groups if group == current]
+        for group in order:
             self._status("技能组切换", f"采集技能未显示，切换到技能组{group}")
-            self.task.operate_click(*point, after_sleep=SKILL_GROUP_SWITCH_SETTLE_SECONDS)
+            self.task.operate_click(
+                *SKILL_GROUP_RELATIVE_POINTS[group], after_sleep=SKILL_GROUP_SWITCH_SETTLE_SECONDS
+            )
             detections, opened = inspect_window()
             if opened or self._counts_prove_menu(expected_icons):
+                self._collection_skill_group = group
                 return True
         states = ", ".join(
             f"{icon.name}={value.state.value}"
@@ -869,6 +888,8 @@ class SkillExecutionMixin:
         clicked = []
         last_click_at = None
         for action, frame, detection, before in armed:
+            if clicked:
+                last_click_at = self._settle_before_next_press(clicked, action, last_click_at)
             if last_click_at is not None:
                 # Slower PCs missed presses 0.5 s apart (player, 2026-10-09).
                 self.task.sleep(max(0.0, PIPELINE_CLICK_INTERVAL - (monotonic() - last_click_at)))
@@ -918,6 +939,59 @@ class SkillExecutionMixin:
             # Keep the order: verified clicks first, then the failure.
             return verified + results
         return results + verified
+
+    def _icon_state_within(self, icon, wanted, timeout: float):
+        """Poll single frames until the icon reads ``wanted`` (True) or the
+        time runs out (False, with the last detection)."""
+        looks = 1 + max(0, round(timeout / PRESS_TAKEN_POLL_SECONDS))
+        for look in range(looks):
+            frame = self.vision.capture()
+            detection = self.action_icons.detect(frame, icon)
+            if detection.state is wanted:
+                return True, frame, detection
+            if look + 1 < looks:
+                self.task.sleep(PRESS_TAKEN_POLL_SECONDS)
+        return False, frame, detection
+
+    def _settle_before_next_press(self, clicked, next_action, last_click_at):
+        """Wait until the game took the last press and the next skill is
+        ready (YES-BD2 #23).  Returns the time the interval counts from."""
+        action, detection, before, _feedback = clicked[-1]
+        if action.name == SUPPRESS_ACTION.name:
+            # 压制 can stay bright after a press (monsters come back).
+            return last_click_at
+        pressed_again = getattr(self, "_pressed_again", None)
+        if pressed_again is None:
+            pressed_again = self._pressed_again = set()
+        taken, frame, seen = self._icon_state_within(
+            action.icon, ActionIconState.USED, PRESS_TAKEN_WAIT_SECONDS
+        )
+        if taken:
+            last_click_at = monotonic()
+        elif seen.state is ActionIconState.AVAILABLE and action.name not in pressed_again:
+            # Still bright: the press was dropped.  Press it again now
+            # (Leo 2026-10-13 「按東西沒反應一定要補按吧」), once.
+            self._status(f"{action.name}状态", "按了没反应，补按一次再按下一个")
+            pressed_again.add(action.name)
+            self.vision.click_client(  # 不用确认：下面看变灰，之后再核对次数
+                seen.match.center,
+                frame.shape,
+                after_sleep=ACTION_AFTER_CLICK_SECONDS,
+            )
+            feedback = self._read_action_feedback(action)
+            clicked[-1] = (action, detection, before, feedback)
+            taken, _frame, _seen = self._icon_state_within(
+                action.icon, ActionIconState.USED, PRESS_TAKEN_WAIT_SECONDS
+            )
+            last_click_at = monotonic()
+        if not taken:
+            self._status(f"{action.name}状态", "没看到变灰，照常按下一个，之后再核对")
+        ready, _frame, _seen = self._icon_state_within(
+            next_action.icon, ActionIconState.AVAILABLE, PRESS_TAKEN_WAIT_SECONDS
+        )
+        if not ready:
+            self._status(f"{next_action.name}状态", "还没亮起，照常按，之后再核对")
+        return last_click_at
 
     def _prepare_action(
         self,

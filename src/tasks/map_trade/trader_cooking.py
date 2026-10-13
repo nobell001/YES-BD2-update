@@ -129,6 +129,9 @@ COOKING_MAX_QUANTITY_TEMPLATE = TemplateSpec(
     minimum_safe_threshold=0.95,
     min_pixel_score=0.95,
     min_zncc_score=0.95,
+    # 画面整体变亮（HDR、亮度、滤镜）时像素分会掉到门槛下：形状对了再按亮度对齐比一次
+    # （真实画面模拟变亮：余裕 0.018，3 张全掉，Leo 2026-10-12 根治亮度）。
+    brightness_tolerant=True,
 )
 
 COOKING_RECIPE_SPECS = {

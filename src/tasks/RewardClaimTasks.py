@@ -56,6 +56,7 @@ PASS_MAX_CARDS = 6
 
 class _ClaimTaskBase(ClaimPageMixin, BaseBD2Task):
     recover_home_on_failure = True
+    frozen_retry = True
     start_from_home = True
     vision_threshold_key = "加载页面阈值"
     ocr_threshold_key = "日常 OCR 阈值"

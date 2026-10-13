@@ -33,6 +33,9 @@ QUICK_SWITCH_TEMPLATE = TemplateSpec(
     # 圆底样式在 1600x901 实机帧 zncc 最高 0.838（RPT-20260902-225925），
     # 0.85 门禁确定性误拒；同帧误检 zncc 最高 0.43，0.78 仍有足够余量。
     min_zncc_score=0.78,
+    # 画面整体变亮（HDR、亮度、滤镜）时像素分会掉到门槛下：形状对了再按亮度对齐比一次
+    # （真实画面模拟变亮：45 张亮场景余裕只有 0.002–0.013，9 张掉下去，Leo 2026-10-12 根治亮度）。
+    brightness_tolerant=True,
 )
 Q_SP6_SHOP_PRIORITY_TIMEOUT = 3.0
 # 折扣商店页专有页签 OCR 信号：在商店页整帧 OCR 中已验证稳定命中
@@ -831,6 +834,9 @@ TELEPORT_MAP_DIRECT_HEADER_TEMPLATE = TemplateSpec(
     min_pixel_score=0.90,
     minimum_safe_threshold=0.95,
     min_zncc_score=0.90,
+    # 画面整体变亮（HDR、亮度、滤镜）时像素分会掉到门槛下：形状对了再按亮度对齐比一次
+    # （真实画面模拟变亮：4 张全掉，Leo 2026-10-12 根治亮度）。
+    brightness_tolerant=True,
 )
 TELEPORT_MAP_GENERATE_HEADER_TEMPLATE = TemplateSpec(
     "技能生成页图标",

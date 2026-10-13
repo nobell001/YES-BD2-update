@@ -293,6 +293,8 @@ def plain_refine_box(boxes: list):
 
 class DailyRefineTask(_ClaimTaskBase):
     claim_log_name = "refine"
+    # Refining, crafting and dismantling (the subclasses) are not run twice.
+    frozen_retry = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -18,6 +18,7 @@ from src.utils import task_vision
 from src.utils.calibration import FHD_1080, HD_720, QHD_1440
 from src.utils.cartridge_collection import (
     BATTLE_ROW_PATTERNS,
+    COLLECTION_KEY,
     COLLECTION_SCROLL_NOTCHES,
     COLLECTION_SCROLL_POINT,
     COLLECTION_SCROLLS_DOWN,
@@ -45,7 +46,7 @@ from src.utils.cartridge_quick_switch import (
     STORY_CATEGORY_LABEL,
     category_highlight_ratio,
 )
-from src.utils.colour_rules import switch_yellow_ratio
+from src.utils.colour_rules import switch_knob_side, switch_yellow_ratio
 from src.utils.free_switch import ensure_free_switch_on
 from src.utils.home_confirmation import (
     HOME_DIMMED_P95_THRESHOLD_DEFAULT,
@@ -109,6 +110,9 @@ PVP_BATTLE_START_SCREEN_POINT = (1381, 1061)  # 2560×1440 参考
 PVP_FREE_AP_SWITCH_SCREEN_POINT = (1732, 557)  # 2560×1440 参考
 PVP_FREE_AP_SWITCH_ON_RATIO = 0.05
 PVP_FREE_AP_SWITCH_SETTLE_SECONDS = 2.0
+# The switch's middle (2560×1440 参考, Leo's 1080p dialog: knob off at x 1721,
+# on at 1750).
+PVP_FREE_AP_SWITCH_MIDDLE_X = 1735
 PVP_MULTIPLIER_BUTTON_SCREEN_POINT = (1719, 465)  # 2560×1440 参考
 PVP_MULTIPLIER_40_OPTION_SCREEN_POINT = (1584, 715)  # 2560×1440 参考
 PVP_MULTIPLIER_1_OPTION_SCREEN_POINT = (980, 712)  # 2560×1440 参考
@@ -149,6 +153,9 @@ PVP_AP_SHORTAGE_VERIFY_SECONDS = 1.0
 # dialog (e.g. a purchase prompt) is left alone.
 PVP_RANK_PAGE_TITLES = ("恭喜晋级", "段位下滑")
 PVP_SEASON_REWARD_AFTER_CLICK_SECONDS = 3.0
+# How long the shelf may stay up after the 镜中之战 card press before the
+# press counts as swallowed and is made once more.
+PVP_CARD_REPRESS_SECONDS = 4.0
 # After a battle the 赛季奖励 page can cover the hub (first hub visit after the
 # Monday reset, player report 2026-10-12, v0.1.24): it is tapped away there.
 # When its 点击画面即可返回 line is not read, the tap goes to the blank spot
@@ -232,6 +239,7 @@ TEMPLATE_DIR = PROJECT_ROOT / "recognition-assets" / "template-assets"
 class PVPTask(BaseBD2Task):
     recover_home_on_failure = True
     start_from_home = True
+    frozen_retry = True
     status_keys = [
         "启用",
         "状态",
@@ -473,6 +481,11 @@ class PVPTask(BaseBD2Task):
 
         self.info_set("当前阶段", "点击镜中之战卡带")
         self._click_reference(*point, after_sleep=0.0)
+        # A press the game swallowed leaves the shelf up (player 2026-10-13,
+        # v0.1.30: 30 s on 游戏卡珍藏集 after one press): press once more.
+        if self._collection_still_shows(PVP_CARD_REPRESS_SECONDS):
+            self.log_info("镜中之战：点了镜中之战卡带还停在游戏卡珍藏集，再点一次。")
+            self._click_reference(*point, after_sleep=0.0)
         if self._wait_for_pvp_hub_after_cart(
             timeout=float(self.config.get("PVP 入场等待秒数", 30.0)),
         ):
@@ -485,7 +498,9 @@ class PVPTask(BaseBD2Task):
         """Press 主页's cartridge machine by its place and confirm 游戏卡珍藏集.
 
         A press the game swallowed is tried once more, only after 主页 is
-        confirmed again; anything else on screen stops here.
+        confirmed again; when both clicks were swallowed the game's own P
+        key is the last try (Leo 2026-10-13 「p如果還沒按到 也可以點快捷鍵」).
+        Anything else on screen stops here.
         """
         for attempt in range(1, HOME_CARTRIDGE_MACHINE_ATTEMPTS + 1):
             if not self._wait_for_cartridge_home():
@@ -501,6 +516,13 @@ class PVPTask(BaseBD2Task):
             if self._wait_for_collection_page():
                 return True
             self.log_info(f"镜中之战：第{attempt}次点击主页卡带机（P）后没看到游戏卡珍藏集。")
+        else:
+            if self._wait_for_cartridge_home():
+                self.info_set("当前阶段", "点了卡带机没反应，按快捷键 P")
+                self.log_info("镜中之战：点了两次主页卡带机都没反应，改按快捷键 P。")
+                if self.tap_key(COLLECTION_KEY) and self._wait_for_collection_page():
+                    return True
+                self.log_info("镜中之战：按了快捷键 P 也没看到游戏卡珍藏集。")
         self._save_flow_diagnostic("cartridge_collection_failed")
         return False
 
@@ -520,6 +542,20 @@ class PVPTask(BaseBD2Task):
                 return True
             self.sleep(0.2)
         return False
+
+    def _collection_still_shows(self, seconds: float, interval: float = 0.5) -> bool:
+        """游戏卡珍藏集's title on every read for ``seconds``; False at the
+        first read without it (the card is loading)."""
+        end_at = monotonic() + max(0.0, seconds)
+        while True:
+            text = self._ocr_text(
+                self.capture_frame(), name="游戏卡珍藏集", roi=COLLECTION_TITLE_ROI
+            )
+            if not self._matches_any(text, list(COLLECTION_TITLE_PATTERNS)):
+                return False
+            if monotonic() >= end_at:
+                return True
+            self.sleep(interval)
 
     def _wait_for_collection_page(self, interval: float = 0.5) -> bool:
         """Two reads in a row of the 游戏卡珍藏集 title."""
@@ -1205,6 +1241,7 @@ class PVPTask(BaseBD2Task):
             settle=PVP_FREE_AP_SWITCH_SETTLE_SECONDS,
             sleep=self.sleep,
             log=self.log_info,
+            knob_side=self._free_ap_switch_knob_side,
         ):
             self.info_set("PVP 免费AP", "已开启")
             return True
@@ -1235,6 +1272,17 @@ class PVPTask(BaseBD2Task):
 
     def _free_ap_switch_on(self) -> bool:
         return self._free_ap_switch_ratio() > PVP_FREE_AP_SWITCH_ON_RATIO
+
+    def _free_ap_switch_knob_side(self) -> str | None:
+        frame = self.capture_frame()
+        crop = self._crop_screen_reference(frame, FREE_AP_SWITCH_SCREEN_ROI)
+        if crop.size == 0:
+            return None
+        x, _y, w, _h = FREE_AP_SWITCH_SCREEN_ROI
+        middle = (PVP_FREE_AP_SWITCH_MIDDLE_X - x) / w * crop.shape[1]
+        side = switch_knob_side(crop, middle)
+        self.info_set("PVP 免费AP 圆点", side or "认不准")
+        return side
 
     def _free_ap_switch_ratio(self) -> float:
         frame = self.capture_frame()

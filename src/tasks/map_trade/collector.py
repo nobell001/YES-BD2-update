@@ -4,6 +4,8 @@ from collections import deque
 from copy import deepcopy
 from dataclasses import replace
 
+from ok.task.exceptions import FinishedException, TaskDisabledException
+
 from src.tasks.map_trade import account_check
 from src.tasks.map_trade.action_icons import ActionIconDetector
 from src.tasks.map_trade.card_status import CollectionCardSelectionOutcome
@@ -28,6 +30,7 @@ from src.tasks.map_trade.navigator import Navigator
 from src.tasks.map_trade.progress import ProgressStore
 from src.tasks.map_trade.skill_group_keeper import SkillGroupKeeper, stopping
 from src.tasks.map_trade.vision import Vision
+from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, wait_for
 
 # "卡带单步重试次数"未配置时的默认值。
 CARD_RETRY_DEFAULT = 2
@@ -78,6 +81,9 @@ class Collector(SkillExecutionMixin):
         self._last_skill_observations: dict[str, dict[str, object]] = {}
         self._last_skill_geometry: dict[str, object] = {}
         self._group_one_recovery_attempted = False
+        # The last card entered this run: the group kept for the next card is
+        # put back there when the run ends off the field.
+        self._last_field_card_id = None
         self._last_count_window_stable = False
         # The player's skill group, put back after the group search switched it.
         self.skill_group_keeper = SkillGroupKeeper(task, vision, "地图采集")
@@ -100,7 +106,10 @@ class Collector(SkillExecutionMixin):
                 message=f"地图采集流程异常：{exc}",
             )
         finally:
-            self._restore_skill_group(stopped=stopping(), final=True)
+            stopped = stopping()
+            if not stopped:
+                self._restore_on_last_field()
+            self._restore_skill_group(stopped=stopped, final=True)
 
     def _run_collection(self) -> CollectionResult:
         state = self.progress.load()
@@ -194,6 +203,8 @@ class Collector(SkillExecutionMixin):
                 if stopped is not None:
                     return stopped
                 continue
+            if selected.outcome == CollectionCardSelectionOutcome.ENTERED:
+                self._last_field_card_id = card.card_id
             if selected.outcome == CollectionCardSelectionOutcome.VISUALLY_COMPLETE:
                 self._status(
                     "卡带完成度",
@@ -345,8 +356,14 @@ class Collector(SkillExecutionMixin):
             if card in self._skipped_cards:
                 continue
 
-            # Still on the card's last map: the skill bar is on screen.
-            self._restore_skill_group()
+            # Still on the card's last map: the skill bar is on screen.  The
+            # player's group goes back after the last card only (Leo
+            # 2026-10-13 「跑圖有時候跑完還會切我的工具列」: it flipped back
+            # and forth on every card).
+            if observed_depleted or not self._another_card_follows(
+                card, cards_this_run, card_limit, allowed
+            ):
+                self._restore_skill_group()
             # Straight to the card's own tab (Leo 2026-10-01: character cards went to
             # the story tab first and back).
             reopened = self.navigator.open_story_quick_switcher_from_sandbox(
@@ -456,6 +473,57 @@ class Collector(SkillExecutionMixin):
         )
         return True
 
+    def _another_card_follows(self, card, cards_this_run, card_limit, allowed) -> bool:
+        """A later card will be entered this run, so the collection skill
+        group can stay selected for it.  Leans to False: then the group goes
+        back now, as before."""
+        if card_limit and cards_this_run + 1 >= card_limit:
+            return False
+        if self.progress.state.depleted_today:
+            return False
+        cards = list(COLLECTABLE_CARDS)
+        if card not in cards:
+            return False
+        for other in cards[cards.index(card) + 1 :]:
+            if allowed is not None and other.filter_key not in allowed:
+                continue
+            if other.number in UNSUPPORTED_COLLECTION_CARD_NUMBERS:
+                continue
+            completed = self.progress.state.completed_targets(other.card_id)
+            if len(completed) >= len(other.targets):
+                continue
+            return bool(self._can_finish_card_today(other, completed))
+        return False
+
+    def _restore_on_last_field(self) -> None:
+        """The group was kept for a next card that was then not entered
+        (skipped, already complete, failed to open): enter the last card
+        again and put the player's group back there (Leo's rule: the tool
+        never leaves the skill group changed)."""
+        keeper = getattr(self, "skill_group_keeper", None)
+        card_id = getattr(self, "_last_field_card_id", None)
+        if keeper is None or not keeper.switched or card_id is None:
+            return
+        try:
+            if keeper.read() is not None:
+                return  # still on a field: the normal restore does it
+            self.task.log_info(
+                f"地图采集：结束时不在地图上，回到{card_id}把技能组切回原本那组。"
+            )
+            entered = self.navigator.select_collection_card(
+                card_id, enter_visually_complete=True
+            )
+            if entered.outcome == CollectionCardSelectionOutcome.ENTERED and wait_for(
+                keeper.read, SLOW_PC_GRACE_SECONDS, sleep=self.task.sleep, poll=0.5
+            ):
+                keeper.restore()
+                if not keeper.switched:
+                    self.navigator.return_home()
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:
+            self.task.log_warning(f"地图采集：回地图切回技能组失败：{exc}")
+
     def _restore_skill_group(self, **kwargs) -> None:
         keeper = getattr(self, "skill_group_keeper", None)
         if keeper is not None:
@@ -488,11 +556,33 @@ class Collector(SkillExecutionMixin):
         returned = self.navigator.return_home()
         if returned.success:
             return None
+        if self._recover_home_after_skip(card, returned.message):
+            return None
         return CollectionResult(
             False,
             completed_submaps=completed_this_run,
             message=f"{card.label}跳过后回不到主页（{returned.message}），停止跑图",
         )
+
+    def _recover_home_after_skip(self, card, why: str) -> bool:
+        """The general way home (back arrow, H, and Esc one step at a time)
+        when the map pages' own way found no safe path (YES-BD2 #24: a map
+        page left open stopped the whole run; Leo 2026-10-13 「能不能直接esc
+        然后换下一张卡带」).  True = home, the next card goes on."""
+        if not hasattr(self.task, "capture_frame"):
+            return False
+        from src.tasks.recovery import recover_to_home
+
+        self.task.log_warning(
+            f"地图采集：{card.label}跳过后没认出回主页的路（{why}），改用通用退出再回主页。"
+        )
+        try:
+            return bool(recover_to_home(self.task))
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:
+            self.task.log_warning(f"地图采集：通用退出失败：{exc}")
+            return False
 
     def _skip_after_skill_failure(
         self,

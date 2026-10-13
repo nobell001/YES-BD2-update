@@ -331,6 +331,12 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
                 # its teleport icon was never searched and the map never closed).
                 if left or right:
                     mode = MapPageMode.SANDBOX_LARGE_MAP
+                elif keyword_hits == len(SANDBOX_NAVIGATION_PAGE_KEYWORDS):
+                    # On snow (华特波尔雪山, YES-BD2 #24 at 1080p) both white
+                    # arrows miss their templates; the map's own title plus
+                    # all three footer words prove the page as well.
+                    evidence.append("箭头未命中，标题与底部三词确认")
+                    mode = MapPageMode.SANDBOX_LARGE_MAP
 
         self._status(
             "地图页面模式",

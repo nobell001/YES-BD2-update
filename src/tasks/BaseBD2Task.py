@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 from dataclasses import dataclass
@@ -9,8 +10,9 @@ from typing import Any, Callable
 
 import cv2
 import numpy as np
-from ok import BaseTask, Box, Logger
+from ok import BaseTask, Box, Config, Logger
 from ok.task.exceptions import FinishedException, TaskDisabledException
+from ok.util.file import get_relative_path
 from PIL import Image
 
 from src.scene.BD2Scene import BD2Scene
@@ -33,7 +35,8 @@ from src.utils.image_utils import (
     template_match_response,
     to_gray,
 )
-from src.utils import ocr_reread
+from src.utils import frame_recorder, known_popups, ocr_reread
+from src.utils.frozen_screen import FROZEN_SCREEN_SECONDS, FrozenScreen, FrozenWatch
 from src.utils.ocr_utils import normalize_ocr_text
 from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, PressOutcome
@@ -82,6 +85,28 @@ TEMPLATE_DIR = PROJECT_ROOT / "recognition-assets" / "template-assets"
 # Shared lock for task instances whose ``__init__`` never ran (object.__new__);
 # see ``BaseBD2Task._task_info_lock``.
 _INFO_FALLBACK_LOCK = threading.RLock()
+# The pause after a cue is recognised and before the press.  Leo 2026-10-10
+# 「不要有已經判斷到 又空等的情況」, 2026-10-13 「感覺每個按鍵都要等個2秒」: 1 s
+# became 0.3 s (enough for a button still sliding in); presses that matter
+# are confirmed and re-pressed (press_confirm.py).  The setting got a new name
+# so the change applies once: a saved old value other than the old 1.0 default
+# moves over, the old default becomes 0.3 (load_config).
+RECOGNITION_SETTLE_SECONDS = 0.3
+RECOGNITION_SETTLE_KEY = "识别后等待秒数"
+OLD_RECOGNITION_SETTLE_KEY = "识别成功后等待秒数"
+OLD_RECOGNITION_SETTLE_SECONDS = 1.0
+
+
+def recognition_settle_from_old(saved: dict):
+    """The new setting's value carried over from an old saved config, or
+    None (nothing saved, the new key already saved, or the old default)."""
+    if not isinstance(saved, dict) or RECOGNITION_SETTLE_KEY in saved:
+        return None
+    try:
+        old = float(saved[OLD_RECOGNITION_SETTLE_KEY])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return None if old == OLD_RECOGNITION_SETTLE_SECONDS else old
 
 
 class PlayerSteppedIn(TaskDisabledException):
@@ -101,6 +126,39 @@ def _run_again_after_step_in(task, run, args, kwargs, stepped_in=False):
             return run(task, *args, **kwargs)
         except PlayerSteppedIn:
             stepped_in = True
+
+
+def _run_watched(task, run, args, kwargs, stepped_in=False, watched=False):
+    """``run`` with the stuck-screen watch on (frozen_screen.py).
+
+    A run whose screen froze goes home; a task that is safe to run again
+    (``frozen_retry``) runs once more from there, else it ends as failed and
+    一键日常 goes on with the next item (Leo 2026-10-13 「可以的話就重試沒辦法
+    就下一步」).
+    """
+    if not watched:
+        return _run_again_after_step_in(task, run, args, kwargs, stepped_in)
+    from src.tasks.recovery import recover_to_home
+
+    name = getattr(task, "name", "")
+    for attempt in (1, 2):
+        task._frozen_watch = FrozenWatch()
+        try:
+            return _run_again_after_step_in(task, run, args, kwargs, stepped_in)
+        except FrozenScreen as exc:
+            why = str(exc) or (
+                f"画面 {FROZEN_SCREEN_SECONDS:.0f} 秒没有变化（点了没反应或认不出画面）"
+            )
+        finally:
+            task._frozen_watch = None
+        stepped_in = False
+        again = attempt == 1 and bool(getattr(type(task), "frozen_retry", False))
+        task._why = why
+        task.log_warning(f"{name}：{why}，" + ("回主页再试一次。" if again else "回主页。"))
+        if not again or not recover_to_home(task):
+            return False
+        task.log_info(f"{name}：已回主页，再试一次。")
+    return False
 
 
 def _home_after_step_in(task) -> bool:
@@ -186,6 +244,9 @@ class BaseBD2Task(BaseTask):
     # Tasks that begin on the home page: a run started on another page (a
     # task clicked while the bag or the square was open) goes home first.
     start_from_home = False
+    # A run stopped by a frozen screen (frozen_screen.py) runs once more from
+    # home.  Only for tasks whose second run cannot spend or dismantle twice.
+    frozen_retry = False
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -236,8 +297,10 @@ class BaseBD2Task(BaseTask):
                         self._go_home_before_run()
                     except PlayerSteppedIn:
                         stepped_in = True  # on its way home: look again first
+                # Daily and weekly tasks are watched for a frozen screen.
+                watched = constructed and (wanted or getattr(type(self), "start_from_home", False))
                 try:
-                    result = _run_again_after_step_in(self, run, args, run_kwargs, stepped_in)
+                    result = _run_watched(self, run, args, run_kwargs, stepped_in, watched)
                 except TaskDisabledException:
                     problem_report.note_problem(self, "stop")
                     raise
@@ -324,6 +387,7 @@ class BaseBD2Task(BaseTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        frame_recorder.install()  # developer-only, off unless BD2_RECORD_FRAMES is set
         self.visible = False
         self.scene: BD2Scene | None = None
         self.default_box = ScreenPosition(self)
@@ -343,14 +407,25 @@ class BaseBD2Task(BaseTask):
         ) = None
         self.default_config.update(
             {
-                "识别成功后等待秒数": 1.0,
+                RECOGNITION_SETTLE_KEY: RECOGNITION_SETTLE_SECONDS,
             }
         )
         self.config_description.update(
             {
-                "识别成功后等待秒数": "识别成功后，执行下一步点击或切换操作前等待多久。",
+                RECOGNITION_SETTLE_KEY: "认出按钮后，点下去之前等多久（秒）。",
             }
         )
+
+    def load_config(self):
+        try:
+            path = Path(get_relative_path(Config.config_folder, f"{self.__class__.__name__}.json"))
+            saved = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            saved = {}
+        carried = recognition_settle_from_old(saved)
+        super().load_config()
+        if carried is not None:
+            self.config[RECOGNITION_SETTLE_KEY] = carried
 
     def log_completion(self, message: str) -> None:
         """Publish a completion popup unless this task is running as a batch child."""
@@ -415,6 +490,9 @@ class BaseBD2Task(BaseTask):
         if frame is None:
             raise RuntimeError("未能从 BD2 截取画面。")
 
+        watch = getattr(self, "_frozen_watch", None)
+        if watch is not None:
+            watch.look(frame)
         height, width = frame.shape[:2]
         self.info_set("截图方式", self.capture_method_name)
         self.info_set("游戏分辨率", f"{width}x{height}")
@@ -530,6 +608,9 @@ class BaseBD2Task(BaseTask):
         )
 
     def operate(self, func: Callable, block: bool = True, restore_cursor: bool = True):
+        watch = getattr(self, "_frozen_watch", None)
+        if watch is not None:
+            watch.pressed()
         interaction = getattr(self.executor, "interaction", None)
         if interaction is not None and hasattr(interaction, "operate"):
             return interaction.operate(func, block=block, restore_cursor=restore_cursor)
@@ -615,6 +696,7 @@ class BaseBD2Task(BaseTask):
         look: Callable[[], object],
         label: str = "",
         grace: float = SLOW_PC_GRACE_SECONDS,
+        popups: bool = True,
     ):
         """``look()`` on fresh frames until it finds something, for ``grace`` s.
 
@@ -622,6 +704,8 @@ class BaseBD2Task(BaseTask):
         有已經判斷到 又空等的情況」): a read that finds nothing is looked at
         again before it counts as absent, and a read that finds something
         returns at once.  ``look`` must take its own new frame each call.
+        Still nothing: a known popup covering the page is closed
+        (``close_known_popup``) and the page looked at once more.
         Returns the first truthy result, else the last (falsy) one.
         """
         result = look()
@@ -635,7 +719,33 @@ class BaseBD2Task(BaseTask):
             return result
         if label:
             self.log_info(f"{label}：多看了 {grace:g} 秒仍没看到")
+        if popups and self.close_known_popup(label or "多看一次"):
+            # A popup covered the page (赛季奖励, 获得道具...): closed, look again.
+            result = self.look_again(look, label, grace, popups=False)
         return result
+
+    def close_known_popup(self, label: str = "") -> bool:
+        """Close a popup that covers the page with its harmless press
+        (src/utils/known_popups; never 取消 mid-task, never a spend).  True
+        when one was pressed."""
+        try:
+            frame = self.capture_frame()
+            if frame is None:
+                return False
+            boxes = list(self.ocr(frame=frame, name="共用弹窗", reread=False) or [])
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:  # a popup look must never break the step
+            self.log_info(f"{label}：查看弹窗失败：{exc}")
+            return False
+        press = known_popups.pick(boxes)
+        center = self._ocr_box_center(press.box) if press is not None else None
+        if center is None:
+            return False
+        height, width = frame.shape[:2]
+        self.log_info(f"{label}：画面被弹窗挡住，点击「{press.label}」关闭后再看。")
+        self.operate_click(center[0] / width, center[1] / height, after_sleep=1.0)  # 不用确认：调用方接着重看页面
+        return True
 
     @staticmethod
     def _click_log_message(x, y, width: int, height: int, action_name: str) -> str:
@@ -902,7 +1012,7 @@ class BaseBD2Task(BaseTask):
         self.sleep(after_sleep)
 
     def _sleep_after_recognition(self) -> None:
-        seconds = float(self.config.get("识别成功后等待秒数", 1.0))
+        seconds = float(self.config.get(RECOGNITION_SETTLE_KEY, RECOGNITION_SETTLE_SECONDS))
         if seconds > 0:
             self.sleep(seconds)
 
@@ -993,9 +1103,11 @@ class BaseBD2Task(BaseTask):
                     ensure_home=ensure_home,
                     click_quick_switch=click_quick_switch,
                 )
-        if not quick_switch_opened:
-            return self._quick_switch_by_key(ensure_home, confirm_quick_switch_page)
-        return bool(confirm_quick_switch_page())
+        # Pressed but the page never showed (the game did not take the
+        # click, YES-BD2 #23): the keys get their turn too.
+        if quick_switch_opened and confirm_quick_switch_page():
+            return True
+        return self._quick_switch_by_key(ensure_home, confirm_quick_switch_page)
 
     def _quick_switch_by_key(
         self,

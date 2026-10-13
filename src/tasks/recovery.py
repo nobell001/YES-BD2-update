@@ -18,15 +18,16 @@ from ok.task.exceptions import FinishedException, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
 from src.tasks.BaseBD2Task import HOME_KEY, BaseBD2Task
-from src.tasks.claim_page import OVERLAY_DISMISS_KEYWORDS, REWARD_DIALOG_TITLES
 from src.tasks.map_trade.models import ScreenState
 from src.tasks.map_trade.navigator import Navigator
 from src.tasks.map_trade.vision import Vision
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
+from src.utils import known_popups
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
 from src.utils.ocr_utils import fuzzy_substring_match, normalize_ocr_text
 
-RECOVERY_ATTEMPTS = 6
+# Room for the Esc steps after the back arrow and H.
+RECOVERY_ATTEMPTS = 8
 UNKNOWN_SETTLE_SECONDS = 1.0
 # After a back press, poll the cheap home check this long.
 BACK_HOME_POLL_SECONDS = 1.5
@@ -52,17 +53,17 @@ NAVIGATOR_STATES = frozenset(
         ScreenState.LOADING,
     }
 )
-# Buttons that only ever close a dialog, never confirm a spend.
-DISMISS_TEXTS = ("点击画面即可返回", "取消", "关闭")
-# Info-only dialogs whose 确认 just closes them: 确认 is pressed only while
-# one of these titles is on the same frame (never a purchase confirm).
-CONFIRM_ONLY_TITLES = REWARD_DIALOG_TITLES + (
-    "恭喜晋级",
-    "段位下滑",
-    "奖励已发放至背包",
-    "奖励已通过邮件发放",
-)
-CONFIRM_TEXT = "确认"
+# Buttons that only ever close a dialog, never confirm a spend: chosen by
+# src/utils/known_popups (取消 allowed on the way home).
+CONFIRM_ONLY_TITLES = known_popups.CONFIRM_ONLY_TITLES
+# After the back arrow and H, Esc one press at a time (Leo 2026-10-12 「建議
+# 還是逐步回主頁」); the game's quit dialog means the top was reached.
+ESCAPE_STEPS_MAX = 3
+# A back press that moved to another page is followed by another back press;
+# H only once back did nothing, or this many presses moved without reaching
+# home (live 2K 2026-10-13: from the event stage page H did nothing on the
+# event hub and cost ~10 s of the 40 s way home).
+BACK_MOVES_BEFORE_HOME_KEY = 2
 # The game went back to its title screen (08:00 reset, disconnect, restart).
 TITLE_SCREEN_TEXTS = ("touchtostart",)
 # OCR misreads like "T0UCH TO STAR" missed the title: tolerant match.
@@ -70,44 +71,32 @@ TITLE_SCREEN_FUZZY_RATIO = 0.8
 
 
 def _handle_dialog(task, vision: Vision) -> str:
-    """Close one known dialog: "dismissed", "title" (title screen) or "none"."""
+    """Close one known dialog: "dismissed", "quit" (the game's quit dialog,
+    cancelled), "title" (title screen) or "none"."""
 
     frame = task.capture_frame()
     height, width = frame.shape[:2]
     boxes = vision.ocr_boxes(frame, "恢复主页弹窗")
-    named = [(normalize_ocr_text(getattr(box, "name", "")), box) for box in boxes]
-    text = "".join(name for name, _box in named)
+    text = "".join(normalize_ocr_text(getattr(box, "name", "")) for box in boxes)
     alnum = normalize_ocr_text(text, alnum_only=True)
     if any(
         fuzzy_substring_match(alnum, title, TITLE_SCREEN_FUZZY_RATIO)
         for title in TITLE_SCREEN_TEXTS
     ):
         return "title"
-
-    target, label = None, ""
-    for keyword in DISMISS_TEXTS:
-        wanted = normalize_ocr_text(keyword)
-        target = next((box for name, box in named if name == wanted), None)
-        if target is not None:
-            label = keyword
-            break
-    if target is None:
-        overlays = tuple(normalize_ocr_text(keyword) for keyword in OVERLAY_DISMISS_KEYWORDS)
-        target = next(
-            (box for name, box in named if any(keyword in name for keyword in overlays)), None
-        )
-        label = "点击画面返回"
-    if target is None and any(normalize_ocr_text(title) in text for title in CONFIRM_ONLY_TITLES):
-        target = next((box for name, box in named if name == CONFIRM_TEXT), None)
-        label = CONFIRM_TEXT
-    if target is None:
+    press = known_popups.pick(boxes, allow_cancel=True)
+    if press is None:
         return "none"
-    center = task._ocr_box_center(target)
+    center = task._ocr_box_center(press.box)
     if center is None:
         return "none"
-    task.log_info(f"恢复主页：点击「{label}」关闭弹窗。")
+    quit_dialog = known_popups.is_quit_dialog(boxes)
+    if quit_dialog:
+        task.log_info("恢复主页：游戏问要不要关闭游戏，点击「取消」，不再按 Esc。")
+    else:
+        task.log_info(f"恢复主页：点击「{press.label}」关闭弹窗。")
     task.operate_click(center[0] / width, center[1] / height, after_sleep=1.0)
-    return "dismissed"
+    return "quit" if quit_dialog else "dismissed"
 
 
 def _rearm_auto_login(task) -> bool:
@@ -235,11 +224,31 @@ def in_game_page(task) -> bool:
 
 
 def recover_to_home(task, attempts: int = RECOVERY_ATTEMPTS) -> bool:
-    """Try to bring the game back to the confirmed home screen."""
+    """Try to bring the game back to the confirmed home screen.
+
+    The stuck-screen watch (frozen_screen.py) rests meanwhile: waiting out a
+    loading screen or a dialog here is the way out, not being stuck.
+    """
+    watch = getattr(task, "_frozen_watch", None)
+    if watch is None:
+        return _recover_to_home(task, attempts)
+    watch.paused += 1
+    try:
+        return _recover_to_home(task, attempts)
+    finally:
+        watch.paused -= 1
+        watch.pressed()
+
+
+def _recover_to_home(task, attempts: int) -> bool:
     vision = Vision(task)
     navigator = Navigator(task, vision)
     task._recovery_saw_title = False
     home_key_pressed = False
+    back_did_nothing = False
+    back_moved = 0
+    escape_presses = 0
+    escape_stopped = False
     for attempt in range(1, attempts + 1):
         if _home_now(navigator):
             return True
@@ -269,6 +278,10 @@ def recover_to_home(task, attempts: int = RECOVERY_ATTEMPTS) -> bool:
                 notify=True,
             )
             return False
+        if outcome == "quit":
+            # Esc reached a top page: the game asked to quit, cancelled.
+            escape_stopped = True
+            continue
         if outcome == "dismissed":
             continue
         frame = navigator.vision.capture()
@@ -289,7 +302,12 @@ def recover_to_home(task, attempts: int = RECOVERY_ATTEMPTS) -> bool:
         # after the last press must not get another back press.
         if attempt > 1 and _wait_home_briefly(task, navigator, 0.3):
             return True
-        if attempt > 1 and not home_key_pressed and callable(getattr(task, "tap_key", None)):
+        if (
+            attempt > 1
+            and not home_key_pressed
+            and (back_did_nothing or back_moved >= BACK_MOVES_BEFORE_HOME_KEY)
+            and callable(getattr(task, "tap_key", None))
+        ):
             # A back press did not bring 主页 and the screen reads as none
             # of the known pages (HDR, a field the navigator doesn't know,
             # 餐厅...): the game's own H once (Leo 2026-10-11 「在餐廳也可以按
@@ -301,12 +319,33 @@ def recover_to_home(task, attempts: int = RECOVERY_ATTEMPTS) -> bool:
             ):
                 return True
             continue
+        if (
+            back_did_nothing
+            and home_key_pressed
+            and not escape_stopped
+            and escape_presses < ESCAPE_STEPS_MAX
+            and callable(getattr(task, "tap_escape", None))
+        ):
+            # The back arrow changed nothing (a page without one, a popup
+            # without 取消/关闭): one Esc, then look again before the next
+            # (Leo 2026-10-12 「建議還是逐步回主頁」).
+            escape_presses += 1
+            task.log_info(f"恢复主页：返回没有反应，按一次 Esc（第{escape_presses}次）。")
+            if task.tap_escape(after_sleep=0.5) and _wait_after_back(task, navigator, frame):
+                return True
+            back_did_nothing = False
+            continue
         task.log_info("恢复主页：点击左上角返回。")
         task.operate_click(*BACK_BUTTON_POINT, after_sleep=0.5)
         # Live 2026-09-27: a fixed 1.5 s sleep plus a full classification per
         # press made leaving the event take 15 s.
         if _wait_after_back(task, navigator, frame):
             return True
+        back_did_nothing = not _frames_differ(
+            _thumb(frame), _thumb(navigator.vision.capture())
+        )
+        if not back_did_nothing:
+            back_moved += 1
     if navigator.classify() == ScreenState.HOME:
         return True
     _keep_failure_picture(task, navigator)

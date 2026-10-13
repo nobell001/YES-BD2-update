@@ -27,6 +27,11 @@ from src.tasks.task_vision_mixin import (
     REFERENCE_WIDTH,
     TaskVisionMixin,
 )
+from src.utils.known_popups import (  # noqa: F401 - re-exported for the tasks
+    CONFIRM_TEXT,
+    OVERLAY_DISMISS_KEYWORDS,
+    REWARD_DIALOG_TITLES,
+)
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
 
@@ -42,17 +47,7 @@ TITLE_FUZZY_RATIO = 0.8
 OVERLAY_TAP_POINT = (960, 22)
 
 # Text that closes a reward overlay when tapped.
-OVERLAY_DISMISS_KEYWORDS = (
-    "点击画面即可返回",
-    "点击画面返回",
-    "点击任意位置",
-    "点击空白处",
-    "点击屏幕",
-    "轻触画面",
-)
-# A "确认" button is only pressed when one of these reward titles is on screen.
-REWARD_DIALOG_TITLES = ("获得道具", "获得奖励", "领取奖励", "奖励领取", "领取成功", "获得物品")
-CONFIRM_TEXT = "确认"
+# Shared with every task (src/utils/known_popups).
 # Home entry clicks are occasionally swallowed; re-click while home persists.
 ENTRY_CLICK_ATTEMPTS = 3
 ENTRY_RETRY_SECONDS = 4.0

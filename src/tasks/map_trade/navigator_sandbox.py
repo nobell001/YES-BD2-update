@@ -157,6 +157,11 @@ from src.utils.press_confirm import press_and_confirm
 # Field status text after a map click: '自动移动中：魔法阵' (bottom centre) and
 # '已完成自动移动' (top centre); 1920x1080 fractions.
 AUTO_MOVE_TEXT_RELATIVE_ROI = (560 / 1920, 80 / 1080, 1360 / 1920, 980 / 1080)
+# The game's 自动移动 dialog after a map destination is picked (player 1080p,
+# YES-BD2 #24): 「是否自动移动前往所选目的地？」 with 取消 / 确认; it does not
+# show once the player ticked 不再显示.
+AUTO_MOVE_QUESTION_KEYWORDS = ("是否自动移动", "前往所选目的地")
+AUTO_MOVE_CANCEL_TEXT = "取消"
 # Teleport-map page arrows (1920x1080 reference), measured on 华特波尔雪山 at 2K.
 TELEPORT_PAGE_ARROW_REFERENCE = {"left": (380, 520), "right": (1540, 520)}
 
@@ -1247,6 +1252,40 @@ class SandboxNavigationMixin:
             return ""
         return normalize_text(self.vision.simplify(str(text)))
 
+    @staticmethod
+    def _auto_move_question_shown(walk_text: str) -> bool:
+        """The 自动移动 dialog's question (「是否自动移动前往所选目的地？」)
+        in normalized walk-area text."""
+        return any(word in walk_text for word in AUTO_MOVE_QUESTION_KEYWORDS)
+
+    def _cancel_auto_move_dialog(self, frame: np.ndarray | None = None) -> bool:
+        """Press 取消 on a 自动移动 dialog left open over the map (YES-BD2
+        #24: the run went home with it still up and stopped); True when
+        pressed.  Nothing is pressed unless the question itself reads."""
+        try:
+            if frame is None:
+                frame = self.vision.capture()
+            boxes = self.vision.ocr_boxes(
+                frame, "自动移动确认窗", relative_roi=AUTO_MOVE_TEXT_RELATIVE_ROI
+            )
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception:
+            return False
+        texts = [
+            (normalize_text(self.vision.simplify(str(getattr(box, "name", "")))), box)
+            for box in boxes
+        ]
+        if not self._auto_move_question_shown("".join(text for text, _box in texts)):
+            return False
+        for text, box in texts:
+            center = self._ocr_box_center(box)
+            if text == AUTO_MOVE_CANCEL_TEXT and center is not None:
+                self._status("导航状态", "关掉留着的自动移动确认窗（取消）")
+                self.vision.click_client(center, frame.shape, after_sleep=0.8)
+                return True
+        return False
+
     def _walk_caught(self, text: str) -> bool:
         caught = any(word in text for word in WALK_CAUGHT_KEYWORDS)
         if caught:
@@ -1551,6 +1590,14 @@ class SandboxNavigationMixin:
                     ScreenState.SANDBOX,
                     "走向传送阵时被巡逻发现并驱逐，已停止自动移动",
                 )
+            if self._auto_move_question_shown(walk_text):
+                # 「是否自动移动前往所选目的地？」 (YES-BD2 #24): its title
+                # 自动移动 is not the walk banner; its 确认 starts the walk.
+                if self._click_sandbox_navigation_destination_confirmation(menu_frame):
+                    destination_confirmed = True
+                    break
+                self.task.sleep(SANDBOX_NAVIGATION_OCR_INTERVAL)
+                continue
             if "自动移动" in walk_text:
                 # One click on the map icon already started the walk: no
                 # menu and no confirm button follow.
@@ -1777,6 +1824,8 @@ class SandboxNavigationMixin:
         """Close one strictly identified map page, then re-confirm the sandbox."""
 
         frame = self.vision.capture()
+        if self._cancel_auto_move_dialog(frame):
+            frame = self.vision.capture()
         detection = self._detect_map_page_mode(frame)
         if detection.mode not in expected_modes:
             expected = ",".join(sorted(mode.value for mode in expected_modes))

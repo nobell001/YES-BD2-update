@@ -762,6 +762,10 @@ class TradeNavigationMixin:
             # Answer an already-open 折扣商店结束 dialog first: a click
             # outside it could cancel it instead.
             self.task.operate_click(*DISCOUNT_SHOP_CLOSE_POINT, after_sleep=0.8)
+        cancel_auto_move = getattr(self, "_cancel_auto_move_dialog", None)
+        if callable(cancel_auto_move):
+            # A 自动移动 dialog over the map hides it from classify (YES-BD2 #24).
+            cancel_auto_move()
         state = self.classify()
         # The merchant menu can classify as SHOP (its 商店 bubble) or as
         # UNKNOWN (live 2026-09-27, a failed sell left it open).

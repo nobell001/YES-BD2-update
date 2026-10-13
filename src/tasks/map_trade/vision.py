@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import re
 from dataclasses import replace
 from math import ceil
@@ -105,6 +106,14 @@ def parse_used_limit(text: str, known_limit: int | None = None) -> tuple[int, in
     if limit <= 0 or used < 0 or used > limit:
         return None
     return used, limit
+
+
+def _ocr_takes_reread(task) -> bool:
+    """The task's ocr() has BaseBD2Task's ``reread`` switch."""
+    try:
+        return "reread" in inspect.signature(task.ocr).parameters
+    except (TypeError, ValueError, AttributeError):
+        return False
 
 
 class Vision:
@@ -1208,7 +1217,10 @@ class Vision:
                 target_height=max(0, int(target_height)),
                 log=False,
                 name=name,
-                reread=ocr_scale == 1.0,
+                # Only BaseBD2Task's ocr takes reread: the 一键日常 batch's own
+                # 开跑前检查 read failed with "unexpected keyword 'reread'"
+                # (live 2K 2026-10-13), so 繁中 home went unseen there.
+                **({"reread": ocr_scale == 1.0} if _ocr_takes_reread(self.task) else {}),
             )
         except (TaskDisabledException, FinishedException):
             raise

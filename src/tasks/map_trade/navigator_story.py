@@ -144,6 +144,14 @@ def badge_area_unchanged(before, after, result) -> bool:
 FIELD_QUICK_SWITCH_REFERENCE_POINT = (851 * 1280 / 1920, 997 * 720 / 1080)
 QUICK_SWITCH_FALLBACK_AFTER = 3.0
 QUICK_SWITCH_CLICK_AFTER_SLEEP = 1.0
+# The game's own quick-switch key in the field (Leo 2026-10-11: hotkeys are
+# allowed as the fallback for harmless navigation).  On 主页 P opens the
+# collection instead, so it is only sent while the field key caps show; while
+# the quick-switch page is already open the game ignores it.
+FIELD_QUICK_SWITCH_KEY = "P"
+FIELD_QUICK_SWITCH_KEY_PRESSES = 2
+FIELD_QUICK_SWITCH_KEY_AFTER_SLEEP = 1.5
+FIELD_QUICK_SWITCH_KEY_CONFIRM_SECONDS = 5.0
 
 
 # Wheel notches that move a card cut off at the quick bar's edge inward.
@@ -236,14 +244,7 @@ class StoryCardNavigationMixin:
             window_samples=window_samples,
         ):
             return True
-        frame = self.vision.capture()
-        if (
-            sum(
-                self.vision.passes(self.vision.match(frame, spec), spec)
-                for spec in FIELD_ALL_KEYCAP_TEMPLATES
-            )
-            >= FIELD_KEYCAP_MIN_PASSES
-        ):
+        if self._field_keycaps_shown():
             self._status("快速切换按钮", "模板未命中，按键确认在箱庭，点击标定位置")
             self.vision.click_reference(*FIELD_QUICK_SWITCH_REFERENCE_POINT, after_sleep=after_sleep)
             return True
@@ -253,6 +254,44 @@ class StoryCardNavigationMixin:
             after_sleep=after_sleep,
             window_samples=window_samples,
         )
+
+    def _field_keycaps_shown(self) -> bool:
+        """The opaque C/H/P key caps of the field HUD (the screen is a field,
+        not 主页)."""
+        frame = self.vision.capture()
+        return (
+            sum(
+                self.vision.passes(self.vision.match(frame, spec), spec)
+                for spec in FIELD_ALL_KEYCAP_TEMPLATES
+            )
+            >= FIELD_KEYCAP_MIN_PASSES
+        )
+
+    def _quick_switch_by_key_in_field(self) -> bool:
+        """Press P when the quick-switch button did not open the page.
+
+        YES-BD2 #23 (1080p windowed, 225%): after a card the click went in but
+        the field HUD still showed 10 s later, and the whole weekly run ended.
+        P is pressed at most twice, each time only while the key caps still
+        prove the field.
+        """
+        tap_key = getattr(self.task, "tap_key", None)
+        if tap_key is None:
+            return False
+        for press in range(1, FIELD_QUICK_SWITCH_KEY_PRESSES + 1):
+            if not self._field_keycaps_shown():
+                return False
+            self._status(
+                "快速切换按钮",
+                f"点了没打开卡带选择页，第{press}次改按快捷键 {FIELD_QUICK_SWITCH_KEY}",
+            )
+            if not tap_key(
+                FIELD_QUICK_SWITCH_KEY, after_sleep=FIELD_QUICK_SWITCH_KEY_AFTER_SLEEP
+            ):
+                return False
+            if self._wait_for_quick_switch_page(timeout=FIELD_QUICK_SWITCH_KEY_CONFIRM_SECONDS):
+                return True
+        return False
 
     def _open_story_quick_switcher(self, category: str = "story") -> NavigationResult:
         opened = self.task.open_cartridge_quick_switcher(
@@ -2646,16 +2685,22 @@ class StoryCardNavigationMixin:
         # The see-through button can stay unseen on snow; the key caps
         # fallback presses its calibrated place and the page check below
         # still has to pass.
+        # A click the game did not take, or a button that never read, falls
+        # back to the P key (YES-BD2 #23).
         if not self._click_quick_switch(
             QUICK_SWITCH_CLICK_TIMEOUT,
             QUICK_SWITCH_CLICK_AFTER_SLEEP,
         ):
-            return NavigationResult(
-                False,
-                ScreenState.SANDBOX,
-                "卡带箱庭内未稳定识别到快速切换按钮",
-            )
-        if not self._wait_for_quick_switch_page():
+            if not self._quick_switch_by_key_in_field():
+                return NavigationResult(
+                    False,
+                    ScreenState.SANDBOX,
+                    "卡带箱庭内未稳定识别到快速切换按钮",
+                )
+        elif (
+            not self._wait_for_quick_switch_page()
+            and not self._quick_switch_by_key_in_field()
+        ):
             return NavigationResult(
                 False,
                 self.classify(),

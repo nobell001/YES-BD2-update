@@ -6,7 +6,7 @@ from ok.util.file import get_relative_path
 from qfluentwidgets import FluentIcon
 
 from src.tasks import problem_report
-from src.tasks.BaseBD2Task import BaseBD2Task
+from src.tasks.BaseBD2Task import RECOGNITION_SETTLE_KEY, BaseBD2Task
 from src.tasks.quick_hunt import (
     QUICK_HUNT_CHILD_CONFIG_KEYS,
     QuickHuntConfigMixin,
@@ -29,6 +29,7 @@ class QuickHuntTask(
     """Standalone quick-hunt task backed by the migrated quick-hunt flow."""
     recover_home_on_failure = True
     start_from_home = True
+    frozen_retry = True
 
     include_quick_hunt_config = True
     ocr_threshold_key = "快速狩猎 OCR 阈值"
@@ -117,7 +118,7 @@ class QuickHuntTask(
             }
         )
 
-        visible_keys = ["识别成功后等待秒数", *QUICK_HUNT_CHILD_CONFIG_KEYS]
+        visible_keys = [RECOGNITION_SETTLE_KEY, *QUICK_HUNT_CHILD_CONFIG_KEYS]
         ocr_index = visible_keys.index("快速狩猎像素相似度阈值") + 1
         visible_keys.insert(ocr_index, "快速狩猎 OCR 阈值")
         visible_keys.extend(("主页压暗阈值", "主页确认等待秒数"))

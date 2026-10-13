@@ -44,6 +44,7 @@ SKIP_UNSAFE_KEYWORDS = ["购买", "充值"]
 class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
     recover_home_on_failure = True
     start_from_home = True
+    frozen_retry = True
     vision_threshold_key = "加载页面阈值"
     ocr_threshold_key = "抽卡 OCR 阈值"
 

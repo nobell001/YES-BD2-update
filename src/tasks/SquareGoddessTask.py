@@ -92,6 +92,7 @@ TEMPLATE_DIR = PROJECT_ROOT / "recognition-assets" / "template-assets"
 class SquareGoddessTask(BaseBD2Task):
     recover_home_on_failure = True
     start_from_home = True
+    frozen_retry = True
     status_keys = [
         "启用",
         "状态",
