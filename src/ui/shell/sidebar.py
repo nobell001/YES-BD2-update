@@ -201,6 +201,8 @@ class Sidebar(QWidget):
         ("problem", "回报问题", "message-circle-warning"),
         # Leo (2026-10-05): the guide sits where new players see it.
         ("guide", "使用说明", "book-open"),
+        # Leo 2026-10-14: 桌面分身 gets its own guide (setup and fixes).
+        ("clone", "桌面分身", "monitor"),
         ("settings", "设置", "settings"),
         ("about", "关于", "info"),
     )

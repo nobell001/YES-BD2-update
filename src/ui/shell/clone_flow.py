@@ -80,6 +80,12 @@ def launch_failure_text(result: str) -> str:
             folder=str(clone_desktop.DATA_DIR),
         )
     reason = result.partition(" ")[2]
+    # The viewer's words; "the tool did not open" sent players looking in
+    # the wrong place when the sign-in itself failed (Leo 2026-10-14).
+    if reason == "沒有登入分身":
+        return t("没能登录桌面分身，请看左边「桌面分身」页的「登录失败」")
+    if reason == "沒有輸入密碼":
+        return t("没有输入密码，桌面分身没有打开")
     return tf("分身里没能自动打开工具（{reason}），请在分身里自己打开", reason=reason)
 
 

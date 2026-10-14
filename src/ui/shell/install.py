@@ -59,6 +59,9 @@ class Shell(QObject):
         from src.ui.shell.guide_page import GuidePage
 
         self.pages["guide"] = GuidePage(self.navigate, self.sidebar)
+        from src.ui.shell.clone_guide_page import CloneGuidePage
+
+        self.pages["clone"] = CloneGuidePage()
         from src.ui.shell.problem_page import ProblemPage
 
         self.pages["problem"] = ProblemPage()

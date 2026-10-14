@@ -2893,6 +2893,7 @@ msgstr "Event Battle settings"
 
 msgid "「只刷普通难度」已关掉，想只打普通战斗再打开。「挑战战斗最高关卡」可选第5、10、15关，推到后剩下的AP用快速战斗刷这一关。"
 msgstr "\"Normal only\" is now off; turn it on if you only want Normal. \"Challenge highest stage\" can be 5, 10 or 15; once reached, leftover AP quick-battles that stage."
+
 msgid "切换版本"
 msgstr "Switch version"
 
@@ -2901,6 +2902,7 @@ msgstr "Include test versions"
 
 msgid "检查更新"
 msgstr "Check for updates"
+
 msgid "战斗倍数"
 msgstr "Multiplier"
 
@@ -2912,3 +2914,174 @@ msgstr "battles"
 
 msgid "{used} / {free} 杯"
 msgstr "{used} / {free} cups"
+
+msgid "Windows 帐户的密码，不是 PIN"
+msgstr "Your Windows account password, not the PIN"
+
+msgid "Windows 确认按「是」"
+msgstr "Press \"Yes\" when Windows asks"
+
+msgid "「远程桌面服务」已经打开"
+msgstr "\"Remote Desktop Services\" is on"
+
+msgid "不见了，可能被防毒软件删掉"
+msgstr "Missing, maybe deleted by antivirus"
+
+msgid "专业版，可以用"
+msgstr "Pro edition, can use it"
+
+msgid "关掉工具，重新打开再按一次"
+msgstr "Close the tool, reopen it and press again"
+
+msgid "再按一次首页的「在桌面分身跑」"
+msgstr "Press \"Run on Clone Desktop\" on Home again"
+
+msgid "分身程序"
+msgstr "Clone program"
+
+msgid "到 Windows「设置 > 帐户 > 登录选项」加一组密码"
+msgstr "Add a password in Windows \"Settings > Accounts > Sign-in options\""
+
+msgid "只允许 Windows Hello 登录"
+msgstr "Only Windows Hello sign-in is allowed"
+
+msgid "可以用密码登录"
+msgstr "Password sign-in allowed"
+
+msgid "在左边「回报问题」送出"
+msgstr "Send it from \"Report a problem\" on the left"
+
+msgid "在防毒软件（例如 360、火绒）把分身文件夹设为信任"
+msgstr "Mark the clone folder as trusted in your antivirus (e.g. 360, Huorong)"
+
+msgid "家庭版不能用桌面分身，请用「一键完成日常」"
+msgstr "Home edition can't use the Clone Desktop; use \"Run All Dailies\""
+
+msgid "密码打上面「要打的密码」那组，不是 PIN"
+msgstr "Type the password shown under \"Password to type\" above, not the PIN"
+
+msgid "已经关掉"
+msgstr "Turned off"
+
+msgid "已设定"
+msgstr "Set up"
+
+msgid "帐户没有设密码"
+msgstr "The account has no password"
+
+msgid "平常只用 PIN 或人脸开机：按 Win+L，选钥匙图示，用密码登录电脑一次"
+msgstr "If you only sign in with PIN or face: press Win+L, pick the key icon and sign in once with the password"
+
+msgid "微软帐号的密码（登录微软网站用的那组），不是 PIN"
+msgstr "Your Microsoft account password (the one for Microsoft websites), not the PIN"
+
+msgid "微软帐户 {name}"
+msgstr "Microsoft account {name}"
+
+msgid "或把分身文件夹里的 viewer.log 传给我们"
+msgstr "Or send us viewer.log from the clone folder"
+
+msgid "打上面写的密码，勾「记住」"
+msgstr "Type the password shown above and tick \"Remember\""
+
+msgid "打开分身文件夹"
+msgstr "Open clone folder"
+
+msgid "按上面的「第一次设定」重新建立"
+msgstr "Press \"First-time setup\" above to set it up again"
+
+msgid "提示「分身程序不见了」"
+msgstr "Says the clone program is missing"
+
+msgid "提示「登录失败」"
+msgstr "Says sign-in failed"
+
+msgid "提示「连不上桌面分身」（代码 516 等）"
+msgstr "Says it can't connect (code 516 etc.)"
+
+msgid "本地帐户 {name}"
+msgstr "Local account {name}"
+
+msgid "桌面分身要 Windows 专业版，家庭版没有"
+msgstr "The clone desktop needs Windows Pro; Home doesn't have it"
+
+msgid "正常"
+msgstr "OK"
+
+msgid "没有关掉（Windows 的确认按了「否」或改不了）"
+msgstr "Not turned off (\"No\" was pressed, or it can't be changed)"
+
+msgid "没有密码的帐户进不了分身（Windows 的规定）"
+msgstr "An account without a password can't sign in to the clone (a Windows rule)"
+
+msgid "没有打开（Windows 的确认按了「否」或改不了）"
+msgstr "Not turned on (\"No\" was pressed, or it can't be changed)"
+
+msgid "没有输入密码，桌面分身没有打开"
+msgstr "No password typed, so the Clone Desktop didn't open"
+
+msgid "没能登录桌面分身，请看左边「桌面分身」页的「登录失败」"
+msgstr "Couldn't sign in to the Clone Desktop. See \"Sign-in failed\" on the \"Clone Desktop\" page on the left"
+
+msgid "用过系统优化／精简工具或 RDP Wrapper 的电脑，可能不能用"
+msgstr "PCs that used system optimiser/trimming tools or RDP Wrapper may not work"
+
+msgid "登录帐户"
+msgstr "Sign-in account"
+
+msgid "第一次怎么用"
+msgstr "First time"
+
+msgid "被停用了"
+msgstr "Disabled"
+
+msgid "要 Windows 专业版；怎么设定看左边「桌面分身」页"
+msgstr "Needs Windows Pro; see the \"Clone Desktop\" page on the left for setup"
+
+msgid "要打的密码"
+msgstr "Password to type"
+
+msgid "认不出是哪种帐户"
+msgstr "Can't tell the account type"
+
+msgid "设定好后，回来这页看一次"
+msgstr "After setup, come back to this page"
+
+msgid "请用「一键完成日常」"
+msgstr "Use \"Run All Dailies\""
+
+msgid "边跑边用电脑；进不去就照这页做"
+msgstr "Use your PC while it runs; can't get in? Follow this page"
+
+msgid "还是不行"
+msgstr "Still not working"
+
+msgid "还没设定"
+msgstr "Not set up yet"
+
+msgid "这台电脑没有（精简版 Windows），不能用"
+msgstr "This PC doesn't have it (trimmed Windows), can't use"
+
+msgid "这台电脑的开机密码，不是 PIN"
+msgstr "This PC's sign-in password, not the PIN"
+
+msgid "这台电脑（自动检查）"
+msgstr "This PC (checked automatically)"
+
+msgid "远程桌面服务"
+msgstr "Remote Desktop Services"
+
+msgid "遇到问题（点开看做法）"
+msgstr "Problems (click for steps)"
+
+msgid "重新开机后再试（刚设定完常要重新开机）"
+msgstr "Restart the PC and try again (often needed right after setup)"
+
+msgid "首页按「在桌面分身跑」"
+msgstr "Press \"Run on Clone Desktop\" on Home"
+
+msgid "首页没有「在桌面分身跑」"
+msgstr "No \"Run on Clone Desktop\" on Home"
+
+msgid "进不去？看教学"
+msgstr "Can't get in? See guide"

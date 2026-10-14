@@ -224,6 +224,13 @@ def _internet_identity() -> bool | None:
     an HKCU IdentityCRL entry, so that entry alone wrongly stopped a local
     account with no switch to turn off (B站 UP, 2026-10-12).
     """
+    identity = _windows_identity()
+    return None if identity is None else identity[0]
+
+
+def _windows_identity() -> tuple[bool, str, str] | None:
+    """(linked to a Microsoft account, its e-mail or "", Windows user name)
+    from NetUserGetInfo level 24.  None = Windows did not answer."""
     try:
         netapi = ctypes.windll.netapi32
         size = ctypes.c_ulong(257)
@@ -237,9 +244,45 @@ def _internet_identity() -> bool | None:
         return None
     try:
         info = ctypes.cast(buffer, ctypes.POINTER(_UserInfo24)).contents
-        return bool(info.internet_identity)
+        return bool(info.internet_identity), str(info.principal or ""), name.value
     finally:
         netapi.NetApiBufferFree(buffer)
+
+
+def sign_in_account() -> str | None:
+    """The account the clone signs in to, as Windows itself knows it:
+    MicrosoftAccount\\<e-mail> for a Microsoft account, MACHINE\\user for a
+    local one.  None = Windows did not say (the viewer guesses as before).
+
+    The viewer guessed from HKCU IdentityCRL, which a local account that only
+    signed in to the Store or Xbox has too: it offered the Microsoft account,
+    and the PC's own password could never sign in (player 2026-10-14).
+    """
+    identity = _windows_identity()
+    if identity is None:
+        return None
+    linked, principal, user = identity
+    if linked:
+        return f"MicrosoftAccount\\{principal}" if "@" in principal else None
+    machine = os.environ.get("COMPUTERNAME", "")
+    return f"{machine}\\{user}" if machine and user else None
+
+
+# The viewer's saved sign-in (CloneDesktop.cs SavedTarget, generic credential).
+SAVED_SIGN_IN_TARGET = "bd2-auto/clone-desktop"
+
+
+def saved_sign_in() -> bool:
+    """The viewer kept a sign-in that worked; it uses that account itself."""
+    try:
+        advapi = ctypes.windll.advapi32
+        pointer = ctypes.c_void_p()
+        if not advapi.CredReadW(SAVED_SIGN_IN_TARGET, 1, 0, ctypes.byref(pointer)):
+            return False
+        advapi.CredFree(pointer)
+        return True
+    except (AttributeError, OSError):
+        return False
 
 
 @functools.lru_cache(maxsize=1)
@@ -507,9 +550,12 @@ def open_viewer(launch_tool: bool = True) -> bool:
     update_viewer()
     write_startup_list()
     args = []
+    account = None if saved_sign_in() else sign_in_account()
+    if account:
+        args += ["-user", account]
     if launch_tool:
         exe, arguments = _tool_command()
-        args = ["-launch", exe, "-args", arguments, "-cwd", os.getcwd()]
+        args += ["-launch", exe, "-args", arguments, "-cwd", os.getcwd()]
     try:
         from src.compat.starter_launch import starter_launch_uri
 

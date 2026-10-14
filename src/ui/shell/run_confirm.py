@@ -227,8 +227,10 @@ class RunConfirm(QDialog):
         done_text: dict[str, str],
         clone: bool = False,
         parent: QWidget | None = None,
+        open_guide: Callable[[], None] | None = None,
     ):
         super().__init__(parent)
+        self._open_guide = open_guide
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setModal(True)
@@ -328,6 +330,13 @@ class RunConfirm(QDialog):
                 Text("一动就会停下，想边跑边用电脑请用桌面分身", "muted", wrap=True)
             )
         hint_row.addLayout(hint_text, 1)
+        if clone and open_guide is not None:
+            # Leo 2026-10-14 「這裡要可以引導到教學」: the 桌面分身 page.
+            hint_row.addWidget(
+                Button("进不去？看教学", "secondary", "book-open", "sm", on_click=self._to_guide),
+                0,
+                Qt.AlignVCenter,
+            )
         column.addWidget(hint)
 
         buttons = hbox(None, (0, 2, 0, 0), 10)
@@ -341,6 +350,10 @@ class RunConfirm(QDialog):
         if parent is not None:
             self.setGeometry(parent.window().geometry())
         self._place()
+
+    def _to_guide(self) -> None:
+        self.reject()
+        self._open_guide()
 
     # ---------------------------------------------------------------- state
 
@@ -429,8 +442,14 @@ class RunConfirm(QDialog):
         super().mouseReleaseEvent(event)
 
 
-def ask(window: QWidget | None, batch, clone: bool = False) -> tuple[str, dict[str, bool]] | None:
-    """Show the window; returns (mode, checks) on 开始, ``None`` on 取消."""
+def ask(
+    window: QWidget | None,
+    batch,
+    clone: bool = False,
+    open_guide: Callable[[], None] | None = None,
+) -> tuple[str, dict[str, bool]] | None:
+    """Show the window; returns (mode, checks) on 开始, ``None`` on 取消
+    (and on 看教学, which then opens the 桌面分身 page)."""
     children = data.batch_children(batch)
     done, done_text = {}, {}
     for child in children:
@@ -442,7 +461,7 @@ def ask(window: QWidget | None, batch, clone: bool = False) -> tuple[str, dict[s
             if child.weekly and data.day_text(finished) != "今天":
                 when = data.day_text(finished) or when
             done_text[child.key] = when
-    dialog = RunConfirm(children, done, done_text, clone, window)
+    dialog = RunConfirm(children, done, done_text, clone, window, open_guide)
     if not dialog.exec():
         return None
     return dialog.mode, dict(dialog.ticks)

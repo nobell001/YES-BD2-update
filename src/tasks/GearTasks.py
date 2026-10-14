@@ -257,9 +257,50 @@ REFINE_PILL_ROWS = (600, 900)
 REFINE_PILL_HEIGHT = (24, 48)
 REFINE_PILL_LIGHT_SHARE = 0.45  # the dark 精炼 letters take up to half a row
 SINGLE_REFINE_PATTERN = re.compile(r"^精炼[^一-鿿]*$")
+# Text only the item popup shows (tall_popup_player_1080.jpg).  The popup read
+# box (DETAIL_BUTTONS_ROI) lies over the bag grid, so with none of these read
+# the popup did not open and the read is the bare grid: YES-BD2 #26 (v0.1.32,
+# 1080p windowed at 125%) read 「JR 20 22 兴 IR UR 20 ...」, the grid's UR tags
+# and badge numbers, and then pressed the usual 精炼 spot, which on the bare
+# grid is another item (row 5, column 6).
+POPUP_KEYWORDS = ("精炼", "强化", "穿戴", "卸除", "基本能力", "属性", "自定义标记")
+# A cell press whose popup does not show is pressed once more (Leo
+# 2026-10-13 「按東西沒反應一定要補按吧」); opening an item costs nothing.
+CELL_PRESS_ATTEMPTS = 2
+# Items whose popup would not open at all before 每日精炼 gives up (Leo
+# 2026-10-14 「最多試3件 各點2次」).
+REFINE_NO_POPUP_PROBES = 3
+# Where an open popup covers the grid (1080 px; the popup spans x 470-1450,
+# y 280-830), left of the character art that moves on its own.  A second
+# cell press is made only while this part still looks as before the first:
+# otherwise something opened that was not read, and a press there could land
+# on its 强化 (开源前检查's review of #280, 2026-10-14).
+POPUP_COVER_BOX = (720, 280, 730, 550)
+POPUP_COVER_PIXEL_DIFF = 30
+POPUP_COVER_SHARE = 0.25
 # A 精炼 box this close after a 连续 box is part of 连续精炼 (1080 px).
 REFINE_SPLIT_GAP = 60
 REFINE_ROW_TOLERANCE = 30
+
+
+def grid_covered(before, after) -> bool:
+    """True when the grid part an open popup would cover changed a lot
+    between the two frames (a popup or another page, not a glint)."""
+    if before is None or after is None:
+        return False
+    first = crop_reference(before, POPUP_COVER_BOX)
+    second = crop_reference(after, POPUP_COVER_BOX)
+    if first is None or second is None or first.size == 0 or first.shape != second.shape:
+        return False
+    first = cv2.cvtColor(np.ascontiguousarray(first[..., :3]), cv2.COLOR_BGR2GRAY)
+    second = cv2.cvtColor(np.ascontiguousarray(second[..., :3]), cv2.COLOR_BGR2GRAY)
+    return float((cv2.absdiff(first, second) > POPUP_COVER_PIXEL_DIFF).mean()) >= POPUP_COVER_SHARE
+
+
+def popup_shown(boxes: list) -> bool:
+    """True when the read shows the item popup, not just the bag grid."""
+    text = normalize_ocr_text(" ".join(str(getattr(box, "name", "")) for box in boxes))
+    return any(keyword in text for keyword in POPUP_KEYWORDS)
 
 
 def plain_refine_box(boxes: list):
@@ -315,8 +356,12 @@ class DailyRefineTask(_ClaimTaskBase):
         self.info_set("精炼值", " ".join(f"{r},{c}={v}" for r, c, v in cells) or "-")
         tried: set[tuple[int, int]] = set()
         outcome = "none"
-        maxed = no_button = 0
-        while maxed < REFINE_CANDIDATE_ATTEMPTS and no_button < REFINE_NO_BUTTON_PROBES:
+        maxed = no_button = no_popup = 0
+        while (
+            maxed < REFINE_CANDIDATE_ATTEMPTS
+            and no_button < REFINE_NO_BUTTON_PROBES
+            and no_popup < REFINE_NO_POPUP_PROBES
+        ):
             candidate = refine_candidate(
                 [cell for cell in cells if cell[:2] not in tried], purple
             )
@@ -326,6 +371,10 @@ class DailyRefineTask(_ClaimTaskBase):
             tried.add((row, column))
             self.info_set("精炼目标", f"第{row + 1}行第{column + 1}列，精炼值 {value}")
             outcome = self._refine_cell(row, column)
+            if outcome == "no_popup":
+                # Nothing opened, still in the bag (YES-BD2 #26): try the next.
+                no_popup += 1
+                continue
             if outcome == "no_button":
                 # This item has no 精炼 (a player's 2560×1440 run, 2026-10-10,
                 # stopped on the first one): its popup is closed, try the next.
@@ -340,6 +389,10 @@ class DailyRefineTask(_ClaimTaskBase):
             self.log_info(f"每日精炼：第{row + 1}行第{column + 1}列已达最大精炼，换下一件。")
         if outcome == "none":
             self.log_info("每日精炼：首屏没有可精炼的装备，跳过。")
+        if outcome == "no_popup":
+            outcome = "failed"
+            if no_popup > 1:
+                self._why = f"点了 {no_popup} 件装备，装备详情都没打开（{self._why}）"
         if outcome == "no_button":
             outcome = "failed"
             if no_button > 1:
@@ -491,12 +544,14 @@ class DailyRefineTask(_ClaimTaskBase):
 
     def _refine_cell(self, row: int, column: int) -> str:
         """refined / maxed (already at the cap, back in the bag) / no_button
-        (its popup closed, still in the bag) / unconfirmed / failed."""
-        self._sleep_after_recognition()
-        self._click_reference(GRID_COLUMNS[column], GRID_ROWS[row], after_sleep=1.0)
-        detail = self._wait_boxes(
-            DETAIL_BUTTONS_ROI, "装备详情按钮", lambda boxes: plain_refine_box(boxes) is not None
-        )
+        (its popup closed, still in the bag) / no_popup (it never opened,
+        still in the bag) / unconfirmed / failed."""
+        state, detail = self._open_item_popup(row, column)
+        if state == "none":
+            return "no_popup"
+        if state == "unread":
+            # Left to the way home: its back press closes whatever opened.
+            return "failed"
         button = plain_refine_box(detail)
         seen = self._boxes_text(detail) or "没读到字"
         if button is None and NOT_REFINABLE_TEXT not in normalize_ocr_text(seen):
@@ -518,6 +573,51 @@ class DailyRefineTask(_ClaimTaskBase):
             self._why = "点了精炼后，精炼页没出来"
             return "failed"
         return self._refine_on_page()
+
+    def _open_item_popup(self, row: int, column: int) -> tuple[str, list]:
+        """Press the cell until its popup shows (twice at most).
+
+        ("open", the popup's read) / ("none", ...) when only the bag grid
+        shows (nothing to close) / ("unread", ...) when the screen changed
+        after the press but no popup was read: never pressed again there."""
+        self._sleep_after_recognition()
+        detail: list = []
+        before = self.capture_frame()
+        for attempt in range(CELL_PRESS_ATTEMPTS):
+            if attempt:
+                if grid_covered(before, self.capture_frame()):
+                    self.log_info(
+                        f"每日精炼：点了第{row + 1}行第{column + 1}列后画面变了，"
+                        "但认不出装备详情，不再补按。"
+                    )
+                    self._why = (
+                        f"点了第{row + 1}行第{column + 1}列的装备后画面变了，但认不出装备详情"
+                    )
+                    self._save_flow_diagnostic("daily_refine_popup_unread")
+                    return "unread", detail
+                self.log_info(
+                    f"每日精炼：点了第{row + 1}行第{column + 1}列，装备详情没打开，补按一次。"
+                )
+            self._click_reference(GRID_COLUMNS[column], GRID_ROWS[row], after_sleep=1.0)
+            detail = self._wait_boxes(
+                DETAIL_BUTTONS_ROI,
+                "装备详情按钮",
+                lambda boxes: plain_refine_box(boxes) is not None
+                or NOT_REFINABLE_TEXT in normalize_ocr_text(self._boxes_text(boxes)),
+            )
+            # A popup whose text read as nothing still shows its light 精炼 pill.
+            if popup_shown(detail) or refine_pill_point(self.capture_frame()) is not None:
+                return "open", detail
+        seen = self._boxes_text(detail) or "没读到字"
+        self.log_info(
+            f"每日精炼：点了第{row + 1}行第{column + 1}列{CELL_PRESS_ATTEMPTS}次，"
+            f"装备详情都没打开（只看到背包格子：「{seen}」）。"
+        )
+        self._why = (
+            f"点了第{row + 1}行第{column + 1}列的装备{CELL_PRESS_ATTEMPTS}次，装备详情都没打开"
+        )
+        self._save_flow_diagnostic("daily_refine_popup_not_opened")
+        return "none", detail
 
     def _refine_at_usual_spot(self, row: int, column: int, seen: str) -> str:
         """Press where 精炼 usually sits, once; the refine page must follow."""

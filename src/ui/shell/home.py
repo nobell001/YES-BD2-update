@@ -784,7 +784,9 @@ class HomePage(Page):
 
         if batch is None:
             return None
-        picked = run_confirm.ask(self.window(), batch, clone)
+        picked = run_confirm.ask(
+            self.window(), batch, clone, open_guide=lambda: self._navigate("clone")
+        )
         if picked is None:
             return None
         mode, ticks = picked
