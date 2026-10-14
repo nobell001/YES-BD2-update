@@ -161,6 +161,12 @@ if __name__ == "__main__":
 
         # 已经开着时把开着的那个叫到前面，自己退出。ok-script 自己的检查等 5 秒
         # 就强制关掉开着的那个，跑到一半的日常也一样（2026-10-09 检查）。
+        # 工作列按钮用 YES-BD2 自己的身分和图示，不是 pythonw 的白纸（Leo 4K
+        # 2026-10-14）。必须在任何视窗出来之前。
+        from src.compat.taskbar_icon import set_process_app_id
+
+        set_process_app_id()
+
         from src.compat import single_instance
 
         if not single_instance.acquire():

@@ -214,20 +214,68 @@ def quick_hunt_steps(shell) -> list[Step]:
     ]
 
 
-def show_quick_hunt_notice(shell) -> bool:
-    """Walk the player to the 快速狩猎 rows once, when the update moved old settings."""
-    from src.tasks.QuickHuntTask import QUICK_HUNT_NOTICE_KEY
+def event_battle_steps(shell) -> list[Step]:
+    """Leo 2026-10-14: 只刷普通难度 back off, shown once 「和之前更新快速狩獵時一樣」."""
 
-    task = data.task_by_class_name("QuickHuntTask")
+    def daily_item():
+        return shell.sidebar.items.get("daily")
+
+    def rows():
+        page = shell.pages.get("daily")
+        return getattr(page, "form", None)
+
+    return [
+        Step(
+            daily_item,
+            "活动战斗设定有更新",
+            "「只刷普通难度」改成默认不勾，挑战战斗会推到你选的最高关卡。设定在「任务设定」里。",
+        ),
+        Step(
+            rows,
+            "活动战斗设定",
+            "「只刷普通难度」已关掉，想只打普通战斗再打开。"
+            "「挑战战斗最高关卡」可选第5、10、15关，推到后剩下的AP用快速战斗刷这一关。",
+            before=lambda: shell.open_task("daily", "活动每日战斗"),
+        ),
+    ]
+
+
+def _show_once(shell, class_name: str, key: str, steps, on_done: Callable[[], None]) -> bool:
+    task = data.task_by_class_name(class_name)
     config = getattr(task, "config", None)
-    if config is None or not config.get(QUICK_HUNT_NOTICE_KEY):
+    if config is None or not config.get(key):
         return False
     # Shown once, however it is closed.
-    config[QUICK_HUNT_NOTICE_KEY] = False
-    tour = CoachMarks(shell.window, quick_hunt_steps(shell), lambda: None)
+    config[key] = False
+    tour = CoachMarks(shell.window, steps(shell), on_done)
     shell._coach_marks = tour
     tour.start()
     return True
+
+
+def show_quick_hunt_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Walk the player to the 快速狩猎 rows once, when the update moved old settings."""
+    from src.tasks.QuickHuntTask import QUICK_HUNT_NOTICE_KEY
+
+    return _show_once(shell, "QuickHuntTask", QUICK_HUNT_NOTICE_KEY, quick_hunt_steps, on_done)
+
+
+def show_event_battle_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Walk the player to the 活动每日战斗 settings once after this update."""
+    from src.tasks.EventBattleTask import EVENT_NOTICE_KEY
+
+    return _show_once(shell, "EventBattleTask", EVENT_NOTICE_KEY, event_battle_steps, on_done)
+
+
+def show_pending(shell) -> bool:
+    """Each pending walk-through, one after the other."""
+
+    def next_one() -> None:
+        show_event_battle_notice(shell)
+
+    if show_quick_hunt_notice(shell, on_done=next_one):
+        return True
+    return show_event_battle_notice(shell)
 
 
 def _ready() -> bool:
@@ -242,7 +290,7 @@ def schedule(shell, delay_ms: int = 2500) -> None:
         if not _ready():
             QTimer.singleShot(RETRY_MS, guarded("new setting notice", check))
             return
-        show_quick_hunt_notice(shell)
+        show_pending(shell)
 
     QTimer.singleShot(delay_ms, guarded("new setting notice", check))
 

@@ -19,6 +19,7 @@ Safety rules:
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from time import monotonic
@@ -26,6 +27,8 @@ from types import SimpleNamespace
 
 import cv2
 import numpy as np
+from ok import Config
+from ok.util.file import get_relative_path
 from qfluentwidgets import FluentIcon
 
 from src.tasks import run_report
@@ -185,6 +188,10 @@ LAST_STAGE = 15
 # Settings asked for by the same players (2026-10-14).
 NORMAL_ONLY_KEY = "只刷普通难度"
 CHALLENGE_CAP_KEY = "挑战战斗最高关卡"
+# Set once by load_config for players who had the settings before (Leo
+# 2026-10-14: 只刷普通难度 back off, then the one-time walk-through in
+# src/ui/shell/new_setting_notice.py, like 快速狩猎's).
+EVENT_NOTICE_KEY = "_活动战斗新设定提示"
 # Quick battle only exists on stages 5, 10 and 15 of both modes (Leo
 # 2026-10-14 「快速戰鬥只能選 5 10 15 普通挑戰都是」), so the cap is one of them.
 CAP_STAGES = (5, 10, 15)
@@ -266,6 +273,7 @@ class EventBattleTask(_ClaimTaskBase):
                 CHALLENGE_CAP_KEY: str(LAST_STAGE),
                 "横幅轮播等待秒数": MAX_WAIT_SECONDS,
                 "单场战斗超时秒数": 240.0,
+                EVENT_NOTICE_KEY: False,
             }
         )
         self.config_description.update(
@@ -290,6 +298,21 @@ class EventBattleTask(_ClaimTaskBase):
         self._battles_done = 0
         self._why = ""
         self._page_deadline = None
+
+    def load_config(self):
+        # Saved settings from before this update: 只刷普通难度 goes back off
+        # and the cap back to 15 (Leo 2026-10-14 「把它改成不打勾」「預設要不勾而且
+        # 挑戰關15」), and the tool shows the settings once.  A new install has no file and starts unticked anyway.
+        path = Path(get_relative_path(Config.config_folder, f"{self.__class__.__name__}.json"))
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, ValueError):
+            saved = {}
+        super().load_config()
+        if isinstance(saved, dict) and saved and EVENT_NOTICE_KEY not in saved:
+            self.config[NORMAL_ONLY_KEY] = False
+            self.config[CHALLENGE_CAP_KEY] = str(LAST_STAGE)
+            self.config[EVENT_NOTICE_KEY] = True
 
     # -- stuck-page guard ---------------------------------------------------
 

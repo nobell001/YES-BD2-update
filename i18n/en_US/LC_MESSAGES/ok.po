@@ -2879,3 +2879,15 @@ msgstr "\"Remote Desktop Services\" was not turned on (\"No\" was pressed in the
 
 msgid "「远程桌面服务」已经打开，请再按一次「在桌面分身跑」"
 msgstr "\"Remote Desktop Services\" is on. Press \"Run on Clone Desktop\" again"
+
+msgid "活动战斗设定有更新"
+msgstr "Event Battle settings changed"
+
+msgid "「只刷普通难度」改成默认不勾，挑战战斗会推到你选的最高关卡。设定在「任务设定」里。"
+msgstr "\"Normal only\" is now off by default, so Challenge pushes up to the highest stage you pick. It's under \"Task Setup\"."
+
+msgid "活动战斗设定"
+msgstr "Event Battle settings"
+
+msgid "「只刷普通难度」已关掉，想只打普通战斗再打开。「挑战战斗最高关卡」可选第5、10、15关，推到后剩下的AP用快速战斗刷这一关。"
+msgstr "\"Normal only\" is now off; turn it on if you only want Normal. \"Challenge highest stage\" can be 5, 10 or 15; once reached, leftover AP quick-battles that stage."

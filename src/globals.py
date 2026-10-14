@@ -28,3 +28,7 @@ class Globals(QObject):
             logger.info(f"seed BD2 Starter path {launch_path}")
         # 新版侧边栏和页面；ok 自己的旧页面只是藏起来。
         install_shell(main_window)
+
+        from src.compat.taskbar_icon import apply_to_main_window
+
+        apply_to_main_window(main_window)
