@@ -123,7 +123,7 @@ class ReportPage(Page):
         self._shown_key = None
         self._week_seconds = 0.0
 
-        boxes, grid = grid_container(120, 12, 4, 78)
+        boxes, grid = grid_container(120, 12, 4, 104)
         self.stat_tasks = self._stat(grid, "跑过的项目", "")
         self.stat_done = self._stat(grid, "完成", "ok")
         self.stat_fail = self._stat(grid, "失败", "bad")

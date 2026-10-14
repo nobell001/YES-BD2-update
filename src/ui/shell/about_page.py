@@ -21,6 +21,7 @@ from qfluentwidgets import ScrollArea
 from src.ui.shell import update_notes
 from src.ui.shell.page import Page, pill, set_pill
 from src.ui.shell.widgets import (
+    Button,
     Card,
     IconLabel,
     IconTile,
@@ -29,6 +30,7 @@ from src.ui.shell.widgets import (
     Text,
     clear_layout,
     hbox,
+    set_prop,
     t,
     tf,
     vbox,
@@ -231,43 +233,182 @@ class AboutPage(Page):
         return column
 
     def _build_version(self) -> None:
+        """Two cards side by side (Leo 10-14, 方案 B): the tool and GitHub on
+        the left; this version, the update state, 检查更新 and 切换版本 on
+        the right.
+
+        The version list and test-version box are ok's own, moved out of its
+        ``UpdateCard`` so its check, notes and restart keep working; its
+        buttons stay in the card, which is kept as a hidden holder.
+        """
         from ok import og
 
         config = getattr(og, "config", None) or {}
-        column = self._section("版本")
-        row = QWidget()
-        layout = hbox(row, (2, 8, 2, 8), 14)
-        logo = Picture(str(ICON_FILE) if ICON_FILE.exists() else None, radius=10)
-        logo.setFixedSize(44, 44)
-        layout.addWidget(logo)
-        texts = vbox(None, (0, 0, 0, 0), 1)
-        texts.addWidget(Text(str(config.get("gui_title") or "YES-BD2"), "h3"))
-        self.version_text = Text(tf("版本 {version}", version=config.get("version") or ""), "muted")
-        texts.addWidget(self.version_text)
-        layout.addLayout(texts, 1)
+        self.body.addWidget(Text("版本", "eyebrow"))
+        pair = QWidget()
+        cards = hbox(pair, (0, 0, 0, 0), 14)
+        self.body.addWidget(pair)
+
+        tool = Card()
+        left = vbox(tool, (20, 16, 20, 10), 10)
+        cards.addWidget(tool, 2)
+        top = hbox(None, (0, 0, 0, 0), 14)
+        logo = Picture(str(ICON_FILE) if ICON_FILE.exists() else None, radius=14)
+        logo.setFixedSize(56, 56)
+        top.addWidget(logo, 0, Qt.AlignVCenter)
+        names = vbox(None, (0, 0, 0, 0), 2)
+        names.addWidget(Text(str(config.get("gui_title") or "YES-BD2"), "h1"))
+        names.addWidget(Text("BD2 自动日常", "muted"))
+        top.addLayout(names, 1)
+        left.addLayout(top)
+        left.addStretch(1)
+        if PROJECT_URL:
+            left.addWidget(Separator())
+            left.addWidget(LinkRow("code", "GitHub", "", "源代码、下载、回报问题", PROJECT_URL))
+
+        update = Card()
+        right = vbox(update, (20, 16, 20, 12), 10)
+        cards.addWidget(update, 3)
+        head = hbox(None, (0, 0, 0, 0), 8)
+        head.addWidget(IconLabel("ticket", 16, "ink3"), 0, Qt.AlignVCenter)
+        head.addWidget(Text("目前版本", "sub"), 0, Qt.AlignVCenter)
+        self.version_text = pill(str(config.get("version") or ""), "run")
+        self.version_text.setVisible(bool(self.version_text.text()))
+        head.addWidget(self.version_text, 0, Qt.AlignVCenter)
         self.update_pill = pill()
         self.update_pill.hide()
-        layout.addWidget(self.update_pill)
-        column.addWidget(row)
+        head.addWidget(self.update_pill, 0, Qt.AlignVCenter)
+        head.addStretch(1)
+        right.addLayout(head)
+        state = hbox(None, (0, 0, 0, 0), 8)
+        self.status_icon = IconLabel("circle-check", 20, "ok", 2.2)
+        self.status_icon.hide()
+        state.addWidget(self.status_icon, 0, Qt.AlignVCenter)
+        self.status_text = Text("", "ok")
+        self.status_text.setStyleSheet("font-size: 17px; font-weight: 700;")
+        self.status_text.hide()
+        state.addWidget(self.status_text, 1, Qt.AlignVCenter)
+        state.addStretch(1)
+        self.check_button = Button("检查更新", "primary", "refresh-cw", on_click=self.check_for_updates)
+        state.addWidget(self.check_button, 0, Qt.AlignVCenter)
+        right.addLayout(state)
+        self.error_text = Text("", "bad", wrap=True)
+        self.error_text.hide()
+        right.addWidget(self.error_text)
 
         card = getattr(getattr(self._window, "about_tab", None), "update_card", None)
-        if card is not None:
-            # ok's own controls (check, pick a version, update, notes): moved,
-            # not copied, so MainWindow's scheduled check and badge still use it.
-            column.addWidget(Separator())
-            card.setParent(None)
-            holder = QWidget()
-            hbox(holder, (2, 8, 2, 8), 0).addWidget(card)
-            column.addWidget(holder)
-            self.update_card = card
-            try:
-                card.update_available_changed.connect(self._update_available)
-            except Exception as exc:
-                logger.warning(f"about page: no update signal ({exc})")
+        if card is None:
+            self.check_button.hide()
+            return
+        self.update_card = card
+        card.setParent(update)
+        card.hide()
+        right.addWidget(Separator())
+        strip = QWidget()
+        self.version_strip = strip
+        row = hbox(strip, (0, 2, 0, 2), 10)
+        self.switch_icon = IconLabel("history", 16, "ink3")
+        row.addWidget(self.switch_icon, 0, Qt.AlignVCenter)
+        self.switch_label = Text("切换版本", "sub")
+        row.addWidget(self.switch_label, 0, Qt.AlignVCenter)
+        for name in ("version_combo", "test_version_checkbox"):
+            widget = getattr(card, name, None)
+            if isinstance(widget, QWidget):
+                widget.setParent(strip)
+                row.addWidget(widget, 0, Qt.AlignVCenter)
+        checkbox = getattr(card, "test_version_checkbox", None)
+        if isinstance(checkbox, QWidget):
+            checkbox.setText(t("包含测试版"))
+        row.addStretch(1)
+        # ok's own buttons stay in the hidden card; these violet twins press
+        # them and copy their text, so update and download work as before.
+        self.download_button = Button("", "secondary", "download", on_click=self._press("download_button"))
+        self.apply_button = Button("", "primary", "download", on_click=self._press("update_button"))
+        row.addWidget(self.download_button, 0, Qt.AlignVCenter)
+        row.addWidget(self.apply_button, 0, Qt.AlignVCenter)
+        right.addWidget(strip)
+        self._hook_update_card(card)
+        try:
+            card.update_available_changed.connect(self._update_available)
+        except Exception as exc:
+            logger.warning(f"about page: no update signal ({exc})")
+        self._sync_controls()
 
-        if PROJECT_URL:
-            column.addWidget(Separator())
-            column.addWidget(LinkRow("code", "GitHub", "", "源代码、下载、回报问题", PROJECT_URL))
+    def _hook_update_card(self, card) -> None:
+        """Mirror the card's state in the new controls after each of its steps."""
+
+        def after(name, follow):
+            original = getattr(card, name, None)
+            if not callable(original):
+                return
+
+            def wrapped(*args, **kwargs):
+                result = original(*args, **kwargs)
+                follow(*args, **kwargs)
+                return result
+
+            setattr(card, name, wrapped)
+
+        after("_set_status", self._show_status)
+        after("_set_busy", lambda *_a, **_k: self._sync_controls())
+        after("_set_version_controls_visible", lambda *_a, **_k: self._sync_controls())
+        after("_selection_changed", lambda *_a, **_k: self._sync_controls())
+        combo = getattr(card, "version_combo", None)
+        if isinstance(combo, QWidget) and hasattr(combo, "currentIndexChanged"):
+            combo.currentIndexChanged.connect(lambda *_: self._sync_controls())
+
+    def _show_status(self, message="", error=False, *_args) -> None:
+        """「已是最新版本」 in green beside the button; errors get their own line."""
+        card = self.update_card
+        tr = getattr(card, "tr", lambda text: text)
+        message = str(message or "")
+        if error:
+            self.status_text.hide()
+            self.status_icon.hide()
+            self.error_text.set_text(message)
+            self.error_text.setVisible(bool(message))
+            self._sync_controls()
+            return
+        self.error_text.hide()
+        if message == tr("Click to check for updates"):
+            message = ""
+        latest = message == tr("No updates available.")
+        set_prop(self.status_text, "role", "ok" if latest else "sub")
+        self.status_text.set_text(message)
+        self.status_text.setVisible(bool(message))
+        self.status_icon.set_icon("circle-check" if latest else "loader-circle", "ok" if latest else "ink3")
+        self.status_icon.setVisible(bool(message))
+        self._sync_controls()
+
+    def _press(self, name: str):
+        def press():
+            button = getattr(self.update_card, name, None)
+            if button is not None and button.isEnabled():
+                button.click()
+
+        return press
+
+    def _sync_controls(self) -> None:
+        card = self.update_card
+        if card is None:
+            return
+        busy = bool(getattr(card, "_busy", False))
+        self.check_button.setEnabled(not busy)
+        combo = getattr(card, "version_combo", None)
+        listed = isinstance(combo, QWidget) and not combo.isHidden()
+        self.switch_label.setVisible(listed)
+        self.switch_icon.setVisible(listed)
+        # 「目前版本」 greyed out said nothing; 更新 shows only when another
+        # version is picked, 下载 only when the check failed.
+        for mine, name, shown in (
+            (self.apply_button, "update_button", lambda b: b.isEnabled()),
+            (self.download_button, "download_button", lambda b: not b.isHidden()),
+        ):
+            button = getattr(card, name, None)
+            visible = isinstance(button, QWidget) and shown(button)
+            if visible and mine.text() != button.text():
+                mine.setText(button.text())
+            mine.setVisible(visible)
 
     def _update_available(self, available: bool) -> None:
         set_pill(self.update_pill, "有新版本" if available else "", "run" if available else None)

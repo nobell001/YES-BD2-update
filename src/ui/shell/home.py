@@ -1082,7 +1082,7 @@ class HomePage(Page):
         self.sum_switch: Segmented | None = None
         self._sum_switch_labels: tuple[str, ...] = ()
         layout.addLayout(self.sum_switch_row)
-        self.sum_boxes, grid = grid_container(120, 12, 4, 78)
+        self.sum_boxes, grid = grid_container(120, 12, 4, 104)
         self.sum_time = self._sum_box(grid, "用时", "")
         self.sum_done = self._sum_box(grid, "完成", "ok")
         self.sum_skip = self._sum_box(grid, "跳过", "")

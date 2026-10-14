@@ -41,6 +41,19 @@ HINTS_KEPT = {
 }
 
 
+def _pvp_panel(task, parent, on_change):
+    from src.ui.shell.pvp_panel import PvpPanel
+
+    return PvpPanel(task, parent, on_change)
+
+
+# Task class -> (settings shown by one panel of their own, panel factory).
+# 镜中之战: 倍数 and 场数 as steppers that keep 倍数 × 场数 ≤ 40 (Leo 2026-10-14).
+PANELS = {
+    "PVPTask": (("竞技场战斗倍数", "战斗场数"), _pvp_panel),
+}
+
+
 def _type_of(task, key) -> dict:
     the_type = (getattr(task, "config_type", None) or {}).get(key)
     if isinstance(the_type, dict):
@@ -130,13 +143,23 @@ class ConfigForm(QWidget):
         self.keys = keys if keys is not None else visible_keys(task, skip)
         self._rules = parents(task)
         self._rows: dict[str, tuple[QWidget, QWidget, Callable[[], None]]] = {}
+        self._panels: list[QWidget] = []
         self.grid = QGridLayout(self)
         self.grid.setContentsMargins(0, 0, right_inset, 0)
         self.grid.setHorizontalSpacing(16)
         self.grid.setVerticalSpacing(12)
         self.grid.setColumnStretch(1, 1)
         row = 0
+        panel_keys = PANELS.get(type(task).__name__, ((), None))[0]
         for key in self.keys:
+            if key in panel_keys:
+                if key == next(k for k in self.keys if k in panel_keys):
+                    # Settings drawn together by their own panel, at the first one's place.
+                    panel = PANELS[type(task).__name__][1](task, self, on_change)
+                    self.grid.addWidget(panel, row, 0, 1, 2)
+                    row += 1
+                    self._panels.append(panel)
+                continue
             label = self._label(key)
             control, sync = self._control(key)
             if _type_of(task, key).get("type") == "multi_selection":
@@ -341,6 +364,8 @@ class ConfigForm(QWidget):
             control.setVisible(visible)
             if visible:
                 sync()
+        for panel in self._panels:
+            panel.sync()
         self.updateGeometry()
 
     def reset(self) -> None:

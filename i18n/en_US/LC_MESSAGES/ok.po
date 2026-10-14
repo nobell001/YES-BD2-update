@@ -2823,6 +2823,7 @@ msgstr ""
 
 msgid "帮我关掉"
 msgstr "Turn it off for me"
+
 msgid "游戏现在是全屏，会自己撑满整个屏幕（{size}），工具改不了它的大小。请在游戏里打开 设置 → 图像 → 画面模式，改成「窗口模式」，再按「调整」。"
 msgstr "The game is in full screen and keeps filling the whole screen ({size}), so the tool can't resize it. In the game, open Settings → Graphics → Screen Mode, choose Windowed, then press Resize again."
 
@@ -2846,6 +2847,7 @@ msgstr "Challenge Battle is only pushed up to this stage (Quick Battle exists on
 
 msgid "推不动时（都通关或到了设定的关卡），剩下的AP用快速战斗刷那一关；打输了就直接回主页。"
 msgstr "When it can't push further (all cleared or the set stage reached), the AP left goes to Quick Battle on that stage; after a lost battle it goes straight back to the home screen."
+
 msgid "连不上桌面分身（Windows 代码 {code}），不是密码的问题。请依序试：重开工具再按一次 → 重新开机再试 → 还不行请把 {folder} 里的 viewer.log 传给我们"
 msgstr "Couldn't reach the clone desktop (Windows code {code}). It's not a password problem. Try in order: reopen the tool and press again → restart the PC and try again → if it still fails, send us viewer.log from {folder}"
 
@@ -2891,3 +2893,22 @@ msgstr "Event Battle settings"
 
 msgid "「只刷普通难度」已关掉，想只打普通战斗再打开。「挑战战斗最高关卡」可选第5、10、15关，推到后剩下的AP用快速战斗刷这一关。"
 msgstr "\"Normal only\" is now off; turn it on if you only want Normal. \"Challenge highest stage\" can be 5, 10 or 15; once reached, leftover AP quick-battles that stage."
+msgid "切换版本"
+msgstr "Switch version"
+
+msgid "包含测试版"
+msgstr "Include test versions"
+
+msgid "检查更新"
+msgstr "Check for updates"
+msgid "战斗倍数"
+msgstr "Multiplier"
+
+msgid "倍"
+msgstr "x"
+
+msgid "场"
+msgstr "battles"
+
+msgid "{used} / {free} 杯"
+msgstr "{used} / {free} cups"
