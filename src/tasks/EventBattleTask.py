@@ -146,6 +146,11 @@ PROGRESS_ROI = (0, 880, 760, 190)
 STAGE_LIST_ROI = (220, 120, 140, 960)
 # Read numbers off the line through the others by more than this: a misread.
 STAGE_LIST_ROW_TOLERANCE = 24
+# Scrolling the list when a stage is not on it (centre of STAGE_LIST_ROI as a
+# share of the client; one wheel notch is 120).  Not seen live yet.
+STAGE_LIST_SCROLL_POINT = ((220 + 70) / 1920, (120 + 480) / 1080)
+STAGE_LIST_SCROLL_AMOUNT = 120
+STAGE_LIST_SCROLLS = 2
 # The page can draw its title and stage before the top bar's AP (a player's
 # 1080p run, 2026-10-10): the AP is read for up to this long.
 AP_READ_SECONDS = 5.0
@@ -180,7 +185,10 @@ LAST_STAGE = 15
 # Settings asked for by the same players (2026-10-14).
 NORMAL_ONLY_KEY = "只刷普通难度"
 CHALLENGE_CAP_KEY = "挑战战斗最高关卡"
-QUICK_KEY = "全部通关后快速战斗"
+# Quick battle only exists on stages 5, 10 and 15 of both modes (Leo
+# 2026-10-14 「快速戰鬥只能選 5 10 15 普通挑戰都是」), so the cap is one of them.
+CAP_STAGES = (5, 10, 15)
+CAP_OPTIONS = [str(stage) for stage in CAP_STAGES]
 
 # The pool may sit right after the event currency ("8,500 0/5"); refuse a
 # match that starts inside another number so "8,5000/5" is not read as 5000.
@@ -255,8 +263,7 @@ class EventBattleTask(_ClaimTaskBase):
                 "仅使用免费活动AP": True,
                 "每次最多战斗场数": 5,
                 NORMAL_ONLY_KEY: False,
-                CHALLENGE_CAP_KEY: LAST_STAGE,
-                QUICK_KEY: True,
+                CHALLENGE_CAP_KEY: str(LAST_STAGE),
                 "横幅轮播等待秒数": MAX_WAIT_SECONDS,
                 "单场战斗超时秒数": 240.0,
             }
@@ -266,13 +273,20 @@ class EventBattleTask(_ClaimTaskBase):
                 "仅使用免费活动AP": "只用每日免费活动AP（顶部 a/5），不动用额外的 +AP。",
                 "每次最多战斗场数": "一次运行最多进行的战斗场数（0 表示用完可用AP）。",
                 NORMAL_ONLY_KEY: "完全不打挑战战斗；普通战斗通关后，剩下的AP用快速战斗刷普通战斗15。",
-                CHALLENGE_CAP_KEY: "挑战战斗只推到这一关；到了之后剩下的AP用快速战斗刷这一关。",
-                QUICK_KEY: "推不动时（都通关或到了设定的关卡），剩下的AP用快速战斗刷那一关；打输了就直接回主页。",
+                CHALLENGE_CAP_KEY: "挑战战斗只推到这一关（快速战斗只有第5、10、15关）；到了之后剩下的AP用快速战斗刷这一关。",
                 "横幅轮播等待秒数": "横幅轮播到别的活动时，最多等待多久让它转回来。",
                 "单场战斗超时秒数": "自动战斗每一场允许的最长时间，超时视为失败。",
             }
         )
-        self.config_type.update({CHALLENGE_CAP_KEY: {"min": 1, "max": LAST_STAGE, "step": 1}})
+        # Leo 2026-10-14: the remaining AP always goes to quick battle (no
+        # setting to turn it off), and the cap row hides while only normal
+        # is fought.
+        self.config_type.update(
+            {
+                CHALLENGE_CAP_KEY: {"type": "drop_down", "options": CAP_OPTIONS},
+                NORMAL_ONLY_KEY: {"sub_configs": {False: [CHALLENGE_CAP_KEY]}},
+            }
+        )
         self._battles_done = 0
         self._why = ""
         self._page_deadline = None
@@ -328,6 +342,7 @@ class EventBattleTask(_ClaimTaskBase):
         self._lost_stage = None
         modes = self._modes()
         farm = None  # (mode, stage) for the AP left once nothing more can be pushed
+        stuck: list[str] = []
         done_text = "完成"
         for mode in modes:
             if self._battle_budget() <= 0:
@@ -341,6 +356,14 @@ class EventBattleTask(_ClaimTaskBase):
                 return self._finish(self._no_ap_text())
             if result == "defeated":
                 return self._finish_defeated(mode)
+            if result == "stuck":
+                # The next stage may simply not be open yet (events unlock
+                # stages over days): the next mode still gets its turn, but
+                # nothing is quick-battled today.
+                where = getattr(self, "_stuck_stage", None)
+                where = f"第{where}关" if where else "已通关的关卡"
+                stuck.append(f"{mode}停在{where}，下一关没认出来")
+                continue
             if result == "capped":
                 farm = (mode, self._stage_cap(mode))
                 done_text = f"{mode}已推到设定的第{farm[1]}关"
@@ -348,8 +371,13 @@ class EventBattleTask(_ClaimTaskBase):
             if result != "cleared":
                 return self._finish(f"{mode}已推进")
         else:
-            farm = (modes[-1], self._stage_cap(modes[-1]))
-        if farm and self._battle_budget() > 0 and bool(self.config.get(QUICK_KEY, True)):
+            farm = None if stuck else (modes[-1], self._stage_cap(modes[-1]))
+        if stuck and farm is None:
+            note = "；".join(stuck) + "。活动AP留着没用（不会拿去快速战斗还没推到的关卡）"
+            self.log_warning(f"活动每日战斗：{note}", notify=True)
+            run_report.add_current_note(note)
+            return self._finish("没推到设定的关卡，没有快速战斗")
+        if farm and self._battle_budget() > 0:
             mode, stage = farm
             label = f"{mode}{stage}快速战斗"
             result = self._run_quick_battle(mode, stage)
@@ -358,11 +386,12 @@ class EventBattleTask(_ClaimTaskBase):
             if result == "failed":
                 return self._event_fail(label)
             if result == "skipped":
-                self.log_warning(
-                    f"活动每日战斗：{done_text}，但快速战斗尚未执行（{mode}没选到第{stage}关"
-                    "），今日活动AP未使用。",
-                    notify=True,
+                note = (
+                    f"{done_text}，但快速战斗没执行：{mode}左边列表里没选到第{stage}关，"
+                    "今天剩下的活动AP没用掉"
                 )
+                self.log_warning(f"活动每日战斗：{note}。", notify=True)
+                run_report.add_current_note(note)
                 return self._finish("快速战斗未执行")
             if result == "no_ap":
                 return self._finish(f"{done_text}，{self._no_ap_text()}")
@@ -390,10 +419,11 @@ class EventBattleTask(_ClaimTaskBase):
         if mode != CHALLENGE_MODE:
             return LAST_STAGE
         try:
-            cap = int(self.config.get(CHALLENGE_CAP_KEY, LAST_STAGE))
+            cap = int(str(self.config.get(CHALLENGE_CAP_KEY, LAST_STAGE)).strip())
         except (TypeError, ValueError):
             cap = LAST_STAGE
-        return max(1, min(LAST_STAGE, cap))
+        # A stage without quick battle is rounded down to one that has it.
+        return max([stage for stage in CAP_STAGES if stage <= cap] or [CAP_STAGES[0]])
 
     def _no_ap_text(self) -> str:
         if bool(self.config.get("仅使用免费活动AP", True)):
@@ -763,10 +793,14 @@ class EventBattleTask(_ClaimTaskBase):
             state = self._stable_stage_state(mode)
         return state
 
-    def _select_stage(self, mode: str, current: int, target: int) -> bool:
+    def _select_stage(
+        self, mode: str, current: int, target: int, grace: float = SLOW_PC_GRACE_SECONDS
+    ) -> bool:
         """Select stage ``target`` in the left list; True once the panel shows it."""
         point = self.look_again(
-            lambda: self._stage_list_point(target), f"活动每日战斗：{mode}左边列表找第{target}关"
+            lambda: self._stage_list_point(target),
+            f"活动每日战斗：{mode}左边列表找第{target}关",
+            grace=grace,
         )
         if point is None:
             self.log_info(
@@ -837,6 +871,13 @@ class EventBattleTask(_ClaimTaskBase):
             ):
                 self.log_info(f"活动每日战斗：{mode}已推到设定的第{cap}关，不再往后打。")
                 return "capped"
+            if not state["auto"] and state["stage"] != LAST_STAGE:
+                # A cleared stage before the last whose next one could not be
+                # selected is not "all cleared": no quick battle may spend the
+                # AP before the set stage is reached (Leo 2026-10-14 「千萬不要
+                # 他還沒有打到第15關就在第10關把體力拿去快速戰鬥了」).
+                self._stuck_stage = state["stage"]
+                return "stuck"
             if not state["auto"]:
                 self.log_info(f"活动每日战斗：{mode}已全部通关。")
                 return "cleared"
@@ -1285,21 +1326,25 @@ class EventBattleTask(_ClaimTaskBase):
         if opened != "ok":
             return opened
         state = self._stable_stage_state(mode)
-        if state["stage"] is not None and state["stage"] != stage:
-            if not self._select_stage(mode, state["stage"], stage):
-                self.log_info(f"活动每日战斗：{mode}选中第{state['stage']}关，没能改选第{stage}关。")
-                return "skipped"
-            state = self._stable_stage_state(mode)
-        if state["auto"] or not state["quick"]:
-            return self._failed(f"{mode}第{stage}关的关卡页没看到「快速战斗」")
+        if state["free_ap"] is not None and min(self._usable_ap(state), self._battle_budget()) <= 0:
+            return "no_ap"
+        picked = self._pick_quick_stage(mode, state, stage)
+        if picked is None:
+            return "skipped"
+        state, stage = picked
         if state["free_ap"] is None:
-            return self._failed(f"{mode}关卡页上方的活动AP没读到")
-        wanted = min(self._usable_ap(state), self._battle_budget())
+            # A player's v0.1.32 run (1921x1080 window, 150%, 2026-10-14)
+            # stopped 「挑战战斗关卡页上方的活动AP没读到」 with both modes
+            # cleared.  As for auto battle (Leo 2026-10-10 「應該雙重保險」),
+            # the dialog decides: its 仅使用免费活动AP switch on and MAX.
+            self.log_info(
+                f"活动每日战斗：{mode}关卡页上方的活动AP没读到，改看快速战斗窗口的场数。"
+            )
+            wanted = self._battle_budget()
+        else:
+            wanted = min(self._usable_ap(state), self._battle_budget())
         if wanted <= 0:
             return "no_ap"
-        if state["stage"] != stage:
-            self.log_info(f"活动每日战斗：{mode}选中第{state['stage']}关，不是第{stage}关。")
-            return "skipped"
         if not self._open_quick_dialog():
             return self._failed("按了「快速战斗」，窗口没打开")
         cost = self._set_quick_count(wanted, state)
@@ -1339,6 +1384,51 @@ class EventBattleTask(_ClaimTaskBase):
         self._battles_done += cost
         return "done"
 
+    def _quick_ready(self, state: dict, stage: int) -> bool:
+        return state["stage"] == stage and state["quick"] and not state["auto"]
+
+    def _pick_quick_stage(self, mode: str, state: dict, stage: int):
+        """Select ``stage`` for quick battle: (state, stage), or None.
+
+        A player's run had both modes cleared and pressed no 快速战斗
+        (2026-10-14, version unknown).  Up to v0.1.32 quick battle ran only
+        when the page opened on stage 15; the game keeps the last stage
+        picked, so any other stage skipped it (inferred).  Only the target
+        stage is ever quick-battled (Leo 2026-10-14 「不能去改打第10第5」);
+        the backup is looking again after scrolling the list.
+        """
+        if self._quick_ready(state, stage):
+            return state, stage
+        if self._select_stage_scrolling(mode, state["stage"], stage):
+            state = self._stable_stage_state(mode)
+            if self._quick_ready(state, stage):
+                return state, stage
+        self.log_info(f"活动每日战斗：{mode}选中第{state['stage']}关，没能改选第{stage}关。")
+        return None
+
+    def _select_stage_scrolling(self, mode: str, current, target: int) -> bool:
+        """``_select_stage``; when the list does not show ``target``, scroll it
+        toward that end (harmless mouse wheel) and look again."""
+        if self._select_stage(mode, current, target):
+            return True
+        down = current is None or target > current
+        for _ in range(STAGE_LIST_SCROLLS):
+            self.info_set("当前阶段", f"{mode}：滚动左边列表找第{target}关")
+            try:
+                self.scroll_client(
+                    STAGE_LIST_SCROLL_POINT,
+                    -STAGE_LIST_SCROLL_AMOUNT if down else STAGE_LIST_SCROLL_AMOUNT,
+                    count=3,
+                    after_sleep=0.8,
+                )
+            except Exception as exc:  # no wheel on this input: nothing more to try
+                self.log_info(f"活动每日战斗：滚动关卡列表失败（{exc}）。")
+                return False
+            self._progressed()
+            if self._select_stage(mode, current, target, grace=2.0):
+                return True
+        return False
+
     def _quick_dialog_open(self) -> bool:
         boxes = self._roi_boxes(self.capture_frame(), QUICK_DIALOG_ROI, "快速战斗窗口")
         return keyword_match_count(self._boxes_text(boxes), QUICK_DIALOG_KEYWORDS) >= 2
@@ -1369,8 +1459,12 @@ class EventBattleTask(_ClaimTaskBase):
 
     def _set_quick_count(self, wanted: int, state: dict) -> int | None:
         free_only = bool(self.config.get("仅使用免费活动AP", True))
-        free = state["free_ap"] or 0
-        if free_only and not self._ensure_free_ap_switch_on(
+        free = state["free_ap"]
+        if free is None and not free_only:
+            # Without the top bar's AP only the free-AP switch bounds MAX.
+            self._failed("关卡页上方的活动AP没读到，又没开「仅使用免费活动AP」，所以没开打")
+            return None
+        if (free_only or free is None) and not self._ensure_free_ap_switch_on(
             QUICK_FREE_AP_SWITCH_POINT, QUICK_FREE_AP_SWITCH_ROI
         ):
             self._failed("没能确认「仅使用免费活动AP」开着，所以没开打")
@@ -1383,12 +1477,16 @@ class EventBattleTask(_ClaimTaskBase):
             for _ in range(wanted - 1):
                 self._click_reference(*QUICK_DIALOG_PLUS_POINT, after_sleep=0.3)
             cost = self._settled_cost(self._quick_cost)
-        if cost is None or cost <= 0 or cost > wanted or (free_only and cost > free):
+        over_free = free_only and free is not None and cost is not None and cost > free
+        if cost is None or cost <= 0 or cost > wanted or over_free:
+            shown = free if free is not None else "没读到"
             self.log_info(
-                f"活动每日战斗：快速战斗场数校验失败（{cost}/{wanted}，免费AP {free}）。"
+                f"活动每日战斗：快速战斗场数校验失败（{cost}/{wanted}，免费AP {shown}）。"
             )
-            self._failed(f"场数对不上（读到 {cost}，要打 {wanted}，免费AP {free}），所以没开打")
+            self._failed(f"场数对不上（读到 {cost}，要打 {wanted}，免费AP {shown}），所以没开打")
             return None
+        if free is None:
+            self.log_info(f"活动每日战斗：免费AP开关开着，快速战斗窗口场数 {cost}，按这个打。")
         return cost
 
     def _wait_quick_result(self) -> str:

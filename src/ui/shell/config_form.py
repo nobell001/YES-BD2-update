@@ -35,7 +35,7 @@ HINTS_KEPT = {
     "QuickHuntTask": (),
     "JunkGearTask": (),
     "PVPTask": ("舞台移动方式",),
-    "EventBattleTask": ("只刷普通难度", "挑战战斗最高关卡", "全部通关后快速战斗"),
+    "EventBattleTask": ("只刷普通难度", "挑战战斗最高关卡"),
     "MissionRewardTask": (),
     "MailRewardTask": (),
 }
