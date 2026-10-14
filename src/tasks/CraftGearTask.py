@@ -22,6 +22,7 @@ from src.tasks.enhance_dialog import (
 )
 from src.tasks.GearTasks import EQUIPMENT_TITLE_KEYWORDS, DailyRefineTask
 from src.utils.ocr_utils import normalize_ocr_text
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer
 
 # 1920x1080 reference coordinates / ROIs.
 BAG_BUTTONS_ROI = (1170, 975, 640, 60)
@@ -247,11 +248,17 @@ class NGearCraftMixin:
         return False
 
     def _settle_result(self, count: int) -> bool:
+        # Up to 30 s while the craft animation moves; a screen still for
+        # STUCK_SECONDS is stuck (Leo 2026-10-14 「頂多等8秒到10秒」).
         end_at = monotonic() + 30.0
         seen_result = False
         unread_confirm = 0
+        still = StillTimer()
         while monotonic() <= end_at:
             frame = self.capture_frame()
+            if still.still_for(frame, monotonic()) >= STUCK_SECONDS:
+                self.log_info(f"{LABEL}：画面 {STUCK_SECONDS:.0f} 秒没有变化，没等到制作结果。")
+                return False
             text = self._boxes_text(self._roi_boxes(frame, RESULT_ROI, "强化结果"))
             if "强化结果" in text or "分解结果" in text:
                 seen_result = True

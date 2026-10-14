@@ -42,6 +42,7 @@ from src.tasks.fiend_hunt.fight import ListGlance, ScreenReadError
 from src.tasks.fiend_hunt.names import settle_name, snap_name
 from src.tasks.fiend_hunt.planner import Cell, Drag
 from src.tasks.fiend_hunt.record import FightRecord, TurnState, TurnStateError
+from src.utils.wait_limits import STUCK_SECONDS
 
 # Timings measured on the 4K PC (2026-09-30, speed probe): a 0.15 s hold
 # selected 20/20 and the brackets were on the first capture after release
@@ -96,7 +97,8 @@ BATTLE_GONE_SECONDS = 6.0
 TURN_WAIT_SECONDS = 240.0
 # Leo 2026-10-06: a battle screen that hasn't moved for this long is stuck
 # (a disconnect dialog, a frozen game): stop instead of waiting the 240 s.
-STILL_SECONDS = 30.0
+# Leo 2026-10-14 「頂多等8秒到10秒」: was 30 s.
+STILL_SECONDS = STUCK_SECONDS
 PLANNING_STEADY_SECONDS = 1.0
 POLL = 0.3
 # A tombstone makes its cell look busy; bare floor stays below this.

@@ -21,9 +21,11 @@ from time import monotonic
 import cv2
 import numpy as np
 
-# Two slow-PC re-looks (SLOW_PC_GRACE_SECONDS, 5 s each) with their reads
-# must fit, or a slow PC reading an empty page twice would count as stuck.
-FROZEN_SCREEN_SECONDS = 15.0
+from src.utils.wait_limits import STUCK_SECONDS
+
+# Leo 2026-10-14 「頂多等8秒到10秒」: was 15 s.  A slow-PC re-look
+# (SLOW_PC_GRACE_SECONDS, 5 s) still fits.
+FROZEN_SCREEN_SECONDS = STUCK_SECONDS
 FROZEN_GAP_SECONDS = 5.0
 THUMB_SIZE = (192, 108)
 # A pixel this much brighter or darker counts as changed; this many changed

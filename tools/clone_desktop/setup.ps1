@@ -199,6 +199,13 @@ function Install {
     if ($serviceDll -and $serviceDll -notlike '*\termsrv.dll') {
         Say "注意：遠端桌面服務被換成 $serviceDll（像 RDP Wrapper），桌面分身可能開不了"
     }
+    # The clone is a Remote Desktop session of this PC to itself; without the
+    # service the viewer only gets Windows' code 516 (B站 report 2026-10-14).
+    $termService = Get-CimInstance -ClassName Win32_Service -Filter "Name='TermService'" -ErrorAction SilentlyContinue
+    if (-not $termService) { throw '這台電腦沒有「遠端桌面服務」(TermService)，不能用桌面分身（常見於精簡版 Windows 或用過系統優化工具）' }
+    if ($termService.StartMode -eq 'Disabled') {
+        Say '注意：「遠端桌面服務」被停用了，分身開不了。按工具的「在桌面分身跑」會問你要不要「幫我打開」。'
+    }
 
     $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
     if (-not (Test-Path -LiteralPath $csc)) { $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }

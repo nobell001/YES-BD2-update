@@ -20,6 +20,7 @@ from src.utils.colour_rules import switch_yellow_ratio
 from src.utils.free_switch import ensure_free_switch_on
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
 from src.utils.press_confirm import wait_for
+from src.utils.wait_limits import STUCK_SECONDS, capped
 
 # Where the free rice goes (all of it, MAX), one setting per double case
 # (Leo 2026-10-12: 「金幣雙倍時 / 史萊姆雙倍時 / 皆雙倍時: [金幣][史萊姆][狩獵場]
@@ -305,7 +306,7 @@ class QuickHuntConfigMixin:
         '快速狩猎模板阈值': 0.78,
         '快速狩猎像素相似度阈值': 0.72,
         '快速狩猎界面等待秒数': 8.0,
-        '快速狩猎结算等待秒数': 15.0,
+        '快速狩猎结算等待秒数': STUCK_SECONDS,
         '快速狩猎入口测试': "",
         '快速狩猎菜单测试': "",
         '快速狩猎圣石测试': "",
@@ -1233,7 +1234,7 @@ class QuickHuntFeatureMixin:
         return True
 
     def _quick_hunt_wait_result(self, stage: str) -> str:
-        end_at = monotonic() + float(self.config.get("快速狩猎结算等待秒数", 15.0))
+        end_at = monotonic() + capped(self.config.get("快速狩猎结算等待秒数", STUCK_SECONDS))
         while monotonic() <= end_at:
             frame = self.capture_frame()
             reward_text = self._quick_hunt_ocr_text(

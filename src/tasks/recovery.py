@@ -25,6 +25,7 @@ from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
 from src.utils import known_popups
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
 from src.utils.ocr_utils import fuzzy_substring_match, normalize_ocr_text
+from src.utils.wait_limits import STUCK_SECONDS
 
 # Room for the Esc steps after the back arrow and H.
 RECOVERY_ATTEMPTS = 8
@@ -41,7 +42,8 @@ BACK_BUTTON_POINT = (150 / REFERENCE_WIDTH, 50 / REFERENCE_HEIGHT)
 # Loading between pages is black with a faint logo (p99 grey ~40 live);
 # every real page has bright UI text.
 TRANSITION_P99_MAX = 70.0
-TRANSITION_WAIT_SECONDS = 20.0
+# Leo 2026-10-14 「頂多等8秒到10秒」: was 20 s.
+TRANSITION_WAIT_SECONDS = STUCK_SECONDS
 # Top-left page title beside the back arrow ("活动", "通行证", "装备"...).
 PAGE_TITLE_RELATIVE_ROI = (225 / REFERENCE_WIDTH, 15 / REFERENCE_HEIGHT, 650 / REFERENCE_WIDTH, 85 / REFERENCE_HEIGHT)
 NAVIGATOR_STATES = frozenset(
@@ -123,6 +125,12 @@ def _home_now(navigator) -> bool:
     if signals is None or vision is None:
         return False
     return bool(signals(vision.capture())[0])
+
+
+def home_now(task) -> bool:
+    """主页 shows right now (the cheap left-column check)."""
+    vision = Vision(task)
+    return _home_now(Navigator(task, vision))
 
 
 def _wait_home_briefly(task, navigator, timeout: float) -> bool:

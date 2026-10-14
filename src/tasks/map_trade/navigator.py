@@ -126,6 +126,7 @@ from src.utils.home_confirmation import (
     home_left_column_hits,
     home_left_column_brightness,
 )
+from src.utils.wait_limits import STUCK_SECONDS, capped
 
 __all__ = [
     "BARGAIN_CONFIRM_POINT",
@@ -569,7 +570,7 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
         )
 
     def _loading_timeout(self) -> float:
-        return max(10.0, float(self.task.config.get("加载页面等待秒数", 45.0)))
+        return max(10.0, capped(self.task.config.get("加载页面等待秒数", STUCK_SECONDS)))
 
     def _wait_for_cartridge_home(
         self,

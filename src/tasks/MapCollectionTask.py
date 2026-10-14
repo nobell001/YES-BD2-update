@@ -11,6 +11,7 @@ from src.tasks.MapTradeTask import (
     MAP_VISION_THRESHOLD_KEY,
     MapAutomationTaskBase,
 )
+from src.utils.wait_limits import STUCK_SECONDS
 
 
 class MapCollectionTask(MapAutomationTaskBase):
@@ -92,7 +93,7 @@ class MapCollectionTask(MapAutomationTaskBase):
                 "执行地图采集": True,
                 MAP_VISION_THRESHOLD_KEY: 0.72,
                 MAP_OCR_THRESHOLD_KEY: 0.20,
-                "加载页面等待秒数": 15.0,
+                "加载页面等待秒数": STUCK_SECONDS,
                 "卡带单步重试次数": 2,
                 "本次最多卡带数": 0,
                 "跑图章节": "全部",

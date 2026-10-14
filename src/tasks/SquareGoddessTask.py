@@ -53,6 +53,7 @@ from src.utils.image_utils import (
     stabilize_template_match,
 )
 from src.utils.ocr_utils import normalize_ocr_text
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped
 
 REFERENCE_WIDTH = FHD_1080.width
 REFERENCE_HEIGHT = FHD_1080.height
@@ -78,7 +79,10 @@ GODDESS_ROW_PRESS_CONFIRM_SECONDS = 5.0
 # (2026-10-11) saw the walk to the goddess stop on the way with the banner
 # still up and the home button hidden, so nothing could leave the square.
 GODDESS_WALK_BANNER = "移动中"
-GODDESS_WALK_STUCK_SECONDS = 20.0
+# The walk counts as stuck once its banner is up and the field has not moved
+# for this long (Leo 2026-10-14 「頂多等8秒到10秒」: was 20 s of banner,
+# moving or not; a walk that keeps going is the game working).
+GODDESS_WALK_STUCK_SECONDS = STUCK_SECONDS
 QUICK_SWITCH_PAGE_PATTERNS = (
     SHOPKEEPER_CATEGORY_LABEL,
     CHARACTER_CATEGORY_LABEL,
@@ -148,7 +152,7 @@ class SquareGoddessTask(BaseBD2Task):
                 "玩法类别高亮确认秒数": 3.0,
                 "玩法类别高亮像素比例": GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO,
                 "广场 OCR 阈值": 0.2,
-                "广场入场等待秒数": 30.0,
+                "广场入场等待秒数": STUCK_SECONDS,
                 "广场感叹号等待秒数": 3.0,
                 "祈祷完成后感叹号等待秒数": 5.0,
                 "女神像导航入口等待秒数": 8.0,
@@ -156,7 +160,7 @@ class SquareGoddessTask(BaseBD2Task):
                 "女神像寻路卡住秒数": GODDESS_WALK_STUCK_SECONDS,
                 "女神像完成确认等待秒数": 8.0,
                 "女神像许愿最多点击次数": 3,
-                "广场返回主页等待秒数": 15.0,
+                "广场返回主页等待秒数": STUCK_SECONDS,
                 "广场返回主页最多点击次数": 3,
                 "广场返回主页重试间隔秒数": 2.0,
                 "梦幻广场阈值": 0.78,
@@ -176,7 +180,9 @@ class SquareGoddessTask(BaseBD2Task):
                 "祈祷完成后感叹号等待秒数": (
                     "确认祈祷完成或今日已完成后，再次等待并点击感叹号小任务的最长时间。"
                 ),
-                "女神像导航最长等待秒数": "点击每日导航后，等待角色靠近女神像的最长时间。",
+                "女神像导航最长等待秒数": (
+                    "点击每日导航后，角色一直在走时最多等这么久；10 秒没进展就不再等。"
+                ),
                 "女神像寻路卡住秒数": (
                     "「自动移动中」一直显示超过这么久就算卡住：按掉它，再点一次每日导航。"
                 ),
@@ -246,7 +252,7 @@ class SquareGoddessTask(BaseBD2Task):
         self.info_set("广场主页点击次数", f"1/{max_clicks}")
         self.operate_click(*SQUARE_HOME_POINT, after_sleep=1.0)
         return self._wait_for_cartridge_home(
-            timeout=float(self.config.get("广场返回主页等待秒数", 15.0)),
+            timeout=capped(self.config.get("广场返回主页等待秒数", STUCK_SECONDS)),
             retry_home_clicks=max_clicks - 1,
             retry_interval=retry_interval,
             total_home_clicks=max_clicks,
@@ -295,7 +301,7 @@ class SquareGoddessTask(BaseBD2Task):
 
         if self._wait_for_template(
             FANTASIA_SQUARE_TEMPLATE,
-            timeout=float(self.config.get("广场入场等待秒数", 30.0)),
+            timeout=capped(self.config.get("广场入场等待秒数", STUCK_SECONDS)),
             name="梦幻广场",
         ):
             return True
@@ -305,7 +311,7 @@ class SquareGoddessTask(BaseBD2Task):
         ) is CartridgeSpecialPageResult.HANDLED:
             return self._wait_for_template(
                 FANTASIA_SQUARE_TEMPLATE,
-                timeout=float(self.config.get("广场入场等待秒数", 30.0)),
+                timeout=capped(self.config.get("广场入场等待秒数", STUCK_SECONDS)),
                 name="梦幻广场",
             )
 
@@ -685,14 +691,18 @@ class SquareGoddessTask(BaseBD2Task):
         max_clicks = max(1, int(self.config.get("女神像许愿最多点击次数", 3)))
         click_count = 0
         # 导航点击可能被吞（2026-09-26 实测：90 秒内导航行一直在、许愿提示从未出现）：
-        # 超时未见许愿提示且导航行仍可点时补点导航。
-        renav_seconds = float(self.config.get("女神像导航重试秒数", 35.0))
+        # 超时未见许愿提示且导航行仍可点时补点导航（Leo 2026-10-14 最多等 10 秒，原 35 秒）。
+        renav_seconds = capped(self.config.get("女神像导航重试秒数", STUCK_SECONDS))
         renav_left = GODDESS_NAVIGATION_RETRIES
         last_navigation_at = monotonic()
-        stuck_seconds = float(
+        stuck_seconds = capped(
             self.config.get("女神像寻路卡住秒数", GODDESS_WALK_STUCK_SECONDS)
         )
         walking_since = None
+        walk_still = StillTimer()
+        # Nothing to read, no walk and no press: the screen is not getting
+        # anywhere (the overall limit only holds a walk that keeps moving).
+        idle_since = monotonic()
 
         while monotonic() <= end_at:
             frame = self.capture_frame()
@@ -707,13 +717,15 @@ class SquareGoddessTask(BaseBD2Task):
 
             if point is None and self._walk_banner_shown(text):
                 now = monotonic()
+                idle_since = now
                 walking_since = now if walking_since is None else walking_since
-                if now - walking_since < stuck_seconds:
+                if walk_still.still_for(frame, now) < stuck_seconds:
                     self.sleep(interval)
                     continue
                 walking_since = None
+                walk_still.reset()
                 stopped = self._cancel_goddess_walk()
-                stuck = f"广场女神像：自动寻路停在半路超过{stuck_seconds:.0f}秒"
+                stuck = f"广场女神像：自动寻路停在半路，画面超过{stuck_seconds:.0f}秒没动"
                 if renav_left <= 0:
                     self.log_info(
                         f"{stuck}，重新导航后还是一样，"
@@ -731,8 +743,10 @@ class SquareGoddessTask(BaseBD2Task):
                 if navigation == GODDESS_ALREADY_COMPLETE:
                     return True
                 last_navigation_at = monotonic()
+                idle_since = monotonic()
                 continue
             walking_since = None
+            walk_still.reset()
 
             if point is not None and click_count < max_clicks:
                 self._click_client(
@@ -743,7 +757,21 @@ class SquareGoddessTask(BaseBD2Task):
                     after_sleep=2.0,
                 )
                 click_count += 1
+                idle_since = monotonic()
             else:
+                if monotonic() - idle_since >= STUCK_SECONDS and (
+                    point is not None or renav_left <= 0
+                ):
+                    self.log_info(
+                        f"广场女神像：{STUCK_SECONDS:.0f} 秒没走到下一步"
+                        + (
+                            "（许愿点了没反应）"
+                            if point is not None
+                            else "（没看到许愿提示、也没在走）"
+                        )
+                        + "，这次没有许愿。"
+                    )
+                    break
                 if (
                     point is None
                     and renav_left > 0
@@ -759,6 +787,7 @@ class SquareGoddessTask(BaseBD2Task):
                             frame_height,
                             after_sleep=2.0,
                         )
+                        idle_since = monotonic()
                     last_navigation_at = monotonic()
                 self.sleep(interval)
                 continue

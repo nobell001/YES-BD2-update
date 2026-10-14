@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src.tasks.map_trade.models import MatchResult, TemplateSpec
 from src.utils.calibration import FHD_1080, reference_rect_to_relative_roi
+from src.utils.wait_limits import STUCK_SECONDS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 CALENDAR_DIR = PROJECT_ROOT / "assets" / "map_trade"
@@ -65,7 +66,8 @@ STAR_REMOVE_TOAST_KEYWORD = "从收藏中移除"
 STAR_ADD_TOAST_KEYWORD = "加入收藏"
 BUY_ALL_FAVORITES_KEYWORD = "购买全部收藏"
 BUY_ALL_FAVORITES_STABLE_HITS = 2
-BUY_ALL_FAVORITES_TIMEOUT = 30.0
+# Leo 2026-10-14 「頂多等8秒到10秒」: the shop waits were 30 s.
+BUY_ALL_FAVORITES_TIMEOUT = STUCK_SECONDS
 BUY_ALL_FAVORITES_INTERVAL = 0.25
 BUY_CONFIRM_DIALOG_REGION = (
     701 / FHD_1080.width,
@@ -78,7 +80,7 @@ BUY_CONFIRM_KEYWORDS = (
     "一键购买全部收藏",
     "是否购买所有加入收藏的商品",
 )
-BUY_CONFIRM_TIMEOUT = 30.0
+BUY_CONFIRM_TIMEOUT = STUCK_SECONDS
 BUY_CONFIRM_INTERVAL = 0.25
 BUY_CONFIRM_CLOSE_TIMEOUT = 5.0
 BUY_CONFIRM_PRE_CLICK_DELAY = 0.8
@@ -98,7 +100,7 @@ BUY_TO_SELL_SOLD_OUT_TEMPLATE = TemplateSpec(
     ),
 )
 BUY_TO_SELL_SOLD_OUT_STABLE_HITS = 2
-BUY_TO_SELL_TIMEOUT = 30.0
+BUY_TO_SELL_TIMEOUT = STUCK_SECONDS
 BUY_TO_SELL_INTERVAL = 0.25
 BUY_TO_SELL_PRE_CLICK_DELAY = 0.5
 BUY_TO_SELL_POST_CLICK_DELAY = 0.5

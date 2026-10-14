@@ -6,6 +6,7 @@ from src.tasks.BaseBD2Task import BaseBD2Task
 from src.tasks.task_vision_mixin import LOADING_TEMPLATE, TaskVisionMixin
 from src.utils.ocr_utils import keyword_match_count
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped
 
 KEYWORD_MATCH_RATIO = 0.9
 
@@ -34,7 +35,8 @@ CONFIRM_GONE_RECHECK_SECONDS = 0.5
 LEGACY_RESULT_SKIP_BURST_SECONDS = 3.0
 # On a slow PC the result animation outlasted burst + OCR wait and the run
 # failed after the free pull was spent: past the OCR wait, skip is pressed
-# again with a ticket-popup check before every press, up to this long.
+# again with a ticket-popup check before every press, up to this long while
+# the animation keeps moving; a screen still for STUCK_SECONDS ends it sooner.
 RESULT_TOTAL_SECONDS = 30.0
 # The skip corner is only pressed on an unknown (animation) screen: never on
 # the gacha page (currency bar), the confirm dialog, or anything that sells.
@@ -64,8 +66,8 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
                 "主页压暗阈值": 185.0,
                 "抽卡 OCR 阈值": 0.2,
                 "loading 出现等待秒数": 6.0,
-                "loading 消失等待秒数": 35.0,
-                "抽卡页面等待秒数": 12.0,
+                "loading 消失等待秒数": STUCK_SECONDS,
+                "抽卡页面等待秒数": STUCK_SECONDS,
                 "免费抽按钮等待秒数": 3.0,
                 "确认弹窗等待秒数": 8.0,
                 "确认弹窗重试次数": 2,
@@ -277,7 +279,7 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
         last_text: str = "",
         interval: float = 0.5,
     ) -> tuple[str, bool, str]:
-        end_at = monotonic() + float(self.config.get("loading 消失等待秒数", 35.0))
+        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
         while monotonic() <= end_at:
             frame = self.capture_frame()
             found, text = self._ocr_keywords_in_frame(
@@ -325,7 +327,7 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
         name: str,
         interval: float = 0.35,
     ) -> bool:
-        end_at = monotonic() + float(self.config.get("loading 消失等待秒数", 35.0))
+        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
         while monotonic() <= end_at:
             frame = self.capture_frame()
             if self._home_confirmation_ok(frame, name):
@@ -343,7 +345,7 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
     def _wait_for_gacha_page(self, name: str) -> bool:
         found, text = self._wait_for_ocr_keywords(
             GACHA_PAGE_KEYWORDS,
-            timeout=float(self.config.get("抽卡页面等待秒数", 12.0)),
+            timeout=capped(self.config.get("抽卡页面等待秒数", STUCK_SECONDS)),
             minimum_matches=int(self.config.get("抽卡页面关键词最低命中数", 3)),
             name=f"{name}_gacha_page",
         )
@@ -500,7 +502,7 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
     def _wait_for_equipment_pool_page(self, name: str) -> bool:
         found, text = self._wait_for_ocr_keywords(
             EQUIPMENT_POOL_KEYWORDS,
-            timeout=float(self.config.get("抽卡页面等待秒数", 12.0)),
+            timeout=capped(self.config.get("抽卡页面等待秒数", STUCK_SECONDS)),
             minimum_matches=1,
             name=f"{name}_equipment_pool",
         )
@@ -514,7 +516,7 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
     def _wait_for_clothing_pool_page(self, name: str) -> bool:
         found, text = self._wait_for_ocr_keywords(
             CLOTHING_POOL_KEYWORDS,
-            timeout=float(self.config.get("抽卡页面等待秒数", 12.0)),
+            timeout=capped(self.config.get("抽卡页面等待秒数", STUCK_SECONDS)),
             minimum_matches=1,
             name=f"{name}_clothing_pool",
         )
@@ -584,14 +586,23 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
         deadline = max(watch_until, started + RESULT_TOTAL_SECONDS)
         pressing = True
         text = ""
+        # Skip keeps being pressed, so only a screen that stopped moving tells
+        # a stuck result from a long animation (Leo 2026-10-14 「頂多等8秒到10秒」).
+        still = StillTimer()
         while True:
+            frame = self.capture_frame()
             found, text = self._ocr_keywords_in_frame(
-                self.capture_frame(), BACK_PAGE_KEYWORDS, minimum_matches, f"{section_name}_result"
+                frame, BACK_PAGE_KEYWORDS, minimum_matches, f"{section_name}_result"
             )
             if found:
                 return True, text
             now = monotonic()
             if now > deadline:
+                return False, text
+            if still.still_for(frame, now) >= STUCK_SECONDS:
+                self.log_info(
+                    f"{section_name}：结果画面 {STUCK_SECONDS:.0f} 秒没有变化，也没认出结果页。"
+                )
                 return False, text
             if now <= watch_until:
                 self.sleep(ocr_interval)

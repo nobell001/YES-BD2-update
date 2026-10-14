@@ -14,6 +14,7 @@ from src.tasks.recovery import recover_to_home
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH, TaskVisionMixin
 from src.utils.home_confirmation import HOME_DIMMED_P95_THRESHOLD_DEFAULT
 from src.utils.ocr_utils import normalize_ocr_text
+from src.utils.wait_limits import STUCK_SECONDS, capped
 
 GUILD_TEMPLATE = TemplateSpec(
     name="guild",
@@ -244,9 +245,9 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 '主页压暗阈值': HOME_DIMMED_P95_THRESHOLD_DEFAULT,
                 '日常 OCR 阈值': 0.2,
                 'loading 出现等待秒数': 6.0,
-                'loading 消失等待秒数': 35.0,
+                'loading 消失等待秒数': STUCK_SECONDS,
                 '公会签到成功等待秒数': 8.0,
-                '小屋页面等待秒数': 12.0,
+                '小屋页面等待秒数': STUCK_SECONDS,
                 '一键收菜菜单等待秒数': 8.0,
                 '主页确认等待秒数': 10.0,
             }
@@ -493,10 +494,10 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             if attempt < MY_HOME_ENTRY_CLICK_ATTEMPTS:
                 self.log_info("小屋签到：入口点击后仍在主页，重试点击。")
         if not found:
+            # Leo 2026-10-14 「頂多等8秒到10秒」: was loading 6 + page 12 +
+            # loading 35 s.
             found = self._wait_my_home_page(
-                float(self.config.get("loading 出现等待秒数", 6.0))
-                + float(self.config.get("小屋页面等待秒数", 12.0))
-                + float(self.config.get("loading 消失等待秒数", 35.0))
+                capped(self.config.get("小屋页面等待秒数", STUCK_SECONDS))
             )
         self._status_set("小屋页面检测", "是" if found else "否")
         if found:

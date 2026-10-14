@@ -34,6 +34,7 @@ from src.utils.known_popups import (  # noqa: F401 - re-exported for the tasks
 )
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
+from src.utils.wait_limits import STUCK_SECONDS, capped
 
 # 1920x1080 reference coordinates, calibrated on the 简体 client 2026-09-25.
 BACK_BUTTON_POINT = (150, 50)
@@ -128,7 +129,7 @@ class ClaimPageMixin(TaskVisionMixin):
             "启用": True,
             "日常 OCR 阈值": 0.2,
             "主页确认等待秒数": 10.0,
-            "页面等待秒数": 15.0,
+            "页面等待秒数": STUCK_SECONDS,
             "领取结果等待秒数": 10.0,
         }
 
@@ -391,7 +392,7 @@ class ClaimPageMixin(TaskVisionMixin):
         quiet: bool = False,
     ) -> bool:
         if timeout is None:
-            timeout = float(self.config.get("页面等待秒数", 15.0))
+            timeout = capped(self.config.get("页面等待秒数", STUCK_SECONDS))
         started = monotonic()
         end_at = started + timeout
         last_text, same_since = None, started
@@ -596,7 +597,7 @@ class ClaimPageMixin(TaskVisionMixin):
             if not self._title_visible(self.capture_frame(), title_keywords, label):
                 # Left the page but home is not confirmed yet: usually a
                 # loading screen, so give it time instead of failing.
-                if self._wait_for_home_confirmation(f"{label}返回主页", timeout=15.0):
+                if self._wait_for_home_confirmation(f"{label}返回主页", timeout=STUCK_SECONDS):
                     return True
                 break
             self.log_info(f"{label}：第{attempt}次返回未生效，重试。")

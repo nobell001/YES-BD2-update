@@ -527,6 +527,8 @@ MERCHANT_NAV_TOAST_OCR_ROI = (430, 115, 420, 100)
 MERCHANT_TRAVEL_DIALOG_KEYWORDS = ("立即前往", "自动移动")
 MERCHANT_TRAVEL_DIALOG_OCR_ROI = (400, 260, 480, 140)
 MERCHANT_NAV_OUTCOME_TIMEOUT = 4.0
+# Walks may take this long while the screen moves; a still screen ends the
+# wait after STUCK_SECONDS (Leo 2026-10-14 「頂多等8秒到10秒」).
 MERCHANT_ARRIVAL_TIMEOUT = 40.0
 # A real 立即前往 teleports or walks within seconds; no prompt by then and
 # still in the field means it did nothing (live: the prompt shows ~2 s after
@@ -622,7 +624,7 @@ SANDBOX_NAVIGATION_OPEN_SETTLE_SECONDS = 2.5
 SANDBOX_NAVIGATION_MAP_TIMEOUT = 8.0
 SANDBOX_NAVIGATION_TELEPORT_SETTLE_SECONDS = 3.0
 SANDBOX_NAVIGATION_CONFIRM_TIMEOUT = 4.0
-SANDBOX_NAVIGATION_WALK_TIMEOUT = 45.0
+SANDBOX_NAVIGATION_WALK_TIMEOUT = 45.0  # only while the walk keeps moving
 SANDBOX_NAVIGATION_OCR_INTERVAL = 0.25
 
 

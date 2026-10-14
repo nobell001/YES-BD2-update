@@ -31,6 +31,7 @@ from src.tasks.MapTradeTask import (
     MAP_VISION_THRESHOLD_KEY,
     MapAutomationTaskBase,
 )
+from src.utils.wait_limits import STUCK_SECONDS
 
 ALL_COLLECTION_CARDS_OPTION = "全部17张"
 COLLECTION_CARD_OPTIONS = tuple(card.card_id for card in STORY_COLLECTABLE_CARDS)
@@ -275,7 +276,7 @@ class BD2MapCollectionProbeTask(MapAutomationTaskBase):
                 "保存每张传送阵地图截图": True,
                 MAP_VISION_THRESHOLD_KEY: 0.72,
                 MAP_OCR_THRESHOLD_KEY: 0.20,
-                "加载页面等待秒数": 15.0,
+                "加载页面等待秒数": STUCK_SECONDS,
             }
         )
         self.config_description.update(

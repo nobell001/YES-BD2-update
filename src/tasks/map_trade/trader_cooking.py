@@ -29,6 +29,7 @@ from src.tasks.map_trade.trader_constants import (
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.calibration import FHD_1080
 from src.utils.image_utils import to_gray
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer
 
 # The supplied 1920x1080 PC recording shows the complete recipe grid on one
 # page.  Every fixed control below is stored as a ratio; recipe and action
@@ -96,6 +97,8 @@ COOKING_START_ENABLED_BRIGHT_RATIO = 0.30
 COOKING_TEXT_CHARACTER_COVERAGE = 0.75
 COOKING_PAGE_TIMEOUT = 10.0
 COOKING_START_TIMEOUT = 6.0
+# The cooking animation may run this long while it moves; a screen still
+# for STUCK_SECONDS ends the wait sooner (Leo 2026-10-14 「頂多等8秒到10秒」).
 COOKING_COMPLETION_TIMEOUT = 40.0
 # 切换技能组2后等待 UI 稳定、点击制作料理技能的识别窗口、
 # 以及点击数量选项后的停顿。
@@ -103,7 +106,7 @@ COOKING_SKILL_GROUP_SWITCH_SETTLE_SECONDS = 0.5
 # Per skill group: the icon is either there right after the switch or not.
 COOKING_ICON_QUICK_TIMEOUT = 2.0
 COOKING_QUANTITY_CLICK_SETTLE_SECONDS = 0.25
-COOKING_EXIT_TIMEOUT = 12.0
+COOKING_EXIT_TIMEOUT = STUCK_SECONDS  # was 12 s
 COOKING_POLL_INTERVAL = 0.25
 # Fresh looks at a grey / unclear recipe card before it counts as such.
 COOKING_CARD_RELOOKS = 2
@@ -834,8 +837,10 @@ class CookingFlowMixin:
     def _wait_for_cooking_result(self, recipe: str, timeout: float):
         end_at = monotonic() + max(0.0, timeout)
         last_text = ""
+        still = StillTimer()
         while True:
             frame = self.vision.capture()
+            stuck = still.still_for(frame, monotonic()) >= STUCK_SECONDS
             text = self.vision.ocr_text(
                 frame,
                 f"料理-{recipe}结果",
@@ -853,9 +858,11 @@ class CookingFlowMixin:
                 self._status("料理状态", f"{recipe} 结果已确认：{text}")
                 self._last_cooking_result_text = text
                 return frame
-            if monotonic() >= end_at:
+            if monotonic() >= end_at or stuck:
                 self.task.log_warning(
-                    f"料理：{recipe} 未识别到含料理名和数量的结果条，OCR={last_text or '-'}。"
+                    f"料理：{recipe} 未识别到含料理名和数量的结果条，OCR={last_text or '-'}"
+                    + (f"（画面 {STUCK_SECONDS:.0f} 秒没动）" if stuck else "")
+                    + "。"
                 )
                 return None
             self.task.sleep(COOKING_POLL_INTERVAL)

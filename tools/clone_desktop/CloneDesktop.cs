@@ -645,6 +645,63 @@ static class Program
             tray.ShowBalloonTip(8000, Title, "沒辦法在分身裡自動打開工具，請在分身裡自己打開。", ToolTipIcon.Warning);
     }
 
+    // Disconnect codes that mean the clone could not be reached at all, so no
+    // sign-in was tried and the password is not the problem: 260 / 1288 name
+    // lookup, 264 timeout, 516 connect failed, 520 host not found, 772 / 1028 /
+    // 2308 connection dropped. Same list as CONNECT_FAILURES in clone_desktop.py.
+    // A player got 516 with Windows' text about remote access being off and the
+    // PC being off (B站 2026-10-14), and the old message only talked about the
+    // password.
+    static readonly int[] ConnectFailures = { 260, 264, 516, 520, 772, 1028, 1288, 2308 };
+
+    internal static bool IsConnectFailure(int reason)
+    {
+        return Array.IndexOf(ConnectFailures, reason) >= 0;
+    }
+
+    // The clone is a Remote Desktop session of this PC to itself, so it needs
+    // Windows' 「遠端桌面服務」 (TermService). Optimisers and trimmed Windows
+    // builds stop, disable or remove it. Started here when it is only stopped
+    // (the viewer runs as Administrator; this lets no other PC in, Remote
+    // Desktop itself stays off). Returns what to tell the player, or null.
+    static string CheckRemoteDesktopService()
+    {
+        try
+        {
+            using (var service = new System.Management.ManagementObject("Win32_Service.Name='TermService'"))
+            {
+                service.Get();
+                string mode = Convert.ToString(service["StartMode"]);
+                string state = Convert.ToString(service["State"]);
+                Log("remote desktop service: " + mode + ", " + state);
+                if (mode == "Disabled")
+                    return "Windows 的「遠端桌面服務」被停用了，分身要靠它開第二個桌面。\n" +
+                           "請回到工具按「在桌面分身跑」，再按「幫我打開」。";
+                if (state != "Running")
+                {
+                    object code = service.InvokeMethod("StartService", null);
+                    Log("start remote desktop service => " + code);
+                    for (int i = 0; i < 20; i++)
+                    {
+                        System.Threading.Thread.Sleep(500);
+                        service.Get();
+                        if (Convert.ToString(service["State"]) == "Running") break;
+                    }
+                    Log("remote desktop service now " + service["State"]);
+                }
+            }
+        }
+        catch (System.Management.ManagementException ex)
+        {
+            Log("remote desktop service: " + ex.ErrorCode + " " + ex.Message);
+            if (ex.ErrorCode == System.Management.ManagementStatus.NotFound)
+                return "這台電腦沒有 Windows 的「遠端桌面服務」，不能用桌面分身。\n" +
+                       "常見於精簡版 Windows，或用過系統優化／精簡工具。請改用一般模式。";
+        }
+        catch (Exception ex) { Log("remote desktop service check failed: " + ex.Message); }
+        return null;
+    }
+
     // Windows' own words for the last disconnect, for the log and the
     // first-logon error message.
     static string Describe(dynamic ocx, int reason)
@@ -724,6 +781,13 @@ static class Program
             return 1;
         }
         Application.EnableVisualStyles();
+        string serviceProblem = CheckRemoteDesktopService();
+        if (serviceProblem != null)
+        {
+            if (launchExe != null) WriteLaunchResult("failed 遠端桌面服務不能用");
+            MessageBox.Show(serviceProblem, Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return 1;
+        }
         string password;
         bool fromSaved = false, saveAfterLogin = false;
         string savedAccount;
@@ -877,8 +941,25 @@ static class Program
                 if (!everConnected)
                 {
                     wantReconnect = false;
-                    string why = Describe(ocx, rdp.Sink.DisconnectReason);
+                    int reason = rdp.Sink.DisconnectReason;
+                    string why = Describe(ocx, reason);
                     Log("first logon failed, not retrying: " + why);
+                    if (IsConnectFailure(reason))
+                    {
+                        // Never reached the sign-in: keep a saved password.
+                        if (launchPending) { launchPending = false; WriteLaunchResult("failed noconnect " + reason); }
+                        MessageBox.Show(
+                            "連不上桌面分身（不是密碼的問題）。\n\nWindows 的說明：" + why +
+                            "\n\n請依序試：" +
+                            "\n1. 關掉這個視窗和工具，重新打開工具再按一次「在桌面分身跑」。" +
+                            "\n2. 重新開機後再試（剛設定完，常要重新開機才生效）。" +
+                            "\n3. 用過系統優化／精簡工具，或裝過 RDP Wrapper 的電腦，Windows 的「遠端桌面服務」可能被改掉，分身會開不了。" +
+                            "\n\n還是不行的話，請把這個資料夾裡的 viewer.log 傳給我們：\n" + dataDir,
+                            Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        closingForReal = true;
+                        form.Close();
+                        return;
+                    }
                     if (fromSaved) ForgetSaved();
                     if (launchPending) { launchPending = false; WriteLaunchResult("failed 沒有登入分身"); }
                     MessageBox.Show(

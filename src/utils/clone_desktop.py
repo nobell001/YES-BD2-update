@@ -68,6 +68,86 @@ def ready() -> bool:
     return VIEWER.exists() and child_sessions_enabled()
 
 
+REMOTE_DESKTOP_SERVICE_KEY = r"SYSTEM\CurrentControlSet\Services\TermService"
+
+
+def remote_desktop_service() -> str:
+    """Can Windows' 「远程桌面服务」 (TermService) open the clone?
+
+    The clone desktop is a Remote Desktop session of this PC to itself, so it
+    needs that service.  System optimisers and trimmed Windows builds turn it
+    off or remove it, and then the viewer only gets Windows' generic
+    「无法连接到远程计算机」 (code 516) (player report, B站 2026-10-14).
+    "ok", "disabled" (start type 4: 「帮我打开」 can fix it), "missing" (the
+    service is gone: cannot be fixed here), "replaced" (another DLL such as
+    RDP Wrapper, which BetterGI also says breaks the clone) or "unknown".
+    """
+    try:
+        import winreg  # noqa: F401
+    except ImportError:
+        return "unknown"
+    start = _read_hklm(REMOTE_DESKTOP_SERVICE_KEY, "Start")
+    if start is None and _read_hklm(REMOTE_DESKTOP_SERVICE_KEY, "ImagePath") is None:
+        return "missing"
+    if start == 4:
+        return "disabled"
+    dll = _read_hklm(REMOTE_DESKTOP_SERVICE_KEY + r"\Parameters", "ServiceDll")
+    if isinstance(dll, str) and dll and not dll.lower().rstrip("\"").endswith("termsrv.dll"):
+        return "replaced"
+    return "ok"
+
+
+def enable_remote_desktop_service(wait: float = 20.0) -> bool:
+    """Set 「远程桌面服务」 back to Windows' default start type (手动) for the
+    player; the viewer starts it.  This lets no other PC in: Remote Desktop
+    stays off (fDenyTSConnections is not touched).  Not elevated: one Windows
+    confirmation for sc.exe.  True once the service is no longer disabled.
+    """
+    arguments = ["config", "TermService", "start=", "demand"]
+    if is_admin():
+        try:
+            subprocess.run(
+                ["sc.exe", *arguments],
+                capture_output=True,
+                timeout=30,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return remote_desktop_service() != "disabled"
+    try:
+        shell_execute = ctypes.windll.shell32.ShellExecuteW
+        shell_execute.restype = ctypes.c_void_p
+        result = shell_execute(
+            None, "runas", "sc.exe", subprocess.list2cmdline(arguments), None, 0
+        )
+    except (AttributeError, OSError):
+        return False
+    if (result or 0) <= 32:
+        return False
+    from src.utils.press_confirm import wait_for
+
+    return bool(
+        wait_for(lambda: remote_desktop_service() != "disabled", wait, sleep=time.sleep, poll=0.5)
+    )
+
+
+# Windows' disconnect codes that mean the clone could not be reached at all
+# (no sign-in was tried, so the password is not the problem): 260 / 1288 name
+# lookup, 264 timeout, 516 connect failed, 520 host not found, 772 / 1028 /
+# 2308 connection dropped.  Same list as CloneDesktop.cs.
+CONNECT_FAILURES = frozenset({260, 264, 516, 520, 772, 1028, 1288, 2308})
+
+
+def launch_failure(result: str) -> tuple[str, int | None]:
+    """Split the viewer's "failed ..." line: ("noconnect", 516) when it could
+    not reach the clone, otherwise ("other", None)."""
+    words = result.split()
+    if len(words) >= 3 and words[1] == "noconnect" and words[2].isdigit():
+        return "noconnect", int(words[2])
+    return "other", None
+
+
 def viewer_removed() -> bool:
     """Set up once, but CloneDesktop.exe is gone: most likely an antivirus took it.
 

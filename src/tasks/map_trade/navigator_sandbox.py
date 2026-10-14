@@ -152,6 +152,7 @@ from src.tasks.map_trade.vision import normalize_text
 from src.utils.calibration import FHD_1080
 from src.utils.field_followers import dismiss_once_per_run
 from src.utils.press_confirm import press_and_confirm
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer
 
 
 # Field status text after a map click: '自动移动中：魔法阵' (bottom centre) and
@@ -918,6 +919,9 @@ class SandboxNavigationMixin:
         last_state = ScreenState.UNKNOWN
         frame = None
         grace_used = False
+        # Loading and walking only hold the wait while the screen moves: one
+        # still for STUCK_SECONDS is stuck (Leo 2026-10-14 「頂多等8秒到10秒」).
+        still = StillTimer()
         while True:
             if monotonic() > end_at:
                 if hits == 0 or grace_used:
@@ -945,7 +949,9 @@ class SandboxNavigationMixin:
                 hits = 0
                 # A loading screen is progress too (audit #10: on a slow PC the
                 # loading used up the stall and the entry was judged failed).
-                if last_state == ScreenState.LOADING or self._auto_moving(frame):
+                if (
+                    last_state == ScreenState.LOADING or self._auto_moving(frame)
+                ) and still.still_for(frame, monotonic()) < STUCK_SECONDS:
                     end_at = min(max(end_at, monotonic() + stall), walk_cap)
                 if handle_intermediate and last_state != ScreenState.LOADING:
                     handled = self._handle_story_card_intermediate(frame)
@@ -1338,10 +1344,18 @@ class SandboxNavigationMixin:
         soon as a patrol stops the walk, "timeout" when it never ends."""
         end_at = monotonic() + max(0.0, timeout)
         idle = 0
+        still = StillTimer()
         while monotonic() <= end_at:
-            state = self._walk_state(self.vision.capture())
+            frame = self.vision.capture()
+            state = self._walk_state(frame)
             if state == "caught":
                 return state
+            if state == "moving" and still.still_for(frame, monotonic()) >= STUCK_SECONDS:
+                # The banner is up but nothing moves: the walk stopped.
+                self._status(
+                    "导航状态", f"自动移动中但画面 {STUCK_SECONDS:.0f} 秒没动，当作卡住"
+                )
+                return "timeout"
             if state == "idle":
                 idle += 1
                 if idle >= AUTO_MOVE_IDLE_READS:
@@ -1360,8 +1374,14 @@ class SandboxNavigationMixin:
 
         end_at = monotonic() + max(0.0, timeout)
         idle = 0
+        still = StillTimer()
         while monotonic() <= end_at:
             frame = self.vision.capture()
+            if still.still_for(frame, monotonic()) >= STUCK_SECONDS:
+                self._status(
+                    "导航状态", f"画面 {STUCK_SECONDS:.0f} 秒没动，不再等自动移动，继续确认地图"
+                )
+                return
             if self._black_frame(frame):
                 idle = 0
                 self._status("导航状态", "加载中，等待自动移动继续")

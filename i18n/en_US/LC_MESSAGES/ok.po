@@ -2831,3 +2831,51 @@ msgstr "Wait after recognition (seconds)"
 
 msgid "认出按钮后，点下去之前等多久（秒）。"
 msgstr "How long to wait after a button is recognized before pressing it (seconds)."
+
+msgid "只刷普通难度"
+msgstr "Normal only"
+
+msgid "挑战战斗最高关卡"
+msgstr "Highest Challenge stage"
+
+msgid "完全不打挑战战斗；普通战斗通关后，剩下的AP用快速战斗刷普通战斗15。"
+msgstr "Skips Challenge Battle entirely; once Normal Battle is cleared, the AP left goes to Quick Battle on Normal Battle 15."
+
+msgid "挑战战斗只推到这一关；到了之后剩下的AP用快速战斗刷这一关。"
+msgstr "Challenge Battle is only pushed up to this stage; after that, the AP left goes to Quick Battle on this stage."
+
+msgid "推不动时（都通关或到了设定的关卡），剩下的AP用快速战斗刷那一关；打输了就直接回主页。"
+msgstr "When it can't push further (all cleared or the set stage reached), the AP left goes to Quick Battle on that stage; after a lost battle it goes straight back to the home screen."
+msgid "连不上桌面分身（Windows 代码 {code}），不是密码的问题。请依序试：重开工具再按一次 → 重新开机再试 → 还不行请把 {folder} 里的 viewer.log 传给我们"
+msgstr "Couldn't reach the clone desktop (Windows code {code}). It's not a password problem. Try in order: reopen the tool and press again → restart the PC and try again → if it still fails, send us viewer.log from {folder}"
+
+msgid ""
+"这台电脑不能用桌面分身：\n"
+"• 分身要靠 Windows 的「远程桌面服务」，这台电脑没有这个服务\n"
+"• 常见于精简版 Windows，或用过系统优化／精简工具\n"
+"• 请改用一般模式"
+msgstr ""
+"This PC can't use the clone desktop:\n"
+"• The clone needs Windows' \"Remote Desktop Services\", and this PC doesn't have it\n"
+"• This is common on trimmed Windows builds or after system optimizer/cleanup tools\n"
+"• Please use normal mode instead"
+
+msgid ""
+"要先打开一个 Windows 服务：\n"
+"• 分身要靠「远程桌面服务」开第二个桌面，这台电脑把它停用了\n"
+"• 按「帮我打开」，Windows 确认请按「是」\n"
+"• 只是让服务能启动，别的电脑还是连不进来"
+msgstr ""
+"One Windows service must be turned on first:\n"
+"• The clone opens its second desktop through \"Remote Desktop Services\", which is disabled on this PC\n"
+"• Press \"Turn it on for me\" and click \"Yes\" when Windows asks\n"
+"• This only lets the service start; other PCs still can't connect"
+
+msgid "帮我打开"
+msgstr "Turn it on for me"
+
+msgid "「远程桌面服务」没有打开（Windows 的确认按了「否」或改不了）"
+msgstr "\"Remote Desktop Services\" was not turned on (\"No\" was pressed in the Windows prompt, or it couldn't be changed)"
+
+msgid "「远程桌面服务」已经打开，请再按一次「在桌面分身跑」"
+msgstr "\"Remote Desktop Services\" is on. Press \"Run on Clone Desktop\" again"

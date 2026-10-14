@@ -28,6 +28,7 @@ import cv2
 import numpy as np
 from qfluentwidgets import FluentIcon
 
+from src.tasks import run_report
 from src.tasks.claim_page import BACK_BUTTON_POINT
 from src.tasks.recovery import recover_to_home
 from src.tasks.RewardClaimTasks import _ClaimTaskBase
@@ -70,7 +71,34 @@ QUICK_FREE_AP_SWITCH_ROI = (1205, 357, 80, 42)
 QUICK_RESULT_KEYWORDS = ("REWARD", "点击画面即可返回", "获得")
 QUICK_RESULT_ROI = (560, 300, 800, 740)
 QUICK_RESULT_DISMISS_POINT = (960, 900)
-QUICK_RESULT_TIMEOUT = 12.0
+QUICK_RESULT_TIMEOUT = 10.0
+# A lost battle (B站 players 界限突破神孙策 and 岩盐咸, 2026-10-14: a 挑战战斗 stage
+# too hard for their team, e.g. 15, left the run on the defeat screen).  The
+# chain was only ever followed to the win screen's bottom-right 返回; the
+# defeat screen (Leo's 2560x1440 frame, 2026-10-14) has a red DEFEAT band in
+# the middle and 返回 / 重新挑战 at the bottom centre (1080p x 850-1100, y 978),
+# outside that box, so the watch waited 单场战斗超时秒数 x battles.  It is read
+# wide; either DEFEAT or 重新挑战 tells it.  返回 leaves it; 重新挑战 (another
+# battle) is never pressed.
+DEFEAT_ROI = (160, 60, 1600, 1000)
+DEFEAT_KEYWORDS = ("DEFEAT", "重新挑战", "失败", "战败", "败北")
+DEFEAT_LEAVE_TEXTS = ("返回", "确认", "确定", "关闭")
+# Leo 2026-10-14 「不會導致戰鬥到一半被終止吧」: nothing that could end a battle
+# (a pause menu's 放弃/退出/撤退) or start one is ever pressed here.
+DEFEAT_NEVER_PRESS = ("重新", "再次", "重试", "再战", "补充", "放弃", "退出", "撤退", "离开", "RETRY")
+DEFEAT_LEAVE_ATTEMPTS = 3
+DEFEAT_BLANK_POINT = (960, 140)
+# Out of battle, with neither result screen read, this long: a screen the
+# watch does not know (the chain normally moves on within a few seconds).
+# Leo 2026-10-14 「認不出畫面要等30秒太久 8秒就可以了」.  Only one blank-area
+# tap is tried there, never Esc or a button: a skill animation that hides the
+# battle text must not get a pause menu, and the battle is never ended.  The
+# battle text coming back counts as still fighting.
+UNKNOWN_END_SECONDS = 8.0
+# Leo 2026-10-14 「如果要等待不要再有20幾30秒這種這麼長的時間頂多等8秒10秒」: every
+# wait for a page or a cue is 10 s at most (battles themselves are not waits).
+MAX_WAIT_SECONDS = 10.0
+AFTER_BATTLE_PAGE_SECONDS = MAX_WAIT_SECONDS
 FREE_AP_SWITCH_YELLOW_RATIO = 0.05
 FREE_AP_SWITCH_SETTLE_SECONDS = 2.5
 AP_SHORT_CANCEL_READS = 3
@@ -109,7 +137,7 @@ SWORD_ICON_LABEL_OFFSET = 150  # icon centre to its name label, 1080p pixels (84
 # Last resort, where the labels sit on the Loyal Maid hub (4K, 2026-10-11).
 MODE_USUAL_POINTS = {"普通战斗": (678, 997), "挑战战斗": (865, 997)}
 START_CLICK_ATTEMPTS = 3
-START_CONFIRM_SECONDS = 15.0
+START_CONFIRM_SECONDS = MAX_WAIT_SECONDS
 RESULT_BACK_ATTEMPTS = 3
 RESULT_BUTTONS_ROI = (1300, 960, 620, 100)
 PROGRESS_ROI = (0, 880, 760, 190)
@@ -127,10 +155,10 @@ STATE_KEYS = ("stage", "free_ap", "auto", "quick")
 # 太久了 卡住卡個10秒就很怪了」).  The event art moves, so the frozen-screen
 # watch (frozen_screen.py) cannot see it: this long without a press or a new
 # page, stage or battle goes home and tries once more, then 一键日常 goes on.
-# Paused while battles run.  Longer than the frozen-screen watch for the
-# loading after the banner and mode presses (about 8 s at 2K) and the
-# carousel wait on 主页 (横幅轮播等待秒数, 15 s).
-PAGE_STUCK_SECONDS = 20.0
+# Paused while battles run.  10 s (Leo 2026-10-14 「頂多等8秒10秒」): the
+# loading after the banner and mode presses is about 8 s at 2K, and the
+# carousel wait on 主页 starts the count over.
+PAGE_STUCK_SECONDS = MAX_WAIT_SECONDS
 
 NORMAL_MODE = "普通战斗"
 CHALLENGE_MODE = "挑战战斗"
@@ -149,6 +177,10 @@ RESULT_BACK_TEXT = "返回"
 AP_SHORT_TEXT = "AP不足"
 CANCEL_TEXT = "取消"
 LAST_STAGE = 15
+# Settings asked for by the same players (2026-10-14).
+NORMAL_ONLY_KEY = "只刷普通难度"
+CHALLENGE_CAP_KEY = "挑战战斗最高关卡"
+QUICK_KEY = "全部通关后快速战斗"
 
 # The pool may sit right after the event currency ("8,500 0/5"); refuse a
 # match that starts inside another number so "8,5000/5" is not read as 5000.
@@ -222,8 +254,10 @@ class EventBattleTask(_ClaimTaskBase):
             {
                 "仅使用免费活动AP": True,
                 "每次最多战斗场数": 5,
-                "全部通关后快速战斗": True,
-                "横幅轮播等待秒数": 15.0,
+                NORMAL_ONLY_KEY: False,
+                CHALLENGE_CAP_KEY: LAST_STAGE,
+                QUICK_KEY: True,
+                "横幅轮播等待秒数": MAX_WAIT_SECONDS,
                 "单场战斗超时秒数": 240.0,
             }
         )
@@ -231,11 +265,14 @@ class EventBattleTask(_ClaimTaskBase):
             {
                 "仅使用免费活动AP": "只用每日免费活动AP（顶部 a/5），不动用额外的 +AP。",
                 "每次最多战斗场数": "一次运行最多进行的战斗场数（0 表示用完可用AP）。",
-                "全部通关后快速战斗": "普通与挑战都已通关时，对挑战战斗15使用快速战斗。",
+                NORMAL_ONLY_KEY: "完全不打挑战战斗；普通战斗通关后，剩下的AP用快速战斗刷普通战斗15。",
+                CHALLENGE_CAP_KEY: "挑战战斗只推到这一关；到了之后剩下的AP用快速战斗刷这一关。",
+                QUICK_KEY: "推不动时（都通关或到了设定的关卡），剩下的AP用快速战斗刷那一关；打输了就直接回主页。",
                 "横幅轮播等待秒数": "横幅轮播到别的活动时，最多等待多久让它转回来。",
                 "单场战斗超时秒数": "自动战斗每一场允许的最长时间，超时视为失败。",
             }
         )
+        self.config_type.update({CHALLENGE_CAP_KEY: {"min": 1, "max": LAST_STAGE, "step": 1}})
         self._battles_done = 0
         self._why = ""
         self._page_deadline = None
@@ -250,8 +287,10 @@ class EventBattleTask(_ClaimTaskBase):
             # it cannot turn the guard off.
             self._page_stuck = True
         if getattr(self, "_page_stuck", False):
+            step = str((getattr(self, "info", None) or {}).get("当前阶段") or "").strip()
+            where = f"在活动页（{step}）" if step else "在活动页"
             raise _StuckOnEventPage(
-                f"在活动页 {PAGE_STUCK_SECONDS:.0f} 秒没走到下一步（点了没反应或认不出画面）"
+                f"{where} {PAGE_STUCK_SECONDS:.0f} 秒没走到下一步（点了没反应或认不出画面）"
             )
         return super().capture_frame(screenshot_name)
 
@@ -285,7 +324,12 @@ class EventBattleTask(_ClaimTaskBase):
             self._pause_guard()
 
     def _run_claim(self) -> bool:
-        for mode in MODES:
+        self._defeated = False
+        self._lost_stage = None
+        modes = self._modes()
+        farm = None  # (mode, stage) for the AP left once nothing more can be pushed
+        done_text = "完成"
+        for mode in modes:
             if self._battle_budget() <= 0:
                 break
             result = self._run_mode(mode)
@@ -295,24 +339,61 @@ class EventBattleTask(_ClaimTaskBase):
                 return self._event_fail(mode)
             if result == "no_ap":
                 return self._finish(self._no_ap_text())
+            if result == "defeated":
+                return self._finish_defeated(mode)
+            if result == "capped":
+                farm = (mode, self._stage_cap(mode))
+                done_text = f"{mode}已推到设定的第{farm[1]}关"
+                break
             if result != "cleared":
                 return self._finish(f"{mode}已推进")
-        if self._battle_budget() > 0 and bool(self.config.get("全部通关后快速战斗", True)):
-            result = self._run_quick_battle()
+        else:
+            farm = (modes[-1], self._stage_cap(modes[-1]))
+        if farm and self._battle_budget() > 0 and bool(self.config.get(QUICK_KEY, True)):
+            mode, stage = farm
+            label = f"{mode}{stage}快速战斗"
+            result = self._run_quick_battle(mode, stage)
             if result == "no_event":
                 return self._no_event()
             if result == "failed":
-                return self._event_fail("快速战斗")
+                return self._event_fail(label)
             if result == "skipped":
                 self.log_warning(
-                    "活动每日战斗：普通和挑战已全部通关，但快速战斗尚未执行（挑战战斗未选中第15关"
+                    f"活动每日战斗：{done_text}，但快速战斗尚未执行（{mode}没选到第{stage}关"
                     "），今日活动AP未使用。",
                     notify=True,
                 )
                 return self._finish("快速战斗未执行")
             if result == "no_ap":
-                return self._finish(self._no_ap_text())
-        return self._finish("完成")
+                return self._finish(f"{done_text}，{self._no_ap_text()}")
+            return self._finish(f"{done_text}，已用快速战斗刷{mode}{stage}")
+        return self._finish(done_text)
+
+    def _finish_defeated(self, mode: str) -> bool:
+        """A lost battle ends today's event battles (Leo 2026-10-14 「挑戰失敗的話
+        就直接回主畫面每日五場就不打了且要在報表跟玩家說明」)."""
+        where = f"{mode}第{self._lost_stage}关" if self._lost_stage else mode
+        note = (
+            f"{where}打输了，今天的活动战斗不再继续，已回主页。"
+            "可以把「挑战战斗最高关卡」设成打得过的关卡，或打开「只刷普通难度」"
+        )
+        run_report.add_current_note(note)
+        return self._finish(f"{where}打输了，今天不再打")
+
+    def _modes(self) -> tuple[str, ...]:
+        if bool(self.config.get(NORMAL_ONLY_KEY, False)):
+            return (NORMAL_MODE,)
+        return MODES
+
+    def _stage_cap(self, mode: str) -> int:
+        """The last stage auto battle may push ``mode`` to (挑战战斗最高关卡)."""
+        if mode != CHALLENGE_MODE:
+            return LAST_STAGE
+        try:
+            cap = int(self.config.get(CHALLENGE_CAP_KEY, LAST_STAGE))
+        except (TypeError, ValueError):
+            cap = LAST_STAGE
+        return max(1, min(LAST_STAGE, cap))
 
     def _no_ap_text(self) -> str:
         if bool(self.config.get("仅使用免费活动AP", True)):
@@ -366,6 +447,8 @@ class EventBattleTask(_ClaimTaskBase):
                 continue
             buttons = self._roi_boxes(frame, RESULT_BUTTONS_ROI, "战斗结果")
             if self._box_with(buttons, (RESULT_BACK_TEXT,)) is None:
+                if self._defeat_shown(frame):
+                    self._leave_defeat_screen()
                 return
             # Two calm frames: the result screen, not a transition flash.
             calm += 1
@@ -386,7 +469,9 @@ class EventBattleTask(_ClaimTaskBase):
         The banners rotate; clicking a position read before the carousel
         moved could open a different banner.
         """
-        end_at = monotonic() + float(self.config.get("横幅轮播等待秒数", 15.0))
+        self._progressed()  # the carousel wait has its own limit
+        wait = float(self.config.get("横幅轮播等待秒数", MAX_WAIT_SECONDS))
+        end_at = monotonic() + min(max(wait, 0.0), MAX_WAIT_SECONDS)
         tolerance = BANNER_POSITION_TOLERANCE / REFERENCE_WIDTH * max(1, int(self.width))
         while monotonic() <= end_at:
             boxes = self._roi_boxes(self.capture_frame(), HOME_BANNER_ROI, "活动横幅")
@@ -442,12 +527,12 @@ class EventBattleTask(_ClaimTaskBase):
                 self.log_info(f"活动每日战斗：第{attempt}次点击横幅未生效，重试。")
                 continue
             # Left home (loading): give the hub its full time.
-            if self._wait_for_hub(timeout=25.0):
+            if self._wait_for_hub(timeout=MAX_WAIT_SECONDS):
                 return "ok"
             return self._failed("点了活动横幅后，活动页一直没出来")
         return self._failed(f"活动横幅点了 {BANNER_CLICK_ATTEMPTS} 次都没进活动页")
 
-    def _wait_for_hub(self, timeout: float = 20.0) -> bool:
+    def _wait_for_hub(self, timeout: float = MAX_WAIT_SECONDS) -> bool:
         end_at = monotonic() + timeout
         while monotonic() <= end_at:
             frame = self.capture_frame()
@@ -578,7 +663,7 @@ class EventBattleTask(_ClaimTaskBase):
     def _wait_for_stage_page(
         self,
         mode: str,
-        timeout: float = 25.0,
+        timeout: float = MAX_WAIT_SECONDS,
         quiet: bool = False,
     ) -> bool:
         end_at = monotonic() + timeout
@@ -670,30 +755,37 @@ class EventBattleTask(_ClaimTaskBase):
         cleared".  Up to stage 15; a next stage not found or not selected (a
         locked one) leaves it as before.
         """
-        while state["stage"] is not None and state["stage"] < LAST_STAGE and not state["auto"]:
+        limit = self._stage_cap(mode)
+        while state["stage"] is not None and state["stage"] < limit and not state["auto"]:
             current, target = state["stage"], state["stage"] + 1
-            point = self.look_again(
-                lambda: self._stage_list_point(target), f"活动每日战斗：{mode}左边列表找第{target}关"
-            )
-            if point is None:
-                self.log_info(
-                    f"活动每日战斗：{mode}选在已通关的第{current}关，左边列表里没认出第{target}关。"
-                )
+            if not self._select_stage(mode, current, target):
                 return state
-            self.info_set("当前阶段", f"{mode}：第{current}关已通关，选第{target}关")
-            self._sleep_after_recognition()
-            outcome = self.press_and_confirm(
-                f"{mode}选第{target}关",
-                lambda: self._click_reference(*point, after_sleep=0.8),
-                lambda: self._panel_stage(mode) == target,
-                still_before=lambda: self._panel_stage(mode) == current,
-            )
-            if not outcome:
-                self.log_info(f"活动每日战斗：{mode}点了第{target}关，右边没换成第{target}关。")
-                return state
-            self._progressed()
             state = self._stable_stage_state(mode)
         return state
+
+    def _select_stage(self, mode: str, current: int, target: int) -> bool:
+        """Select stage ``target`` in the left list; True once the panel shows it."""
+        point = self.look_again(
+            lambda: self._stage_list_point(target), f"活动每日战斗：{mode}左边列表找第{target}关"
+        )
+        if point is None:
+            self.log_info(
+                f"活动每日战斗：{mode}选在第{current}关，左边列表里没认出第{target}关。"
+            )
+            return False
+        self.info_set("当前阶段", f"{mode}：从第{current}关改选第{target}关")
+        self._sleep_after_recognition()
+        outcome = self.press_and_confirm(
+            f"{mode}选第{target}关",
+            lambda: self._click_reference(*point, after_sleep=0.8),
+            lambda: self._panel_stage(mode) == target,
+            still_before=lambda: self._panel_stage(mode) == current,
+        )
+        if not outcome:
+            self.log_info(f"活动每日战斗：{mode}点了第{target}关，右边没换成第{target}关。")
+            return False
+        self._progressed()
+        return True
 
     def _stage_state(self, mode: str) -> dict:
         frame = self.capture_frame()
@@ -721,10 +813,16 @@ class EventBattleTask(_ClaimTaskBase):
     # -- auto battle ----------------------------------------------------------
 
     def _run_mode(self, mode: str) -> str:
-        """Return cleared / no_ap / progressed / no_event / failed for one mode."""
+        """Return cleared / capped / defeated / no_ap / progressed / no_event /
+        failed for one mode.
+
+        capped: every stage up to 挑战战斗最高关卡 is cleared.  defeated: a
+        battle was lost; ``_lost_stage`` is the stage it stopped on.
+        """
         opened = self._open_mode(mode)
         if opened != "ok":
             return opened
+        cap = self._stage_cap(mode)
         for _round in range(3):
             state = self._stable_stage_state(mode)
             if not state["auto"] and not state["quick"]:
@@ -734,6 +832,11 @@ class EventBattleTask(_ClaimTaskBase):
                 )
             if not state["auto"]:
                 state = self._select_unfinished_stage(mode, state)
+            if cap < LAST_STAGE and state["stage"] is not None and (
+                state["stage"] > cap or (state["stage"] == cap and not state["auto"])
+            ):
+                self.log_info(f"活动每日战斗：{mode}已推到设定的第{cap}关，不再往后打。")
+                return "capped"
             if not state["auto"]:
                 self.log_info(f"活动每日战斗：{mode}已全部通关。")
                 return "cleared"
@@ -747,29 +850,37 @@ class EventBattleTask(_ClaimTaskBase):
                 wanted = self._battle_budget()
             else:
                 wanted = min(self._usable_ap(state), self._battle_budget())
+            if cap < LAST_STAGE and state["stage"] is not None:
+                # The chain moves on a stage per win: stop it at the cap.
+                wanted = min(wanted, cap - state["stage"] + 1)
             if wanted <= 0:
                 return "no_ap"
+            self._defeated = False
             fought = self._auto_battle(mode, wanted, state)
             if fought is None:
                 return "failed"
             if fought == 0:
                 return "no_ap"
-            if not self._wait_for_stage_page(mode):
+            if not self._wait_for_stage_page(mode, timeout=AFTER_BATTLE_PAGE_SECONDS):
                 self._battles_done += fought
-                return self._failed(f"打完后没回到{mode}的关卡页")
+                return self._failed(f"打完后 {AFTER_BATTLE_PAGE_SECONDS:g} 秒没回到{mode}的关卡页")
             after = self._stable_stage_state(mode)
             # Counted from the dialog (fought >= its 战斗 N), never from the top
             # bar: Windows read Leo's 5/5 as "8,400 25/5" (the AP icon as a 2,
             # 4K PC 2026-10-10), and 25 - 0 counted 25 battles.
             self._battles_done += fought
-            if self._battle_budget() <= 0:
-                return "progressed"
-            if after["auto"] and after["stage"] == state["stage"]:
+            lost = getattr(self, "_defeated", False) or (
+                after["auto"] and after["stage"] == state["stage"]
+            )
+            if lost:
+                self._lost_stage = after["stage"] if after["stage"] is not None else state["stage"]
                 self.log_warning(
-                    f"活动每日战斗：{mode}第{state['stage']}关自动战斗后仍停在同一关，"
-                    "可能战败，今天不再重试。",
+                    f"活动每日战斗：{mode}第{self._lost_stage or '?'}关打输了，"
+                    "今天的活动战斗不再继续，回主页。",
                     notify=True,
                 )
+                return "defeated"
+            if self._battle_budget() <= 0:
                 return "progressed"
         return "progressed"
 
@@ -816,7 +927,7 @@ class EventBattleTask(_ClaimTaskBase):
             if started != "started":
                 self._failed("按了「战斗」后没开始打")
                 return None
-            return self._watch_auto_battle(cost)
+            return self._watch_auto_battle(cost, mode)
         finally:
             self._resume_guard()
 
@@ -974,7 +1085,7 @@ class EventBattleTask(_ClaimTaskBase):
         self.log_info("活动每日战斗：无法确认仅用免费活动AP已开启，取消。")
         return False
 
-    def _watch_auto_battle(self, planned: int) -> int | None:
+    def _watch_auto_battle(self, planned: int, mode: str | None = None) -> int | None:
         """Follow the chain until its result screen; return battles counted.
 
         The count never goes below ``planned``: counting too many only means
@@ -984,6 +1095,9 @@ class EventBattleTask(_ClaimTaskBase):
         end_at = monotonic() + per_battle * planned + 60.0
         seen = 0
         calm = 0
+        defeat_calm = 0
+        busy_at = monotonic()  # last frame in battle or on a known screen
+        tapped = False
         while monotonic() <= end_at:
             frame = self.capture_frame()
             progress_text = normalize_ocr_text(
@@ -1001,6 +1115,16 @@ class EventBattleTask(_ClaimTaskBase):
             back = self._box_with(buttons, (RESULT_BACK_TEXT,))
             if in_battle:
                 calm = 0
+                defeat_calm = 0
+                busy_at = monotonic()
+                tapped = False
+            elif self._defeat_shown(frame):
+                # Two calm frames, as for the win screen.
+                calm = 0
+                defeat_calm += 1
+                busy_at = monotonic()
+                if defeat_calm >= 2:
+                    return self._after_defeat(seen, planned)
             elif back is not None:
                 # Two calm frames: the result screen, not a transition flash.
                 calm += 1
@@ -1011,8 +1135,28 @@ class EventBattleTask(_ClaimTaskBase):
                     return max(seen, planned)
             else:
                 calm = 0
+                defeat_calm = 0
                 if self._dismiss_ap_shortage():
                     return max(seen, 1)
+                if monotonic() - busy_at > UNKNOWN_END_SECONDS:
+                    # Neither battle nor a result screen it knows.
+                    if mode and self._wait_for_stage_page(mode, timeout=0.0, quiet=True):
+                        return max(seen, planned)  # the chain came back by itself
+                    if tapped:
+                        self._save_flow_diagnostic(f"{self.claim_log_name}_unknown_end")
+                        self._failed(
+                            f"打完后停在认不出的画面，等了 {UNKNOWN_END_SECONDS:g} 秒、"
+                            "点空白处也没离开"
+                        )
+                        return None
+                    self.log_info(
+                        f"活动每日战斗：{UNKNOWN_END_SECONDS:g} 秒不在战斗中也没认出结果画面，点空白处。"
+                    )
+                    self._click_reference(  # 不用确认：接着照常看画面
+                        *DEFEAT_BLANK_POINT, after_sleep=1.0
+                    )
+                    tapped = True
+                    busy_at = monotonic()
             self.sleep(1.5)
         self.log_info("活动每日战斗：自动战斗超时。")
         self._failed("自动战斗超过时间还没打完")
@@ -1032,6 +1176,76 @@ class EventBattleTask(_ClaimTaskBase):
         if self._box_with(buttons, (RESULT_BACK_TEXT,)) is None:
             return True
         self.log_info("活动每日战斗：结果页多次点击返回仍未离开。")
+        return False
+
+    # -- defeat ---------------------------------------------------------------
+
+    def _defeat_boxes(self, frame=None) -> list:
+        return self._roi_boxes(
+            self.capture_frame() if frame is None else frame, DEFEAT_ROI, "战斗失败"
+        )
+
+    def _defeat_shown(self, frame=None) -> bool:
+        text = self._boxes_text(self._defeat_boxes(frame))
+        return keyword_match_count(text, DEFEAT_KEYWORDS) >= 1
+
+    @staticmethod
+    def _defeat_leave_box(boxes: list):
+        """A leave button on the defeat screen; never a retry (another battle)."""
+        for found in boxes:
+            name = normalize_ocr_text(getattr(found, "name", "")).upper()
+            if any(word in name for word in DEFEAT_NEVER_PRESS):
+                continue
+            if len(name) <= 6 and any(word in name for word in DEFEAT_LEAVE_TEXTS):
+                return found
+        return None
+
+    def _after_defeat(self, seen: int, planned: int) -> int | None:
+        """The chain lost a battle: leave its defeat screen, return battles counted."""
+        self._defeated = True
+        self.info_set("当前阶段", "战斗失败，离开失败画面")
+        self.log_info("活动每日战斗：认出战斗失败画面，离开它。")
+        self._save_flow_diagnostic(f"{self.claim_log_name}_defeat")
+        if not self._leave_defeat_screen():
+            self._failed("战斗打输了，失败画面点「返回」、空白处和 Esc 都离不开")
+            return None
+        # The chain stops at the lost battle: count it, never more than planned.
+        return min(seen, planned) if seen else planned
+
+    def _leave_defeat_screen(self) -> bool:
+        """Leave a defeat (or unknown end) screen: a read leave button, else a
+        blank-area tap, else Esc (Leo 2026-10-12 「不會點掉就點空白處」「關不掉 就
+        按ESC做備案」).  True once neither it nor the win screen's 返回 shows."""
+
+        def gone() -> bool:
+            frame = self.capture_frame()
+            if self._defeat_shown(frame):
+                return False
+            buttons = self._roi_boxes(frame, RESULT_BUTTONS_ROI, "战斗结果")
+            return self._box_with(buttons, (RESULT_BACK_TEXT,)) is None
+
+        for attempt in range(1, DEFEAT_LEAVE_ATTEMPTS + 1):
+            leave = self._defeat_leave_box(self._defeat_boxes())
+            if leave is None:
+                buttons = self._roi_boxes(self.capture_frame(), RESULT_BUTTONS_ROI, "战斗结果")
+                leave = self._box_with(buttons, (RESULT_BACK_TEXT,))
+            if leave is not None:
+                self.log_info(f"活动每日战斗：失败画面按「{leave.name}」。")
+                self._click_box(leave, after_sleep=2.0)
+            elif attempt == 1:
+                self.log_info("活动每日战斗：失败画面没读到离开的按钮，点空白处。")
+                self._click_reference(  # 不用确认：下面 wait_for 看画面有没有离开
+                    *DEFEAT_BLANK_POINT, after_sleep=2.0
+                )
+            else:
+                self.log_info("活动每日战斗：失败画面点空白处没离开，按 Esc。")
+                tap = getattr(self, "tap_escape", None)
+                if not callable(tap) or not tap(after_sleep=2.0):
+                    self.sleep(2.0)
+            if wait_for(gone, SLOW_PC_GRACE_SECONDS, sleep=self.sleep, poll=1.0):
+                self._progressed()
+                return True
+        self.log_info("活动每日战斗：失败画面多次尝试仍未离开。")
         return False
 
     def _dismiss_ap_shortage(self) -> bool:
@@ -1054,28 +1268,37 @@ class EventBattleTask(_ClaimTaskBase):
 
     # -- quick battle -------------------------------------------------------
 
-    def _run_quick_battle(self) -> str:
-        """Quick-battle challenge stage 15 once both modes are cleared.
+    def _run_quick_battle(self, mode: str = CHALLENGE_MODE, stage: int = LAST_STAGE) -> str:
+        """Quick-battle a cleared stage with the AP left (done / no_ap /
+        skipped / no_event / failed).
 
-        Calibrated live at 1080p, 2026-09-28: 快速战斗 opens a dialog with
-        the 仅使用免费活动AP switch, MIN/-10/+10/MAX and 战斗 N; the battles
-        finish at once behind a REWARD overlay.  The same free-AP guards as
-        auto battle apply: the switch must read on and N may not exceed the
-        free AP read from the top bar.
+        Challenge 15 once both modes are cleared; the set 挑战战斗最高关卡;
+        normal 15 with 只刷普通难度; the stage before a lost one.
+        Calibrated live at 1080p, 2026-09-28 (challenge 15): 快速战斗 opens a
+        dialog with the 仅使用免费活动AP switch, MIN/-10/+10/MAX and 战斗 N;
+        the battles finish at once behind a REWARD overlay.  The same free-AP
+        guards as auto battle apply: the switch must read on and N may not
+        exceed the free AP read from the top bar.  Other stages and 普通战斗
+        are assumed to use the same dialog (not seen live yet).
         """
-        opened = self._open_mode(CHALLENGE_MODE)
+        opened = self._open_mode(mode)
         if opened != "ok":
             return opened
-        state = self._stable_stage_state(CHALLENGE_MODE)
+        state = self._stable_stage_state(mode)
+        if state["stage"] is not None and state["stage"] != stage:
+            if not self._select_stage(mode, state["stage"], stage):
+                self.log_info(f"活动每日战斗：{mode}选中第{state['stage']}关，没能改选第{stage}关。")
+                return "skipped"
+            state = self._stable_stage_state(mode)
         if state["auto"] or not state["quick"]:
-            return self._failed("挑战战斗的关卡页没看到「快速战斗」")
+            return self._failed(f"{mode}第{stage}关的关卡页没看到「快速战斗」")
         if state["free_ap"] is None:
-            return self._failed("挑战战斗关卡页上方的活动AP没读到")
+            return self._failed(f"{mode}关卡页上方的活动AP没读到")
         wanted = min(self._usable_ap(state), self._battle_budget())
         if wanted <= 0:
             return "no_ap"
-        if state["stage"] != LAST_STAGE:
-            self.log_info(f"活动每日战斗：挑战战斗选中第{state['stage']}关，不是第15关。")
+        if state["stage"] != stage:
+            self.log_info(f"活动每日战斗：{mode}选中第{state['stage']}关，不是第{stage}关。")
             return "skipped"
         if not self._open_quick_dialog():
             return self._failed("按了「快速战斗」，窗口没打开")
@@ -1091,8 +1314,8 @@ class EventBattleTask(_ClaimTaskBase):
                 *QUICK_DIALOG_CANCEL_POINT, after_sleep=1.0  # 不用确认：回主页会再确认
             )
             return "no_ap"
-        self.info_set("当前阶段", f"挑战战斗15：快速战斗 {cost} 场")
-        self.log_info(f"活动每日战斗：挑战战斗第15关快速战斗 {cost} 场。")
+        self.info_set("当前阶段", f"{mode}{stage}：快速战斗 {cost} 场")
+        self.log_info(f"活动每日战斗：{mode}第{stage}关快速战斗 {cost} 场。")
         start = self.look_again(
             lambda: self._box_with(
                 self._roi_boxes(self.capture_frame(), QUICK_DIALOG_START_ROI, "快速战斗开始"),

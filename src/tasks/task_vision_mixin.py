@@ -25,6 +25,7 @@ from src.utils.home_confirmation import (
 )
 from src.utils.image_utils import to_gray
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
+from src.utils.wait_limits import STUCK_SECONDS, capped
 
 REFERENCE_WIDTH = FHD_1080.width
 
@@ -141,7 +142,7 @@ class TaskVisionMixin:
         name: str,
         interval: float = 0.35,
     ) -> tuple[str, bool]:
-        end_at = monotonic() + float(self.config.get("loading 消失等待秒数", 35.0))
+        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
         while monotonic() <= end_at:
             frame = self.capture_frame()
             result = self._match(frame, spec)
@@ -222,7 +223,7 @@ class TaskVisionMixin:
         last_text: str = "",
         interval: float = 0.5,
     ) -> tuple[str, bool, str]:
-        end_at = monotonic() + float(self.config.get("loading 消失等待秒数", 35.0))
+        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
         while monotonic() <= end_at:
             frame = self.capture_frame()
             result = self._match(frame, spec)

@@ -76,6 +76,7 @@ from src.tasks.map_trade.trader_constants import (
 )
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.field_followers import dismiss_once_per_run
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer
 
 # The skill is full and must be starred up by the player (user choice,
 # 2026-09-28: skip buying and say so, never buy at full price).
@@ -411,11 +412,16 @@ class TradeNavigationMixin:
         return NavigationResult(False, self.classify(), "剧情游戏卡1入场确认超时")
 
     def _wait_for_merchant_prompt(self, timeout: float, interval: float = 0.5) -> bool:
+        """The merchant's prompt within ``timeout``; a walk there keeps the
+        screen moving, one still for STUCK_SECONDS is not getting there."""
         end_at = monotonic() + max(0.0, timeout)
+        still = StillTimer()
         while True:
-            if self._merchant_prompt_box(self.vision.capture()) is not None:
+            frame = self.vision.capture()
+            if self._merchant_prompt_box(frame) is not None:
                 return True
-            if monotonic() >= end_at:
+            now = monotonic()
+            if now >= end_at or still.still_for(frame, now) >= STUCK_SECONDS:
                 return False
             self.task.sleep(interval)
 

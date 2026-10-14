@@ -153,12 +153,55 @@ def _run_watched(task, run, args, kwargs, stepped_in=False, watched=False):
             task._frozen_watch = None
         stepped_in = False
         again = attempt == 1 and bool(getattr(type(task), "frozen_retry", False))
+        # Leo 2026-10-14 「那就按esc 而且要跟用戶說明是哪裡卡住觸發了這個」:
+        # the step it stuck on goes in front of the reason, Esc goes first.
+        where = stuck_step(task)
+        if where and where not in why:
+            why = f"卡在「{where}」：{why}"
+        if _escape_when_stuck(task):
+            why += "，已按 Esc"
         task._why = why
         task.log_warning(f"{name}：{why}，" + ("回主页再试一次。" if again else "回主页。"))
         if not again or not recover_to_home(task):
             return False
         task.log_info(f"{name}：已回主页，再试一次。")
     return False
+
+
+def stuck_step(task) -> str:
+    """The step a run is on, in the player's words: its 当前阶段, else the
+    last thing it logged (a short line, for the 问题摘要)."""
+    try:
+        stage = problem_report._stage(task)
+    except Exception:
+        stage = ""
+    if stage:
+        return stage
+    last = str(getattr(task, "_last_step", "") or "").strip()
+    if name := str(getattr(task, "name", "") or ""):
+        if last.startswith(name):
+            last = last[len(name):].lstrip("：: ")
+    return last.rstrip("。.")[:60]
+
+
+def _escape_when_stuck(task) -> bool:
+    """One Esc for a stuck screen (Leo 2026-10-14 「一直沒有識別到那就按esc」):
+    Esc only ever steps back or closes a dialog in BD2, never confirms.  Not
+    on 主页, where it opens the quit dialog."""
+    tap = getattr(task, "tap_escape", None)
+    if not callable(tap):
+        return False
+    try:
+        from src.tasks.recovery import home_now
+
+        if home_now(task):
+            return False
+        task.log_info("卡住了：按一次 Esc 退一步。")
+        return bool(tap(after_sleep=0.5))
+    except (TaskDisabledException, FinishedException):
+        raise
+    except Exception:
+        return False  # the way home after it still runs
 
 
 def _home_after_step_in(task) -> bool:
@@ -454,6 +497,11 @@ class BaseBD2Task(BaseTask):
     def info_add_to_list(self, key, item):
         with self._task_info_lock():
             return super().info_add_to_list(key, item)
+
+    def log_info(self, message, *args, **kwargs):
+        # The last step logged, for where a stuck run stopped (stuck_step).
+        self._last_step = str(message)
+        return super().log_info(message, *args, **kwargs)
 
     def info_set(self, key, value):
         if key == "当前阶段":

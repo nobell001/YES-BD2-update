@@ -44,6 +44,7 @@ from src.utils.stage_walk import (
     plan_step,
     predict_after_step,
 )
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer
 
 # Click-to-move: clicks on the marker, each followed by a wait for the
 # character to walk onto it and the 末日之书 page to open.
@@ -105,10 +106,16 @@ PLAYING_TEXT = "游戏中"
 WALK_MAX_STEPS = 25
 # Steps walked on a predicted marker position before giving up on it.
 MAX_PREDICTED_STEPS = 4
+# The longest a battle may run while its screen keeps moving; one whose
+# screen stands still for STUCK_SECONDS is stuck (Leo 2026-10-14 「頂多等8秒
+# 到10秒」).
 BATTLE_TIMEOUT_SECONDS = 120.0
 # After a failed battle: how long to look for 离开 or the field. A battle
-# that timed out may still be running, so give it a full battle length.
+# that timed out may still be running, so give it a full battle length
+# (again only while the screen moves).
 RESULT_CLEANUP_SECONDS = BATTLE_TIMEOUT_SECONDS
+# Waits for the field, a page or 主页 after a press (were 20-40 s).
+PAGE_WAIT_SECONDS = STUCK_SECONDS
 # After 去战斗: how long the page may stay before the click counts as lost.
 GO_BATTLE_LEAVE_SECONDS = 9.0
 LABEL = "末日之书"
@@ -277,7 +284,7 @@ class DoomBookTask(_ClaimTaskBase):
             if self._wait_for(self._field_after_result, timeout=10.0):
                 return True
             if not self._doom_page_visible(self.capture_frame()):
-                return self._wait_for(self._field_after_result, timeout=20.0)
+                return self._wait_for(self._field_after_result, timeout=PAGE_WAIT_SECONDS)
         self.log_info(f"{LABEL}：末日之书页按返回后没有回到地图。")
         return False
 
@@ -347,7 +354,7 @@ class DoomBookTask(_ClaimTaskBase):
             self.info_set("当前阶段", "进入末日之书卡带")
             self._click_reference(*card, after_sleep=2.0)
             # Loading the cartridge takes a few seconds.
-            if self._wait_for(self._field_visible, timeout=40.0):
+            if self._wait_for(self._field_visible, timeout=PAGE_WAIT_SECONDS):
                 return True
             self.log_info(f"{LABEL}：点击卡带后未进入末日之书地图。")
             return False
@@ -525,7 +532,7 @@ class DoomBookTask(_ClaimTaskBase):
         other_x = neighbour_slot(doom_x)
         self.info_set("当前阶段", "临时切换到其他卡带")
         self._click_reference(other_x, QUICK_SLOT_Y, after_sleep=3.0)
-        if not self._wait_for_any_field(timeout=40.0):
+        if not self._wait_for_any_field(timeout=PAGE_WAIT_SECONDS):
             self.log_info(f"{LABEL}：临时卡带未载入。")
             return False
         self.sleep(1.5)
@@ -534,7 +541,7 @@ class DoomBookTask(_ClaimTaskBase):
             return False
         self.info_set("当前阶段", "切回末日之书")
         self._click_reference(doom_x, QUICK_SLOT_Y, after_sleep=3.0)
-        return self._wait_for(self._field_visible, timeout=40.0)
+        return self._wait_for(self._field_visible, timeout=PAGE_WAIT_SECONDS)
 
     def _fight(self) -> bool:
         self.info_set("当前阶段", "去战斗")
@@ -563,8 +570,14 @@ class DoomBookTask(_ClaimTaskBase):
         self.info_set("当前阶段", "战斗中")
         end_at = monotonic() + BATTLE_TIMEOUT_SECONDS
         doom_page_reads = 0
+        still = StillTimer()
         while monotonic() <= end_at:
             frame = self.capture_frame()
+            if still.still_for(frame, monotonic()) >= STUCK_SECONDS:
+                self.log_info(
+                    f"{LABEL}：战斗画面 {STUCK_SECONDS:.0f} 秒没动，也没看到「离开」，当作卡住。"
+                )
+                return False
             # The battle already left this page, so seeing it again (two
             # reads) means the battle is over and the game came back here.
             doom_page_reads = doom_page_reads + 1 if self._doom_page_visible(frame) else 0
@@ -578,7 +591,9 @@ class DoomBookTask(_ClaimTaskBase):
                 self._click_reference_box(leave, after_sleep=2.0)
                 # Stop waiting as soon as the 末日之书 page shows instead of
                 # the field; the next loop presses its back arrow.
-                if self._wait_for(self._field_or_doom_page, timeout=30.0) and self._field_visible(
+                if self._wait_for(
+                    self._field_or_doom_page, timeout=PAGE_WAIT_SECONDS
+                ) and self._field_visible(
                     self.capture_frame()
                 ):
                     return True
@@ -638,8 +653,12 @@ class DoomBookTask(_ClaimTaskBase):
 
         end_at = monotonic() + RESULT_CLEANUP_SECONDS
         doom_page_reads = 0
+        still = StillTimer()
         while monotonic() <= end_at:
             frame = self.capture_frame()
+            if still.still_for(frame, monotonic()) >= STUCK_SECONDS:
+                self.log_info(f"{LABEL}：画面 {STUCK_SECONDS:.0f} 秒没动，不再等结算，交给回主页。")
+                return
             if self._field_visible(frame):
                 self._field_to_home()
                 return
@@ -647,7 +666,9 @@ class DoomBookTask(_ClaimTaskBase):
             leave = self._box_with(buttons, (LEAVE_TEXT,))
             if leave is not None:
                 self._click_reference_box(leave, after_sleep=2.0)
-                if self._wait_for(self._field_or_doom_page, timeout=30.0) and self._field_visible(
+                if self._wait_for(
+                    self._field_or_doom_page, timeout=PAGE_WAIT_SECONDS
+                ) and self._field_visible(
                     self.capture_frame()
                 ):
                     self._field_to_home()
@@ -670,7 +691,7 @@ class DoomBookTask(_ClaimTaskBase):
         for _attempt in range(3):
             self.info_set("当前阶段", "返回主页")
             self._click_reference(*FIELD_HOME_POINT, after_sleep=1.5)
-            if self._wait_for_home_confirmation("末日之书返回主页", timeout=20.0):
+            if self._wait_for_home_confirmation("末日之书返回主页", timeout=PAGE_WAIT_SECONDS):
                 return True
             if not self._field_visible(self.capture_frame()):
                 break

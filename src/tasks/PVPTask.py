@@ -72,6 +72,7 @@ from src.utils.pvp_dialog import (
     parse_start_cost,
 )
 from src.utils.stage_walk import NUDGE_SEQUENCE, find_stage, plan_step
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped
 
 REFERENCE_WIDTH = FHD_1080.width
 REFERENCE_HEIGHT = FHD_1080.height
@@ -129,11 +130,14 @@ PVP_MULTIPLIER_SETTING_VALUE_OCR_REFERENCE_ROI = (596, 372, 105, 50)  # 1280×72
 PVP_RESULT_BASE_MINUTES = 20.0
 # The base covers 40 battles (30 s each), scaled by the count actually set;
 # one battle used to get only 30 s and a slow one stopped 一键日常 (audit
-# 2026-10-09).  While 正在进行 is read the battle is running, not stuck: the
-# wait goes on until it is gone for the stuck time of non-魔兽 battles, up to
-# CAP_FACTOR times the wait.
+# 2026-10-09).  That is only the longest a running chain may take: while
+# 正在进行 is read or the battle keeps the screen moving it is running, not
+# stuck, and the wait goes on until neither is seen for
+# PVP_BATTLE_STUCK_SECONDS, up to CAP_FACTOR times the base (Leo 2026-10-14
+# 「頂多等8秒到10秒」: a result that does not come was waited for 90 s and
+# more, and 正在进行 had to be gone 15 s).
 PVP_RESULT_MIN_WAIT_SECONDS = 90.0
-PVP_BATTLE_STUCK_SECONDS = 15.0
+PVP_BATTLE_STUCK_SECONDS = STUCK_SECONDS
 PVP_RESULT_WAIT_CAP_FACTOR = 2.0
 # After a timed-out wait, this many result labels read mean the result popup
 # is up but misread: its ✕ is pressed before looking for 离开.
@@ -309,13 +313,13 @@ class PVPTask(BaseBD2Task):
                 "卡带选择页确认等待秒数": 10.0,
                 "玩法类别高亮确认秒数": 3.0,
                 "玩法类别高亮像素比例": GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO,
-                "PVP 入场等待秒数": 30.0,
-                "PVP 菜单等待秒数": 12.0,
-                "PVP 战斗开始等待秒数": 30.0,
+                "PVP 入场等待秒数": STUCK_SECONDS,
+                "PVP 菜单等待秒数": STUCK_SECONDS,
+                "PVP 战斗开始等待秒数": STUCK_SECONDS,
                 "PVP 结算基准等待分钟": PVP_RESULT_BASE_MINUTES,
-                "PVP 离开等待秒数": 20.0,
+                "PVP 离开等待秒数": STUCK_SECONDS,
                 "PVP 返回箱庭等待秒数": 10.0,
-                "PVP 返回主页等待秒数": 20.0,
+                "PVP 返回主页等待秒数": STUCK_SECONDS,
                 "快速切换按钮阈值": 0.88,
                 "PVP 箱庭阈值": 0.78,
                 "PVP 舞台阈值": 0.72,
@@ -323,7 +327,7 @@ class PVPTask(BaseBD2Task):
                 "战斗场数": "1",
                 "PVP 定位修正阈值": 0.76,
                 "loading 出现等待秒数": 6.0,
-                "loading 消失等待秒数": 35.0,
+                "loading 消失等待秒数": STUCK_SECONDS,
             }
         )
         self.config_type.update(
@@ -487,7 +491,7 @@ class PVPTask(BaseBD2Task):
             self.log_info("镜中之战：点了镜中之战卡带还停在游戏卡珍藏集，再点一次。")
             self._click_reference(*point, after_sleep=0.0)
         if self._wait_for_pvp_hub_after_cart(
-            timeout=float(self.config.get("PVP 入场等待秒数", 30.0)),
+            timeout=capped(self.config.get("PVP 入场等待秒数", STUCK_SECONDS)),
         ):
             self._clear_pvp_hub_notice_if_present()
             return True
@@ -929,7 +933,7 @@ class PVPTask(BaseBD2Task):
                 self._save_flow_diagnostic("pvp_stage_walk_failed")
                 self.log_info("镜中之战：键盘移动未能走到舞台正中。")
                 return "failed"
-        elif not self._click_pvp_stage_once(12.0):
+        elif not self._click_pvp_stage_once(STUCK_SECONDS):
             self._recover_stage_position()
             if not self._click_pvp_stage_once(8.0):
                 # BUG-20260908-04：舞台纹理小条失配时无图可查，落帧留存用户
@@ -939,7 +943,7 @@ class PVPTask(BaseBD2Task):
                 return "failed"
 
         self.info_set("当前阶段", "打开自动战斗")
-        menu_timeout = float(self.config.get("PVP 菜单等待秒数", 12.0))
+        menu_timeout = capped(self.config.get("PVP 菜单等待秒数", STUCK_SECONDS))
         found_auto = False
         text = ""
         for attempt in range(1, PVP_CLICK_VERIFY_ATTEMPTS + 1):
@@ -1142,7 +1146,7 @@ class PVPTask(BaseBD2Task):
             ),
             started,
             still_before=lambda: self._start_dialog_unchanged(multiplier),
-            timeout=float(self.config.get("PVP 战斗开始等待秒数", 30.0)),
+            timeout=capped(self.config.get("PVP 战斗开始等待秒数", STUCK_SECONDS)),
             poll=0.5,
         )
         if outcome:
@@ -1704,7 +1708,7 @@ class PVPTask(BaseBD2Task):
         result_found, result_text = self._wait_for_ocr_pattern_majority(
             patterns,
             min_matches=4,
-            timeout=result_timeout,
+            timeout=PVP_BATTLE_STUCK_SECONDS,
             name="PVP 结算",
             roi=result_roi,
             extra_wait_patterns=[
@@ -1771,7 +1775,7 @@ class PVPTask(BaseBD2Task):
         ]
 
     def _click_leave_button(self) -> bool:
-        end_at = monotonic() + float(self.config.get("PVP 离开等待秒数", 20.0))
+        end_at = monotonic() + capped(self.config.get("PVP 离开等待秒数", STUCK_SECONDS))
         last_text = ""
         while monotonic() <= end_at:
             frame = self.capture_frame()
@@ -2026,7 +2030,7 @@ class PVPTask(BaseBD2Task):
         if not in_pvp_hub:
             self.info_set("PVP 返回主页", "未确认 PVP 箱庭")
             if self._wait_for_home(
-                timeout=float(self.config.get("PVP 返回主页等待秒数", 20.0))
+                timeout=capped(self.config.get("PVP 返回主页等待秒数", STUCK_SECONDS))
             ):
                 return True
             return self.home_by_key(
@@ -2036,7 +2040,7 @@ class PVPTask(BaseBD2Task):
         self.info_set("PVP 返回主页", "已确认 PVP 箱庭")
         home_timeout = max(
             0.0,
-            float(self.config.get("PVP 返回主页等待秒数", 20.0)),
+            capped(self.config.get("PVP 返回主页等待秒数", STUCK_SECONDS)),
         )
         # The home wait below polls straight through any loading screen.  The
         # old "wait for loading to appear" step never matched (score -1 all
@@ -2310,12 +2314,16 @@ class PVPTask(BaseBD2Task):
     ) -> tuple[bool, str]:
         started = monotonic()
         end_at = started + max(0.0, timeout)
-        # A read extra pattern is progress: it moves the end on (up to
-        # max_timeout) until it is gone for PVP_BATTLE_STUCK_SECONDS.
+        # A read extra pattern, or a battle that keeps the screen moving, is
+        # progress: it moves the end on (up to max_timeout) until neither is
+        # seen for PVP_BATTLE_STUCK_SECONDS.
         cap_at = started + max(timeout, max_timeout or 0.0)
+        still = StillTimer() if extra_wait_patterns else None
         last_text = ""
         while monotonic() <= end_at:
             frame = self.capture_frame()
+            if still is not None and still.still_for(frame, monotonic()) < 1.0:
+                end_at = min(cap_at, max(end_at, monotonic() + PVP_BATTLE_STUCK_SECONDS))
             text = self._ocr_text(frame, name=name, roi=roi)
             last_text = text or last_text
             self.info_set(f"{name} OCR", text or "-")
@@ -2344,7 +2352,7 @@ class PVPTask(BaseBD2Task):
         if not found_loading:
             return
 
-        end_at = monotonic() + float(self.config.get("loading 消失等待秒数", 35.0))
+        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
         while monotonic() <= end_at:
             frame = self.capture_frame()
             result = self._match(frame, LOADING_TEMPLATE)

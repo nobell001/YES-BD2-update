@@ -65,12 +65,22 @@ class _Launch(QObject):
             message(self.window, "工具已经在分身里开始跑，这里可以看进度和报告")
         else:
             clone_desktop.clear_job()
-            reason = result.partition(" ")[2]
-            message(
-                self.window,
-                tf("分身里没能自动打开工具（{reason}），请在分身里自己打开", reason=reason),
-                error=True,
-            )
+            message(self.window, launch_failure_text(result), error=True)
+
+
+def launch_failure_text(result: str) -> str:
+    """What the player sees when the viewer reports ``failed ...``."""
+    kind, code = clone_desktop.launch_failure(result)
+    if kind == "noconnect":
+        # Windows' own text for 516 talks about remote access and a PC that is
+        # off, which told the player nothing (B站 report 2026-10-14).
+        return tf(
+            "连不上桌面分身（Windows 代码 {code}），不是密码的问题。请依序试：重开工具再按一次 → 重新开机再试 → 还不行请把 {folder} 里的 viewer.log 传给我们",
+            code=str(code),
+            folder=str(clone_desktop.DATA_DIR),
+        )
+    reason = result.partition(" ")[2]
+    return tf("分身里没能自动打开工具（{reason}），请在分身里自己打开", reason=reason)
 
 
 _launch: _Launch | None = None
@@ -90,6 +100,7 @@ def ready_to_go() -> bool:
     return (
         not clone_desktop.viewer_removed()
         and clone_desktop.ready()
+        and clone_desktop.remote_desktop_service() not in ("disabled", "missing")
         and not clone_desktop.hello_only()
     )
 
@@ -103,6 +114,7 @@ def ask_and_start(window, task, run_mode: str | None = None) -> bool:
     # Leo (2026-10-03 14:35): short bullet points.
     intro = "• 纯后台执行：游戏在独立的分身窗口里跑，缩小也照跑\n• 照常用电脑，鼠标键盘不会被抢"
     hello = clone_desktop.hello_only()
+    service = clone_desktop.remote_desktop_service()
     if clone_desktop.viewer_removed():
         steps = tf(
             "分身程序不见了，可能被防毒软件（例如 360、火绒）删掉了：\n"
@@ -118,6 +130,23 @@ def ask_and_start(window, task, run_mode: str | None = None) -> bool:
             "• 设定好后再按一次这个按钮"
         ))
         yes = "第一次设定"
+    elif service == "missing":
+        # Nothing to fix from here: the service itself is gone (B站 2026-10-14).
+        steps = t((
+            "这台电脑不能用桌面分身：\n"
+            "• 分身要靠 Windows 的「远程桌面服务」，这台电脑没有这个服务\n"
+            "• 常见于精简版 Windows，或用过系统优化／精简工具\n"
+            "• 请改用一般模式"
+        ))
+        yes = "知道了"
+    elif service == "disabled":
+        steps = t((
+            "要先打开一个 Windows 服务：\n"
+            "• 分身要靠「远程桌面服务」开第二个桌面，这台电脑把它停用了\n"
+            "• 按「帮我打开」，Windows 确认请按「是」\n"
+            "• 只是让服务能启动，别的电脑还是连不进来"
+        ))
+        yes = "帮我打开"
     elif hello:
         # Players could not find the Settings switch: Windows hides it when
         # face, fingerprint and PIN are all unavailable (2026-10-12).  Leo
@@ -141,11 +170,23 @@ def ask_and_start(window, task, run_mode: str | None = None) -> bool:
     box = MessageBox(t("在桌面分身跑"), t(intro) + "\n\n" + steps, window)
     box.yesButton.setText(t(yes))
     box.cancelButton.setText(t("取消"))
+    if yes == "知道了":
+        box.cancelButton.hide()
     if not box.exec():
         return False
     if not clone_desktop.ready():
         clone_desktop.run_setup()
         return False
+    if service == "missing":
+        return False
+    if service == "disabled":
+        if not clone_desktop.enable_remote_desktop_service():
+            message(window, "「远程桌面服务」没有打开（Windows 的确认按了「否」或改不了）", error=True)
+            return False
+        if hello:
+            # One fix per press: the next press shows the Hello note.
+            message(window, "「远程桌面服务」已经打开，请再按一次「在桌面分身跑」")
+            return False
     if hello and not clone_desktop.turn_off_hello_only():
         return False
     return open_clone(window, task, run_mode)

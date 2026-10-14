@@ -323,7 +323,8 @@ RESUMING_WALK_CARD_IDS = frozenset(
 # leaves the character on its exit, where clicking the 拍卖场 exit does
 # nothing (~9 s lost before the restart); Leo left the call to Claude.
 LAST_MAP_THEN_TOWN_CARD_IDS = frozenset({"Q_cp3"})
-# How long such a walk may keep going, catches included (Leo: 60 s).
+# How long such a walk may keep going, catches included (Leo: 60 s); a
+# screen still for STUCK_SECONDS ends it sooner (Leo 2026-10-14).
 RESUMING_WALK_TIMEOUT = 60.0
 
 

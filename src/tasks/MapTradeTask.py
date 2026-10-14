@@ -24,6 +24,7 @@ from src.tasks.map_trade.sale_days import (
 from src.tasks.map_trade.trader import Trader
 from src.tasks.map_trade.trader_cooking import MAIN_COOKING_RECIPES
 from src.tasks.map_trade.vision import Vision
+from src.utils.wait_limits import STUCK_SECONDS
 
 LEGACY_VISION_THRESHOLD_KEY = "跑图跑商识图阈值"
 LEGACY_OCR_THRESHOLD_KEY = "跑图跑商 OCR 阈值"
@@ -284,7 +285,7 @@ class MapTradeTask(MapAutomationTaskBase):
                 "卖": True,
                 TRADE_VISION_THRESHOLD_KEY: 0.72,
                 TRADE_OCR_THRESHOLD_KEY: 0.20,
-                "加载页面等待秒数": 45.0,
+                "加载页面等待秒数": STUCK_SECONDS,
             }
         )
         self.config_description.update(
