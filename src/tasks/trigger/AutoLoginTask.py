@@ -11,6 +11,7 @@ from src.tasks.BaseBD2Task import BaseBD2Task
 from src.tasks.map_trade.models import MatchResult, TemplateSpec
 from src.utils import task_vision
 from src.utils.calibration import FHD_1080
+from src.utils.game_process import game_running
 from src.utils.colour_check import (
     check_settled,
     distorted_colour_warning,
@@ -211,7 +212,27 @@ class AutoLoginTask(BaseBD2Task):
     def should_trigger(self):
         if self._finished:
             return False
-        return super().should_trigger()
+        if not super().should_trigger():
+            return False
+        return not self._game_closed()
+
+    def _game_closed(self) -> bool:
+        """The game is not running: nothing to log into, so no check at all.
+
+        YES-BD2 issue #28 (2026-10-15): with the game closed every check sat
+        4 s in ok-script's frame wait as the current task, so 首页 showed
+        「正在跑：自动登录游戏」 over and over, and a 开始 pressed then was
+        only queued behind it (ok-script's start skips opening the game while
+        another task is current): the game never opened.
+        """
+        if game_running() is not False:  # running, or cannot tell
+            return False
+        if self._state != "waiting":
+            # Closed mid-login: the next opening logs in from the start.
+            self._reset_login_state()
+        self._set_stage("等待游戏启动")
+        self._set_action("游戏没开，按开始会打开游戏并自动登录。")
+        return True
 
     def run(self):
         if self._finished:

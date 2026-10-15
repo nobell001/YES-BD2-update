@@ -971,10 +971,11 @@ class SandboxNavigationMixin:
         timeout: float | None = None,
         interval: float = 0.5,
     ) -> NavigationResult:
-        wait_seconds = self._loading_timeout() if timeout is None else float(timeout)
-        deadline = monotonic() + max(0.0, wait_seconds)
+        wait_seconds = max(0.0, self._loading_timeout() if timeout is None else float(timeout))
+        deadline = monotonic() + wait_seconds
         for attempt in range(2):
-            remaining = max(0.0, deadline - monotonic())
+            # Capped at the budget: deadline - now can round a hair above it.
+            remaining = min(wait_seconds, max(0.0, deadline - monotonic()))
             if attempt:
                 # The page was dismissed: the field shows in a moment.
                 remaining = max(remaining, STORY_ENTRY_AFTER_PAGE_SECONDS)
@@ -994,7 +995,7 @@ class SandboxNavigationMixin:
             # A dialog that may spend something stops here, not retried.
             if result.success or attempt or result.message == FIRST_CARD_PAID_DIALOG_MESSAGE:
                 return result
-            remaining = max(0.0, deadline - monotonic())
+            remaining = min(wait_seconds, max(0.0, deadline - monotonic()))
             if remaining <= 0.0:
                 return result
             if self.task._handle_recent_cartridge_special_pages(
