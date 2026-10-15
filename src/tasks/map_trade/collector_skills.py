@@ -1419,6 +1419,24 @@ class SkillExecutionMixin:
         )
         post_window_stable = bool(self._last_count_window_stable)
         icon_used = post_detection.state is ActionIconState.USED
+        # A press never lowers the count, so a lower read is a misread.
+        # Player 2026-10-15 (1080p, 角色卡3 主城区): 吸收 16/21 read 7/21
+        # after the press (17 without its thin leading 1) while the icon
+        # turned grey; the card was skipped as 「执行证据不一致」.  The
+        # misread is never trusted or reconciled; with the icon greyed it
+        # counts as done and the count is checked again on a later frame.
+        impossible_read = bool(
+            after is not None
+            and after[1] == before[1]
+            and after[0] < before[0]
+        )
+        if impossible_read:
+            self._status(
+                f"{action.name}次数读错",
+                f"{before[0]}/{before[1]}->{after[0]}/{after[1]}（次数不会变少，不采用）",
+            )
+            after = None
+            post_window_stable = False
         exact_single_increment = bool(
             after is not None
             and after[1] == before[1]
@@ -1497,9 +1515,14 @@ class SkillExecutionMixin:
         # 吸收 read as bright with its toast hidden behind 探查's (player
         # 2026-10-12, Q_sp5 主城区 12/21->13/21 stopped the run as
         # 「执行证据不一致」).
-        if (icon_used and (feedback_success or count_proves)) or (
-            count_proves and post_window_stable
-        ):
+        # The game decides (Leo 2026-10-15: 「要以遊戲為主」): the icon
+        # turning from bright to grey on this press is the game taking it,
+        # whatever the count read or the toast showed.  The count is then
+        # checked on a later frame.
+        greyed_by_press = icon_used and detection.state is ActionIconState.AVAILABLE
+        if (
+            icon_used and (feedback_success or count_proves or impossible_read)
+        ) or greyed_by_press or (count_proves and post_window_stable):
             # A valid absolute snapshot is settled immediately; any
             # dim/bare/invalid post OCR remains a durable pending action.
             trusted_post = post_window_stable or exact_single_increment

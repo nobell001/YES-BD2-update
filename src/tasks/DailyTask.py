@@ -134,6 +134,11 @@ GUILD_ENTRY_LOOKS = 5
 GUILD_ENTRY_LOOK_SECONDS = 0.5
 # A swallowed entry click leaves home up: only then is it pressed again.
 GUILD_ENTRY_RETRY_SECONDS = 4.0
+# Leo 2026-10-15: a 1080p run pressed the entry twice and home never changed
+# (the player's second run went in; a lag, likely).  「先做補按加長 然後 多給一次
+# 機會」: re-presses are held longer and there is one more of them.
+GUILD_ENTRY_RETRIES = 2
+GUILD_ENTRY_LONG_PRESS_SECONDS = 0.15
 # A sub-step that clicked nothing on a confirmed home (no guild entry) is
 # skipped, not failed.
 STEP_SKIPPED = "skipped"
@@ -385,13 +390,29 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             seen[:] = self._wait_guild_page(0.0)
             return seen[0]
 
+        presses = []
+
+        def press_entry():
+            if presses:  # a re-press, held longer: a short click can be lost
+                x, y = GUILD_SIGN_IN_ENTRY_REFERENCE_POINT
+                self.operate_click(  # 不用确认：press_and_confirm 看公会页面
+                    x / REFERENCE_WIDTH,
+                    y / REFERENCE_HEIGHT,
+                    down_time=GUILD_ENTRY_LONG_PRESS_SECONDS,
+                    after_sleep=0.5,
+                )
+            else:
+                self._click_reference(*GUILD_SIGN_IN_ENTRY_REFERENCE_POINT, after_sleep=0.5)  # 不用确认：同上
+            presses.append(1)
+
         # A click the game swallowed leaves home up: only then press again.
         entered = self.press_and_confirm(
             "公会签到：公会入口",
-            lambda: self._click_reference(*GUILD_SIGN_IN_ENTRY_REFERENCE_POINT, after_sleep=0.5),
+            press_entry,
             on_guild_page,
             still_before=self._home_still_showing,
             timeout=GUILD_ENTRY_RETRY_SECONDS,
+            retries=GUILD_ENTRY_RETRIES,
         )
         # Entering the guild page is the sign-in (user, 2026-09-27); the
         # 签到成功 toast only shows on the day's first visit, so waiting for it
@@ -404,7 +425,10 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         self.info_set("公会签到 OCR", text or "-")
         self._status_set("公会签到成功", "是" if state else "否")
         if state is None:
-            self.log_info("公会签到：点了公会入口但没看到公会页面（可能未加入公会），未签到。")
+            self.log_info(
+                f"公会签到：公会入口按了{len(presses)}次都没看到公会页面"
+                "（游戏没反应或可能未加入公会），未签到。"
+            )
             return False
         if state == "toast":
             self.log_info("公会签到：检测到签到成功提示。")

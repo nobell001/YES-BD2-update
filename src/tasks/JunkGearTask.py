@@ -389,7 +389,7 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
             "一键日常里紧接免费抽抽乐时，先只处理带黄色!的新装备，不动背包筛选和排序；"
             "没有拆到时，背包先筛选出 R、再筛选出 SR（按获得时间排序），看最前面几件："
             "强化到 +7 并自动分解；"
-            "SR 会点开核对，只拆 3★/4★ 角色专用的（5★ 角色的可在设定里选）；"
+            "SR 会点开核对，只拆 3★/4★ 角色专用的；设定里开启 5★ 后，SR 不点开直接拆；"
             "上锁、穿戴中、已强化的一律保留，UR 不碰。"
             "背包筛选和排序会改回原样。"
             "没有可分解的爛装时，做一件 N 装备强化后分解（每日任务）。"
@@ -408,7 +408,10 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
                 "最多处理件数": (
                     "整次最多处理几件（黄色!新装备、R、SR 和 N 装备都算在内），1~10 件。"
                 ),
-                FIVE_STAR_SR_KEY: "开启后，5★ 角色的 SR 专用装备也会分解；关闭时保留（默认）。",
+                FIVE_STAR_SR_KEY: (
+                    "开启后，SR 不点开，和 R 一样直接分解；"
+                    "关闭时点开核对，5★ 角色的保留（默认）。"
+                ),
             }
         )
         # 1-10 items per run (user, 2026-09-27).
@@ -1182,8 +1185,9 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
                 report.append(f"{where}:保留[格子稀有度{rarity or '认不出'}]")
                 self._kept_reasons.append(rarity or "稀有度认不出")
                 continue
-            if wanted not in OPENED_GRADES:
-                # R is junk off the grid (Leo 2026-10-11 「r不點開」).
+            if wanted not in OPENED_GRADES or five_star_sr:
+                # R is junk off the grid (Leo 2026-10-11 「r不點開」); SR too
+                # with 5★ let go (Leo 2026-10-15 「我的意思就是你直接拆sr」).
                 report.append(f"{where}:爛装[格子{wanted}]")
                 junk.append((row, column))
                 continue

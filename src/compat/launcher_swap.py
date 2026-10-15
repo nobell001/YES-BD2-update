@@ -22,14 +22,14 @@ import time
 import urllib.request
 import zipfile
 
-# v0.1.24 发布的启动器（1.2.7：下载失败时写明原因和怎么做）。钉在
+# v0.1.37 发布的启动器（1.2.8：安装套件下载断线自动重试，进度走到 100%）。钉在
 # 那个发布和它的检查码：更新仓库比发布附件先出来，用 latest 可能拿到旧启动器。
 # 启动器再改时，指向第一次带它的发布（tag + win32_sha256.txt），并调高
 # LAUNCHER_VERSION（要跟 scripts/prepare_pyappify_launcher.ps1 的
 # $LauncherVersion 一样）。
-LAUNCHER_VERSION = "1.2.7"
-LAUNCHER_RELEASE = "v0.1.24"
-LAUNCHER_SHA256 = "729d52b514de873dcb140db7925ac5dc34f29b5c1488ec655631b96ba85ab185"
+LAUNCHER_VERSION = "1.2.8"
+LAUNCHER_RELEASE = "v0.1.37"
+LAUNCHER_SHA256 = "d67af0ca9f6413b131ebda131832a748594773f9c044f6e094e1567cf6d13714"
 LAUNCHER_ZIP_URL = "https://github.com/nobell001/YES-BD2/releases/download/{tag}/yes-bd2-win32.zip"
 
 DOWNLOAD_TIMEOUT = 60

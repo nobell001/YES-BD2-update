@@ -955,8 +955,8 @@ msgstr "Recipe list"
 msgid "料酒"
 msgstr "Cooking Wine"
 
-msgid "开启后，5★ 角色的 SR 专用装备也会分解；关闭时保留（默认）。"
-msgstr "When on, SR Exclusive Gear of 5★ Characters is dismantled too; when off it is kept (default)."
+msgid "开启后，SR 不点开，和 R 一样直接分解；关闭时点开核对，5★ 角色的保留（默认）。"
+msgstr "When on, SR is dismantled without opening it, like R; when off it is opened and checked, and 5★ Characters' is kept (default)."
 
 msgid "日"
 msgstr "Sun"
@@ -1522,8 +1522,8 @@ msgstr "What to buy, which dishes to cook and what to sell each day are set ther
 msgid "出售日历"
 msgstr "Sale calendar"
 
-msgid "一键日常里紧接免费抽抽乐时，先只处理带黄色!的新装备，不动背包筛选和排序；没有拆到时，背包先筛选出 R、再筛选出 SR（按获得时间排序），看最前面几件：强化到 +7 并自动分解；SR 会点开核对，只拆 3★/4★ 角色专用的（5★ 角色的可在设定里选）；上锁、穿戴中、已强化的一律保留，UR 不碰。背包筛选和排序会改回原样。没有可分解的爛装时，做一件 N 装备强化后分解（每日任务）。"
-msgstr "Right after the free Gacha in Daily One-Click, it first handles only the new Gear with the yellow !, leaving the bag filter and sort as they are. If none is dismantled, it filters the bag to R, then SR (sorted by time acquired), and checks the Gear at the front: it is upgraded to +7 and dismantled automatically. SR is opened and checked first, and only 3★/4★ Characters' Exclusive Gear is dismantled (5★ Characters' can be chosen in the settings); locked, equipped or already upgraded Gear is always kept, and UR is never touched. The bag filter and sort are put back afterwards. With nothing to dismantle, one N Gear is crafted, upgraded and dismantled (daily mission)."
+msgid "一键日常里紧接免费抽抽乐时，先只处理带黄色!的新装备，不动背包筛选和排序；没有拆到时，背包先筛选出 R、再筛选出 SR（按获得时间排序），看最前面几件：强化到 +7 并自动分解；SR 会点开核对，只拆 3★/4★ 角色专用的；设定里开启 5★ 后，SR 不点开直接拆；上锁、穿戴中、已强化的一律保留，UR 不碰。背包筛选和排序会改回原样。没有可分解的爛装时，做一件 N 装备强化后分解（每日任务）。"
+msgstr "Right after the free Gacha in Daily One-Click, it first handles only the new Gear with the yellow !, leaving the bag filter and sort as they are. If none is dismantled, it filters the bag to R, then SR (sorted by time acquired), and checks the Gear at the front: it is upgraded to +7 and dismantled automatically. SR is opened and checked first, and only 3★/4★ Characters' Exclusive Gear is dismantled ; with 5★ turned on in the settings, SR is dismantled without opening it; locked, equipped or already upgraded Gear is always kept, and UR is never touched. The bag filter and sort are put back afterwards. With nothing to dismantle, one N Gear is crafted, upgraded and dismantled (daily mission)."
 
 msgid "每日按配置依次执行购买、制作料理和出售。"
 msgstr "Each day, buys, cooks and sells in order, as configured."
