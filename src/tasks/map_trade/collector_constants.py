@@ -34,6 +34,9 @@ ACTION_ICON_DETECTION_INTERVAL = 0.15
 # 妖怪森林 read used, brightness 0.61, while it could still be pressed - Leo).
 ACTION_USED_RECHECKS = 2
 ACTION_USED_RECHECK_SECONDS = 1.5
+# A grey icon is waited out only this soon after 探查 was pressed, and once
+# for the whole bar (Leo 2026-10-15: ~4 s per grey icon in turn felt like 7 s).
+DIM_WAIT_VALID_SECONDS = 10.0
 SKILL_FAILURE_EVIDENCE_LIMIT = 12
 SKILL_FAILURE_TEXT_LIMIT = 320
 # Chapters the weekly run skips without writing progress (none since chapter
@@ -81,7 +84,10 @@ SEARCH_COUNTDOWN_REFERENCE_ROI = (1535, 960, 82, 60)
 SEARCH_COUNTDOWN_RELATIVE_ROI = _relative_reference_roi(
     SEARCH_COUNTDOWN_REFERENCE_ROI
 )
-ACTION_FEEDBACK_REFERENCE_ROI = (735, 210, 1182 - 735, 270 - 210)
+# Taller since 2026-10-14 (live 4K): a second toast line (「升星天赋技能后，
+# 可获得经验值。」) pushes the skill's own line up out of the old 210-270 box,
+# and 压制 that worked was reported as failed.
+ACTION_FEEDBACK_REFERENCE_ROI = (735, 165, 1182 - 735, 270 - 165)
 ACTION_FEEDBACK_RELATIVE_ROI = _relative_reference_roi(ACTION_FEEDBACK_REFERENCE_ROI)
 ACTION_SUCCESS_FEEDBACK = {
     "探查": ("在秒内确认隐藏物品的位置",),

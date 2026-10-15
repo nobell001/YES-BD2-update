@@ -42,6 +42,7 @@ from src.utils.frozen_screen import FrozenScreen
 from src.utils.image_utils import template_match_response
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, wait_for
+from src.utils.wait_limits import LOADING_MAX_SECONDS, ProgressWait, is_loading_dark
 
 # 1920x1080 reference coordinates / ROIs.
 HOME_BANNER_ROI = (1400, 480, 520, 420)
@@ -165,7 +166,9 @@ STATE_KEYS = ("stage", "free_ap", "auto", "quick")
 # page, stage or battle goes home and tries once more, then 一键日常 goes on.
 # Paused while battles run.  10 s (Leo 2026-10-14 「頂多等8秒10秒」): the
 # loading after the banner and mode presses is about 8 s at 2K, and the
-# carousel wait on 主页 starts the count over.
+# carousel wait on 主页 starts the count over.  The black loading screen
+# does not count, up to LOADING_MAX_SECONDS of it (Leo 2026-10-15 「我說的10秒
+# 是卡死 或者辨識不到」「你單純等載入怎麼可以改成只等10秒」).
 PAGE_STUCK_SECONDS = MAX_WAIT_SECONDS
 
 NORMAL_MODE = "普通战斗"
@@ -205,6 +208,8 @@ CAP_OPTIONS = [str(stage) for stage in CAP_STAGES]
 CURRENCY_GLUED_PATTERN = re.compile(r"(?<![\d,.])(\d{1,3}(?:[,.]\d{3})+)(?=\d)")
 AP_PATTERN = re.compile(r"(?<![\d,.])(\d{1,2})\s*/\s*(\d{1,2})(?!\d)")
 BONUS_PATTERN = re.compile(r"\+\s*(\d+)")
+# The bonus beside the pool is a few AP; more digits than this is a misread.
+AP_BONUS_MAX = 99
 COST_PATTERN = re.compile(r"(\d+)\s*$")
 PROGRESS_PATTERN = re.compile(r"第(\d+)次[/／]共(\d+)次")
 
@@ -217,13 +222,18 @@ def parse_ap(text: str) -> tuple[int | None, int]:
     if free_match and int(free_match.group(2)) <= 0:
         free_match = None
     # A pool above its top ("25/5": the AP icon read as a 2, Leo's frame at
-    # 1080p, 2026-10-10) stays as read: any AP above 0 opens the dialog, whose
-    # MAX with 仅使用免费活动AP on decides the count (Leo 08:58Z 「超過上限 一樣
-    # 點開來打 不要去前面字 大於0 就是點開來打就對了」).
-    free = int(free_match.group(1)) if free_match else None
+    # 1080p, 2026-10-10) is not stripped to a guess: any AP above 0 opens the
+    # dialog, whose MAX with 仅使用免费活动AP on decides the count (Leo 08:58Z
+    # 「超過上限 一樣點開來打 不要去前面字 大於0 就是點開來打就對了」).  It counts
+    # as the top itself, never more (Leo 2026-10-14: every value in a sane
+    # range), so the free-AP cost check still holds.
+    free = None
+    if free_match:
+        free = min(int(free_match.group(1)), int(free_match.group(2)))
     tail = normalized[free_match.end():] if free_match else normalized
     bonus_match = BONUS_PATTERN.search(tail)
-    return free, int(bonus_match.group(1)) if bonus_match else 0
+    bonus = int(bonus_match.group(1)) if bonus_match else 0
+    return free, bonus if bonus <= AP_BONUS_MAX else 0
 
 
 def parse_battle_cost(text: str) -> int | None:
@@ -329,7 +339,35 @@ class EventBattleTask(_ClaimTaskBase):
             raise _StuckOnEventPage(
                 f"{where} {PAGE_STUCK_SECONDS:.0f} 秒没走到下一步（点了没反应或认不出画面）"
             )
-        return super().capture_frame(screenshot_name)
+        frame = super().capture_frame(screenshot_name)
+        if deadline is not None:
+            self._loading_pushes_guard(frame)
+        return frame
+
+    def _loading_pushes_guard(self, frame) -> None:
+        """A black loading frame pushes the guard back, up to
+        LOADING_MAX_SECONDS from when the loading started."""
+        now = monotonic()
+        if not is_loading_dark(frame):
+            self._loading_since = None
+            return
+        since = getattr(self, "_loading_since", None)
+        if since is None:
+            since = self._loading_since = now
+        pushed = min(since + LOADING_MAX_SECONDS, now + PAGE_STUCK_SECONDS)
+        self._page_deadline = max(self._page_deadline, pushed)
+
+    @staticmethod
+    def _page_wait(timeout: float) -> ProgressWait:
+        """``timeout``, stretched only by the black loading screen (up to
+        LOADING_MAX_SECONDS): the event art keeps moving, so movement does
+        not count here (see ``_page_wait_over``)."""
+        return ProgressWait(monotonic(), stuck=max(0.0, timeout), cap=max(timeout, LOADING_MAX_SECONDS))
+
+    @staticmethod
+    def _page_wait_over(wait: ProgressWait, frame) -> bool:
+        # No picture to the still timer: only the loading screen resets it.
+        return wait.over(None, monotonic(), loading=is_loading_dark(frame))
 
     def operate(self, func, block: bool = True, restore_cursor: bool = True):
         self._progressed()  # a press is a step too
@@ -586,17 +624,19 @@ class EventBattleTask(_ClaimTaskBase):
         return self._failed(f"活动横幅点了 {BANNER_CLICK_ATTEMPTS} 次都没进活动页")
 
     def _wait_for_hub(self, timeout: float = MAX_WAIT_SECONDS) -> bool:
-        end_at = monotonic() + timeout
-        while monotonic() <= end_at:
+        wait = self._page_wait(timeout)
+        while True:
             frame = self.capture_frame()
-            boxes = self._roi_boxes(frame, HUB_BUTTON_ROI, "活动页")
-            text = self._boxes_text(boxes)
-            self.info_set("活动页 OCR", text or "-")
-            if self._hub_shown(frame, text):
-                self._progressed()
-                return True
+            if not is_loading_dark(frame):
+                boxes = self._roi_boxes(frame, HUB_BUTTON_ROI, "活动页")
+                text = self._boxes_text(boxes)
+                self.info_set("活动页 OCR", text or "-")
+                if self._hub_shown(frame, text):
+                    self._progressed()
+                    return True
+            if self._page_wait_over(wait, frame):
+                return False
             self.sleep(0.8)
-        return False
 
     @staticmethod
     def _hub_shown(frame, text: str) -> bool:
@@ -719,14 +759,16 @@ class EventBattleTask(_ClaimTaskBase):
         timeout: float = MAX_WAIT_SECONDS,
         quiet: bool = False,
     ) -> bool:
-        end_at = monotonic() + timeout
-        while monotonic() <= end_at:
+        wait = self._page_wait(timeout)
+        while True:
             frame = self.capture_frame()
-            if self._title_visible(frame, (mode,), mode):
+            if not is_loading_dark(frame) and self._title_visible(frame, (mode,), mode):
                 panel = self._boxes_text(self._roi_boxes(frame, PANEL_TITLE_ROI, f"{mode}关卡"))
                 if parse_stage_number(panel, mode) is not None:
                     self._progressed()
                     return True
+            if self._page_wait_over(wait, frame):
+                break
             self.sleep(0.8)
         if not quiet:
             self.log_info(f"活动每日战斗：未确认{mode}关卡页。")

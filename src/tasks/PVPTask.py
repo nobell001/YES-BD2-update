@@ -72,7 +72,15 @@ from src.utils.pvp_dialog import (
     parse_start_cost,
 )
 from src.utils.stage_walk import NUDGE_SEQUENCE, find_stage, plan_step
-from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped
+from src.utils.wait_limits import (
+    LOADING_MAX_SECONDS,
+    STUCK_SECONDS,
+    ProgressWait,
+    StillTimer,
+    capped,
+    is_loading_dark,
+    load_wait,
+)
 
 REFERENCE_WIDTH = FHD_1080.width
 REFERENCE_HEIGHT = FHD_1080.height
@@ -313,11 +321,11 @@ class PVPTask(BaseBD2Task):
                 "卡带选择页确认等待秒数": 10.0,
                 "玩法类别高亮确认秒数": 3.0,
                 "玩法类别高亮像素比例": GAMEPLAY_CATEGORY_HIGHLIGHT_MIN_RATIO,
-                "PVP 入场等待秒数": STUCK_SECONDS,
+                "PVP 入场等待秒数": LOADING_MAX_SECONDS,
                 "PVP 菜单等待秒数": STUCK_SECONDS,
                 "PVP 战斗开始等待秒数": STUCK_SECONDS,
                 "PVP 结算基准等待分钟": PVP_RESULT_BASE_MINUTES,
-                "PVP 离开等待秒数": STUCK_SECONDS,
+                "PVP 离开等待秒数": LOADING_MAX_SECONDS,
                 "PVP 返回箱庭等待秒数": 10.0,
                 "PVP 返回主页等待秒数": STUCK_SECONDS,
                 "快速切换按钮阈值": 0.88,
@@ -327,7 +335,7 @@ class PVPTask(BaseBD2Task):
                 "战斗场数": "1",
                 "PVP 定位修正阈值": 0.76,
                 "loading 出现等待秒数": 6.0,
-                "loading 消失等待秒数": STUCK_SECONDS,
+                "loading 消失等待秒数": LOADING_MAX_SECONDS,
             }
         )
         self.config_type.update(
@@ -491,7 +499,7 @@ class PVPTask(BaseBD2Task):
             self.log_info("镜中之战：点了镜中之战卡带还停在游戏卡珍藏集，再点一次。")
             self._click_reference(*point, after_sleep=0.0)
         if self._wait_for_pvp_hub_after_cart(
-            timeout=capped(self.config.get("PVP 入场等待秒数", STUCK_SECONDS)),
+            timeout=self._load_seconds("PVP 入场等待秒数"),
         ):
             self._clear_pvp_hub_notice_if_present()
             return True
@@ -719,12 +727,19 @@ class PVPTask(BaseBD2Task):
 
     def _wait_for_cartridge_home(self, interval: float = 0.35) -> bool:
         self.info_set("当前阶段", "确认主页")
-        end_at = monotonic() + float(self.config.get("主页确认等待秒数", 10.0))
+        # Home may still be loading (back from PVP or a field): a load wait
+        # (Leo 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).
+        wait = load_wait(monotonic(), float(self.config.get("主页确认等待秒数", 10.0)))
         last_left_hits = 0
         last_p95 = 0.0
         last_gacha_text = ""
-        while monotonic() <= end_at:
+        while True:
             frame = self.capture_frame()
+            if is_loading_dark(frame):
+                if wait.over(frame, monotonic(), loading=True):
+                    break
+                self.sleep(interval)
+                continue
             home_ok, last_left_hits, last_p95, gacha_text = (
                 self._home_confirmation_signals(frame)
             )
@@ -748,6 +763,8 @@ class PVPTask(BaseBD2Task):
                 gacha_ocr_text=gacha_text,
                 context="镜中之战确认主页",
             )
+            if wait.over(frame, monotonic()):
+                break
             self.sleep(interval)
 
         self.log_info(
@@ -762,8 +779,11 @@ class PVPTask(BaseBD2Task):
         timeout: float,
         interval: float = 0.5,
     ) -> bool:
-        """Handle every PVP entry special page before accepting the PVP hub."""
-        end_at = monotonic() + max(0.0, timeout)
+        """Handle every PVP entry special page before accepting the PVP hub.
+
+        The PVP field comes after a loading screen: a load wait (Leo
+        2026-10-15 「你單純等載入怎麼可以改成只等10秒」), see load_wait."""
+        wait = load_wait(monotonic(), timeout)
         handled: set[str] = set()
         action_count = 0
         last_text = ""
@@ -776,9 +796,9 @@ class PVPTask(BaseBD2Task):
 
         while True:
             now = monotonic()
-            if now > end_at:
-                break
             frame = self.capture_frame()
+            if wait.over(frame, now, loading=is_loading_dark(frame)):
+                break
             boxes = self._pvp_special_page_ocr_boxes(
                 frame,
                 name="PVP 入场特殊页面",
@@ -1775,9 +1795,11 @@ class PVPTask(BaseBD2Task):
         ]
 
     def _click_leave_button(self) -> bool:
-        end_at = monotonic() + capped(self.config.get("PVP 离开等待秒数", STUCK_SECONDS))
+        # The result page comes after the battle ends: a load wait (Leo
+        # 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).
+        wait = load_wait(monotonic(), self._load_seconds("PVP 离开等待秒数"))
         last_text = ""
-        while monotonic() <= end_at:
+        while True:
             frame = self.capture_frame()
             combined_text, matched_point = self._leave_button_ocr(frame)
             last_text = combined_text or last_text
@@ -1790,6 +1812,8 @@ class PVPTask(BaseBD2Task):
                 self._click_frame_point(frame, matched_point, after_sleep=2.0)
                 return True
 
+            if wait.over(frame, monotonic(), loading=is_loading_dark(frame)):
+                break
             self.sleep(0.5)
 
         self.info_set("PVP 离开 OCR", last_text or "-")
@@ -2080,10 +2104,27 @@ class PVPTask(BaseBD2Task):
         self.info_set("PVP 返回主页", "通过" if home_ok else "失败")
         return home_ok
 
+    def _load_seconds(self, key: str) -> float:
+        """A load wait's saved seconds, never under LOADING_MAX_SECONDS."""
+        try:
+            seconds = float(self.config.get(key, LOADING_MAX_SECONDS))
+        except (TypeError, ValueError):
+            seconds = LOADING_MAX_SECONDS
+        return max(seconds, LOADING_MAX_SECONDS)
+
     def _wait_for_home(self, timeout: float, interval: float = 0.5) -> bool:
-        end_at = monotonic() + max(0.0, timeout)
-        while monotonic() <= end_at:
+        # The PVP exit loading does not count towards ``timeout``, up to
+        # LOADING_MAX_SECONDS (Leo 2026-10-15 「你單純等載入怎麼可以改成只等
+        # 10秒」).  Only the loading screen stretches it: the PVP field keeps
+        # moving, and a swallowed back press is retried after half the time.
+        wait = ProgressWait(monotonic(), stuck=max(0.0, timeout), cap=max(timeout, LOADING_MAX_SECONDS))
+        while True:
             frame = self.capture_frame()
+            if is_loading_dark(frame):
+                if wait.over(None, monotonic(), loading=True):
+                    return False
+                self.sleep(interval)
+                continue
             home_ok, left_hits, p95_brightness, gacha_text = (
                 self._home_confirmation_signals(frame)
             )
@@ -2106,8 +2147,10 @@ class PVPTask(BaseBD2Task):
                 gacha_ocr_text=gacha_text,
                 context="PVP 返回主页",
             )
+            # No picture: only the loading screen above resets the count.
+            if wait.over(None, monotonic()):
+                return False
             self.sleep(interval)
-        return False
 
     def _home_confirmation_signals(self, frame) -> tuple[bool, int, float, str]:
         left_text = self._ocr_text(
@@ -2352,7 +2395,8 @@ class PVPTask(BaseBD2Task):
         if not found_loading:
             return
 
-        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
+        # Only the loading screen is waited for here (Leo 2026-10-15).
+        end_at = monotonic() + self._load_seconds("loading 消失等待秒数")
         while monotonic() <= end_at:
             frame = self.capture_frame()
             result = self._match(frame, LOADING_TEMPLATE)

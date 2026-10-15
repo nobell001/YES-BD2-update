@@ -92,6 +92,8 @@ def parse_used_limit(text: str, known_limit: int | None = None) -> tuple[int, in
     if match is None:
         # OCR can read the slash as "1" ("7/70" -> "7170", live 2026-09-28):
         # with the skill's known daily limit the digits split before it.
+        # Anything else ("11775", live 4K 2026-10-14) is refused and read
+        # again, never guessed.
         digits = re.sub(r"\D", "", str(text))
         tail = str(known_limit) if known_limit else ""
         if tail and len(digits) > len(tail) and digits.endswith(tail):

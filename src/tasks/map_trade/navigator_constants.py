@@ -302,8 +302,19 @@ SHOP_CLOSE_CLICK_INTERVAL = 0.3
 # 实机核对折扣商店关闭按钮回退落点前，按 1280×720 参考理解本值。
 DISCOUNT_SHOP_CLOSE_CONTROL_REFERENCE_POINT = (82, 36)
 DISCOUNT_SHOP_CLOSE_CONTROL_TEMPLATES = (
+    # The current top-left back pill (live 4K 2026-10-14, same as the home
+    # page's): the two older pictures never matched, every close went to
+    # the fixed point.
     TemplateSpec(
         "折扣商店关闭按钮",
+        "TopLeftBackPill.png",
+        0.85,
+        min_pixel_score=0.80,
+        min_zncc_score=0.80,
+        relative_roi=(0.0, 0.0, 0.2, 0.18),
+    ),
+    TemplateSpec(
+        "折扣商店关闭按钮旧",
         "image/EquipMenuQuit.png",
         0.85,
         min_pixel_score=0.85,
@@ -322,8 +333,20 @@ DISCOUNT_SHOP_CLOSE_CONTROL_TEMPLATES = (
 # Relative template ROIs are always fractional left/top/right/bottom bounds.
 CHAPTER_HOME_RELATIVE_ROI = (0.86, 0.0, 1.0, 0.18)
 CHAPTER_HOME_TEMPLATES = (
+    # The current button (live 4K 2026-10-14): the three older pictures no
+    # longer match anywhere (best 0.45-0.57 at 4K and 1080p), so every press
+    # went to the fixed point.  Only the house's lower part: a yellow "!"
+    # sometimes sits on its roof.
     TemplateSpec(
         "箱庭主页按钮",
+        "SandboxHomeHouse.png",
+        0.85,
+        min_pixel_score=0.80,
+        min_zncc_score=0.80,
+        relative_roi=CHAPTER_HOME_RELATIVE_ROI,
+    ),
+    TemplateSpec(
+        "箱庭主页按钮旧",
         "image/MapUI_HomeBtum.png",
         0.85,
         min_pixel_score=0.85,
@@ -964,6 +987,17 @@ TELEPORT_MAP_FIRST_PAGE_LIMIT = AREA_MAP_SCAN_LIMIT
 # Pages flipped in one direction while looking for a map by name (chapter 18
 # has 10 pages; a flip that changes nothing ends the direction early).
 TELEPORT_MAP_SEEK_LIMIT = 12
+# Teleport-map page order (left to right) by target key, for cards whose
+# pages do not follow ``card.targets`` (safe zone first).  Nightmare Winter's
+# safe zone 雷瓦汀据点 is the LAST page, so from it the battle maps are to the
+# left (Leo 2026-10-15 「活動卡帶第2的安全區是第三張地圖 要切換的時候螢幕不要再點
+# 右邊箭頭了」; live 2K 2026-10-15 pressed right twice there for ~20 s).
+TELEPORT_PAGE_ORDER: dict[str, tuple[str, ...]] = {
+    "Q_ep2": ("battle_area_1", "battle_area_2", "main_area"),
+}
+# Same-page reads showing only the other arrow that make a blind press (the
+# arrow was not seen, so its fixed place was pressed) the end of the list.
+TELEPORT_PAGE_END_READS = 2
 # The field minimap: ⊕ at its lower right when small, ⊖ when enlarged (user
 # demo 2026-09-28).  Enlarged, the ✦/◎/💀 panel under it is hidden, so
 # trade and collection switch it back to small first.

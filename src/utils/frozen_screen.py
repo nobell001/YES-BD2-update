@@ -11,6 +11,10 @@ Game screens move (idle animation, particles, loading spinners), so a picture
 that stays the same while the tool waits means nothing is coming.  Captures
 further apart than FROZEN_GAP_SECONDS (a pause, a long sleep) start the count
 over: only time spent looking counts.
+
+Leo 2026-10-15 「我說的10秒是卡死 或者辨識不到」「注意其他等載入的地方不要只有
+10秒」: a black loading screen is the game working, not stuck; it is watched
+up to LOADING_MAX_SECONDS instead.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from time import monotonic
 import cv2
 import numpy as np
 
-from src.utils.wait_limits import STUCK_SECONDS
+from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark
 
 # Leo 2026-10-14 「頂多等8秒到10秒」: was 15 s.  A slow-PC re-look
 # (SLOW_PC_GRACE_SECONDS, 5 s) still fits.
@@ -32,6 +36,10 @@ THUMB_SIZE = (192, 108)
 # pixels of the thumbnail make a changed screen (a small spinner is enough).
 PIXEL_DIFF = 6
 CHANGED_PIXELS = 4
+# Presses in a row that left the screen exactly as it was (Leo 2026-10-14:
+# the login's clear spot was pressed 29 times under a 恭喜晋级 page that only
+# its 确认 closes).  From this many on, a known popup is looked for first.
+INEFFECTIVE_PRESSES = 3
 
 
 class FrozenScreen(Exception):
@@ -67,10 +75,29 @@ class FrozenWatch:
     seen: float = 0.0
     paused: int = 0
     fired: bool = False
+    last: np.ndarray | None = None
+    at_last_press: np.ndarray | None = None
+    last_point: tuple | None = None
+    ineffective: int = 0
 
-    def pressed(self) -> None:
-        """The tool pressed or typed something: count from the next look."""
+    def pressed(self, point: tuple | None = None) -> None:
+        """The tool pressed or typed something: count from the next look.
+
+        Also counts clicks in a row on the same spot whose screen before was
+        the same as at the click before (nothing they did changed it)."""
         self.picture = None
+        if (
+            point is not None
+            and point == self.last_point
+            and self.last is not None
+            and self.at_last_press is not None
+            and not changed(self.last, self.at_last_press)
+        ):
+            self.ineffective += 1
+        else:
+            self.ineffective = 0
+        self.at_last_press = self.last
+        self.last_point = point
 
     def look(self, frame, now: float | None = None) -> None:
         """Raise FrozenScreen once the screen has been still long enough."""
@@ -82,6 +109,7 @@ class FrozenWatch:
         picture = thumbnail(frame)
         if picture is None:
             return
+        self.last = picture
         if (
             self.picture is None
             or now - self.seen > FROZEN_GAP_SECONDS
@@ -89,6 +117,12 @@ class FrozenWatch:
         ):
             self.picture, self.since = picture, now
         self.seen = now
-        if now - self.since >= self.seconds:
+        # The black loading screen (a faint logo at most) may stand still
+        # for longer than a stuck page (Leo 2026-10-15 「一定會超過10秒甚至15秒」).
+        loading = is_loading_dark(picture[..., None])
+        limit = max(self.seconds, LOADING_MAX_SECONDS) if loading else self.seconds
+        if now - self.since >= limit:
             self.fired = True
+            if loading:
+                raise FrozenScreen(f"加载画面 {limit:.0f} 秒没有结束")
             raise FrozenScreen()

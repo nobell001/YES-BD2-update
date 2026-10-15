@@ -44,7 +44,7 @@ from src.utils.stage_walk import (
     plan_step,
     predict_after_step,
 )
-from src.utils.wait_limits import STUCK_SECONDS, StillTimer
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer, is_loading_dark, load_wait
 
 # Click-to-move: clicks on the marker, each followed by a wait for the
 # character to walk onto it and the 末日之书 page to open.
@@ -114,7 +114,8 @@ BATTLE_TIMEOUT_SECONDS = 120.0
 # that timed out may still be running, so give it a full battle length
 # (again only while the screen moves).
 RESULT_CLEANUP_SECONDS = BATTLE_TIMEOUT_SECONDS
-# Waits for the field, a page or 主页 after a press (were 20-40 s).
+# Waits for the field, a page or 主页 after a press (were 20-40 s); one that
+# spans a loading screen runs up to LOADING_MAX_SECONDS (see _wait_for).
 PAGE_WAIT_SECONDS = STUCK_SECONDS
 # After 去战斗: how long the page may stay before the click counts as lost.
 GO_BATTLE_LEAVE_SECONDS = 9.0
@@ -306,12 +307,21 @@ class DoomBookTask(_ClaimTaskBase):
         return False
 
     def _wait_for(self, check, timeout: float, interval: float = 0.6) -> bool:
+        # A full-length wait follows a press that loads (a cartridge, the
+        # field after 离开, 主页): a load wait (Leo 2026-10-15 「你單純等載入
+        # 怎麼可以改成只等10秒」).  A shorter one is a quick look.
         end_at = monotonic() + timeout
-        while monotonic() <= end_at:
-            if check(self.capture_frame()):
+        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
+        while True:
+            frame = self.capture_frame()
+            if check(frame):
                 return True
+            if wait is not None:
+                if wait.over(frame, monotonic(), loading=is_loading_dark(frame)):
+                    return False
+            elif monotonic() > end_at:
+                return False
             self.sleep(interval)
-        return False
 
     # -- steps ---------------------------------------------------------------------
 

@@ -53,7 +53,7 @@ from src.utils.image_utils import (
     stabilize_template_match,
 )
 from src.utils.ocr_utils import normalize_ocr_text
-from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped, is_loading_dark, load_wait
 
 REFERENCE_WIDTH = FHD_1080.width
 REFERENCE_HEIGHT = FHD_1080.height
@@ -252,7 +252,7 @@ class SquareGoddessTask(BaseBD2Task):
         self.info_set("广场主页点击次数", f"1/{max_clicks}")
         self.operate_click(*SQUARE_HOME_POINT, after_sleep=1.0)
         return self._wait_for_cartridge_home(
-            timeout=capped(self.config.get("广场返回主页等待秒数", STUCK_SECONDS)),
+            timeout=float(self.config.get("广场返回主页等待秒数", STUCK_SECONDS)),
             retry_home_clicks=max_clicks - 1,
             retry_interval=retry_interval,
             total_home_clicks=max_clicks,
@@ -301,8 +301,9 @@ class SquareGoddessTask(BaseBD2Task):
 
         if self._wait_for_template(
             FANTASIA_SQUARE_TEMPLATE,
-            timeout=capped(self.config.get("广场入场等待秒数", STUCK_SECONDS)),
+            timeout=float(self.config.get("广场入场等待秒数", STUCK_SECONDS)),
             name="梦幻广场",
+            arrival=True,
         ):
             return True
 
@@ -311,8 +312,9 @@ class SquareGoddessTask(BaseBD2Task):
         ) is CartridgeSpecialPageResult.HANDLED:
             return self._wait_for_template(
                 FANTASIA_SQUARE_TEMPLATE,
-                timeout=capped(self.config.get("广场入场等待秒数", STUCK_SECONDS)),
+                timeout=float(self.config.get("广场入场等待秒数", STUCK_SECONDS)),
                 name="梦幻广场",
+                arrival=True,
             )
 
         return False
@@ -332,6 +334,9 @@ class SquareGoddessTask(BaseBD2Task):
             else max(0.0, float(timeout))
         )
         end_at = monotonic() + wait_seconds
+        # Leaving the square loads (Leo 2026-10-15 「你單純等載入怎麼可以改成只等
+        # 10秒」): a full wait does not end while the screen is loading.
+        wait = load_wait(monotonic(), wait_seconds) if wait_seconds >= STUCK_SECONDS else None
         last_left_hits = 0
         last_p95 = 0.0
         last_gacha_text = ""
@@ -347,7 +352,7 @@ class SquareGoddessTask(BaseBD2Task):
             if remaining_home_clicks > 0
             else float("inf")
         )
-        while monotonic() <= end_at:
+        while wait is not None or monotonic() <= end_at:
             frame = self.capture_frame()
             left_text = self._ocr_text(
                 frame,
@@ -425,6 +430,8 @@ class SquareGoddessTask(BaseBD2Task):
                     self.tap_key(SQUARE_HOME_KEY, after_sleep=1.0)
                 next_home_retry_at = monotonic() + retry_interval
                 continue
+            if wait is not None and wait.over(frame, monotonic(), loading=is_loading_dark(frame)):
+                break
             self.sleep(interval)
 
         self.log_info(
@@ -995,7 +1002,10 @@ class SquareGoddessTask(BaseBD2Task):
         timeout: float,
         name: str,
         interval: float = 0.35,
+        arrival: bool = False,
     ) -> bool:
+        if arrival:
+            return self._wait_for_square_arrival(spec, name, interval, timeout)
         end_at = monotonic() + max(0.0, timeout)
         last_score = -1.0
         while monotonic() <= end_at:
@@ -1007,6 +1017,37 @@ class SquareGoddessTask(BaseBD2Task):
                 return True
             self.sleep(interval)
 
+        self.info_set(name, f"{last_score:.3f}")
+        return False
+
+    def _wait_for_square_arrival(
+        self, spec: TemplateSpec, name: str, interval: float, timeout: float = STUCK_SECONDS
+    ) -> bool:
+        """The square after its cartridge is clicked.  Loading does not count
+        as stuck, only a still screen that is not the square does (Leo
+        2026-10-15 「我說的10秒是卡死 或者辨識不到」).  2K 10-15: the square
+        came 11 s after the click and 「向女神像许愿」 was already up while its
+        picture had not matched yet, so the wish prompt counts as arrived."""
+        wait = load_wait(monotonic(), timeout)
+        last_score = -1.0
+        while True:
+            frame = self.capture_frame()
+            result = self._match(frame, spec)
+            last_score = result.score
+            self.info_set(name, f"{result.score:.3f}")
+            if self._passes(result, spec):
+                return True
+            loading = is_loading_dark(frame)
+            if not loading:
+                point, _text = self._ocr_pattern_click_point(
+                    frame, GODDESS_PRAY_PATTERNS, name="女神像许愿", roi=None
+                )
+                if point is not None:
+                    self.log_info("广场女神像：广场图没对上，但「向女神像许愿」已经在画面上，算已进入广场。")
+                    return True
+            if wait.over(frame, monotonic(), loading=loading):
+                break
+            self.sleep(interval)
         self.info_set(name, f"{last_score:.3f}")
         return False
 

@@ -34,7 +34,7 @@ from src.utils.known_popups import (  # noqa: F401 - re-exported for the tasks
 )
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
-from src.utils.wait_limits import STUCK_SECONDS, capped
+from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait
 
 # 1920x1080 reference coordinates, calibrated on the 简体 client 2026-09-25.
 BACK_BUTTON_POINT = (150, 50)
@@ -129,7 +129,7 @@ class ClaimPageMixin(TaskVisionMixin):
             "启用": True,
             "日常 OCR 阈值": 0.2,
             "主页确认等待秒数": 10.0,
-            "页面等待秒数": STUCK_SECONDS,
+            "页面等待秒数": LOADING_MAX_SECONDS,
             "领取结果等待秒数": 10.0,
         }
 
@@ -391,12 +391,20 @@ class ClaimPageMixin(TaskVisionMixin):
         timeout: float | None = None,
         quiet: bool = False,
     ) -> bool:
-        if timeout is None:
-            timeout = capped(self.config.get("页面等待秒数", STUCK_SECONDS))
+        # The page after an entry press comes after a loading screen: a load
+        # wait (Leo 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).
+        wait = None
         started = monotonic()
+        if timeout is None:
+            try:
+                timeout = float(self.config.get("页面等待秒数", LOADING_MAX_SECONDS))
+            except (TypeError, ValueError):
+                timeout = LOADING_MAX_SECONDS
+            wait = load_wait(started, timeout)
+            timeout = max(timeout, LOADING_MAX_SECONDS)
         end_at = started + timeout
         last_text, same_since = None, started
-        while monotonic() <= end_at:
+        while True:
             frame = self.capture_frame()
             text = self._page_title_text(frame, label)
             if self._title_matches(text, title_keywords):
@@ -412,6 +420,15 @@ class ClaimPageMixin(TaskVisionMixin):
                 last_text, same_since = text, now
             elif text and now - same_since >= STUCK_TITLE_SECONDS:
                 self.log_info(f"{label}：画面停在「{text}」{STUCK_TITLE_SECONDS:.0f}秒未变化，停止等待。")
+                break
+            if wait is not None:
+                if wait.over(
+                    frame,
+                    now,
+                    loading=self._passes(loading, LOADING_TEMPLATE) or is_loading_dark(frame),
+                ):
+                    break
+            elif now > end_at:
                 break
             self.sleep(0.5)
         if not quiet:

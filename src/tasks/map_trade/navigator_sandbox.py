@@ -136,6 +136,8 @@ from src.tasks.map_trade.navigator_constants import (
     TELEPORT_MAP_TITLE_OCR_RELATIVE_ROI,
     TELEPORT_LOADING_DARK_P95,
     TELEPORT_MAP_TRAVEL_SETTLE_SECONDS,
+    TELEPORT_PAGE_END_READS,
+    TELEPORT_PAGE_ORDER,
     TOWN_NPC_NAV_ENTRY,
     TRADE_CARD_SANDBOX_HITS,
     WALK_CAUGHT_KEYWORDS,
@@ -2214,7 +2216,9 @@ class SandboxNavigationMixin:
 
         if context.resolved_target_key == target.key:
             return context
-        keys = [item.key for item in card.targets]
+        # Page order, not collection order: Q_ep2's safe zone is the last
+        # page, so its battle maps are to the left (Leo 2026-10-15).
+        keys = list(self._collection_page_order(card))
         if context.resolved_target_key in keys:
             ahead = keys.index(target.key) > keys.index(context.resolved_target_key)
             directions = ("right", "left") if ahead else ("left", "right")
@@ -2241,6 +2245,17 @@ class SandboxNavigationMixin:
             ScreenState.AREA_MAP,
             f"传送阵地图左右翻页都未找到{target.title}：last={start.raw_text or '-'}",
         )
+
+    @staticmethod
+    def _collection_page_order(card: CardSpec) -> tuple[str, ...]:
+        """The card's target keys in teleport-map page order (left to right):
+        ``card.targets`` (safe zone first) unless TELEPORT_PAGE_ORDER says
+        otherwise (Q_ep2's safe zone is the last page, Leo 2026-10-15)."""
+        keys = tuple(item.key for item in card.targets)
+        order = TELEPORT_PAGE_ORDER.get(card.card_id)
+        if order and sorted(order) == sorted(keys):
+            return order
+        return keys
 
     def _reset_collection_teleport_map_to_main(
         self,
@@ -2991,6 +3006,22 @@ class SandboxNavigationMixin:
         context: AreaMapContext,
         direction: str,
     ) -> AreaMapContext | None:
+        label = f"区域地图{'向右' if direction == 'right' else '向左'}翻页"
+        if self._area_map_page_end(context, direction):
+            # Only the other arrow shows: this is the end of the list, and
+            # pressing the missing arrow's place cost ~20 s on Q_ep2's last
+            # page (Leo 2026-10-15 「活動卡帶第2的安全區是第三張地圖 要切換的時候
+            # 螢幕不要再點右邊箭頭了」).  One more read first, as an arrow can
+            # still be fading in right after a page turn.
+            state, fresh = self._area_map_page_state(card, context)
+            if state == "unknown":
+                return None
+            if state == "moved":
+                return fresh  # a late turn landed meanwhile: that is the move
+            if self._area_map_page_end(fresh, direction):
+                self._status("区域地图", f"{label}：这一侧没有箭头，已是尽头，不按")
+                return None
+            context = fresh
         arrow = context.right_arrow if direction == "right" else context.left_arrow
         if arrow is not None:
             center = arrow.center
@@ -3003,18 +3034,28 @@ class SandboxNavigationMixin:
             center = (round(x * width / 1920), round(y * height / 1080))
         else:
             return None
+        blind = arrow is None
         pages: list[AreaMapContext] = []
+        end_reads: list[AreaMapContext] = []
 
         def moved() -> bool:
             state, current = self._area_map_page_state(card, context)
             if state == "moved":
                 pages.append(current)
-            return state == "moved"
+                return True
+            # A blind press (no arrow seen, e.g. read before the arrows were
+            # drawn, live 2K 2026-10-15) ends early once the unchanged page
+            # shows only the other arrow, instead of waiting out two presses.
+            if blind and state == "same" and self._area_map_page_end(current, direction):
+                end_reads.append(current)
+                return len(end_reads) >= TELEPORT_PAGE_END_READS
+            end_reads.clear()
+            return False
 
         # One dropped press read as the end of the list and turned the seek
         # round (or failed it): pressed once more while the page stays.
         flipped = press_and_confirm(
-            f"区域地图{'向右' if direction == 'right' else '向左'}翻页",
+            label,
             lambda: self.vision.click_client(
                 center,
                 context.frame_shape,
@@ -3027,7 +3068,18 @@ class SandboxNavigationMixin:
             sleep=self.task.sleep,
             log=lambda message: self._status("区域地图", message),
         )
+        if flipped and not pages:
+            self._status("区域地图", f"{label}：页面没变且这一侧没有箭头，已是尽头")
+            return None
         return pages[-1] if flipped else None
+
+    @staticmethod
+    def _area_map_page_end(context: AreaMapContext, direction: str) -> bool:
+        """The page shows the other arrow but not ``direction``'s: the end of
+        the list that way (both missing says nothing: bright pages hide them)."""
+        if direction == "right":
+            return context.right_arrow is None and context.left_arrow is not None
+        return context.left_arrow is None and context.right_arrow is not None
 
     def _close_area_map(self, context: AreaMapContext) -> NavigationResult:
         if not context.map_page_mode.is_teleport_map:

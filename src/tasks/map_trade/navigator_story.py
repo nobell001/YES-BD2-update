@@ -157,6 +157,9 @@ FIELD_QUICK_SWITCH_KEY_CONFIRM_SECONDS = 5.0
 # Wheel notches that move a card cut off at the quick bar's edge inward.
 CARD_EDGE_SCROLL_ATTEMPTS = 2
 # Quick-bar swipe (1920x1080 reference): hold the right half, slide left.
+# A sweep look whose art fails while the bar's numbers put the card in view
+# goes on to the badge look, at most this many times a search (4K 2026-10-14).
+STORY_ART_NEAR_BADGE_LOOKS = 2
 STORY_BAR_SWIPE_Y = 960
 STORY_BAR_SWIPE_RIGHT_X = 1500
 STORY_BAR_SWIPE_LEFT_X = 600
@@ -1925,6 +1928,7 @@ class StoryCardNavigationMixin:
         """Find one story badge, using the quick bar's mouse-wheel direction."""
 
         last_reason = "未执行识别"
+        near_badge_looks = 0
 
         def scan_current_page() -> tuple[np.ndarray, StoryBadgeDetection] | None:
             nonlocal last_reason
@@ -1938,10 +1942,22 @@ class StoryCardNavigationMixin:
         def look_by_art() -> tuple[np.ndarray, StoryBadgeDetection] | None:
             # The cover art alone: quick (0.1-0.4 s) and in any bar order,
             # unlike the badge templates (1.5-9 s a look at 2K).
+            nonlocal near_badge_looks
             frame = self.vision.capture()
             detection, reason = self._find_story_card_by_art(frame, target_number)
             if detection is None:
                 self._status("剧情卡带图片", f"{target_number}: {reason}")
+                if near_badge_looks < STORY_ART_NEAR_BADGE_LOOKS:
+                    # The numbers on the bar put the card in view: the badge
+                    # settles it here instead of the bar sliding on (live 4K
+                    # 2026-10-14: card 16 in view at art 0.63-0.70, 12 wheel
+                    # moves and 22 s).  The art score alone cannot tell (cards
+                    # off screen scored 0.70-0.74 too).
+                    offset = self._story_bar_offset(frame)
+                    x = None if offset is None else self._story_card_x(offset, target_number)
+                    if x is not None and STORY_BAR_VIEW_LEFT <= x <= STORY_BAR_VIEW_RIGHT:
+                        near_badge_looks += 1
+                        return scan_current_page()
                 return None
             return seen(frame, detection)
 

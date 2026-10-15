@@ -3,6 +3,11 @@ from __future__ import annotations
 from qfluentwidgets import FluentIcon
 
 from src.tasks.map_trade.collector import Collector
+from src.tasks.map_trade.collector_skills import (
+    SKILL_INTERVAL_DEFAULT,
+    SKILL_INTERVAL_KEY,
+    SKILL_INTERVAL_RANGE,
+)
 from src.tasks.map_trade.navigator import Navigator
 from src.tasks.map_trade.progress import ProgressStore
 from src.tasks.map_trade.vision import Vision
@@ -11,7 +16,7 @@ from src.tasks.MapTradeTask import (
     MAP_VISION_THRESHOLD_KEY,
     MapAutomationTaskBase,
 )
-from src.utils.wait_limits import STUCK_SECONDS
+from src.utils.wait_limits import LOADING_MAX_SECONDS
 
 
 class MapCollectionTask(MapAutomationTaskBase):
@@ -93,10 +98,11 @@ class MapCollectionTask(MapAutomationTaskBase):
                 "执行地图采集": True,
                 MAP_VISION_THRESHOLD_KEY: 0.72,
                 MAP_OCR_THRESHOLD_KEY: 0.20,
-                "加载页面等待秒数": STUCK_SECONDS,
+                "加载页面等待秒数": LOADING_MAX_SECONDS,
                 "卡带单步重试次数": 2,
                 "本次最多卡带数": 0,
                 "跑图章节": "全部",
+                SKILL_INTERVAL_KEY: SKILL_INTERVAL_DEFAULT,
             }
         )
         self.config_description.update(
@@ -111,6 +117,10 @@ class MapCollectionTask(MapAutomationTaskBase):
                 "卡带单步重试次数": "单张卡带进入或单步操作失败时的尝试次数。",
                 "本次最多卡带数": "本次运行最多完成几张卡带；0 表示直到今日技能次数用完。",
                 "跑图章节": "只跑这些章节，例如 8-13 或 1,3,5，角色卡 R1-R7，活动卡 E1-E7；全部 = 不限。",
+                SKILL_INTERVAL_KEY: (
+                    "吸收、召集、压制之间隔几秒再按下一个（0.5–2 秒）。"
+                    "电脑或网络较慢、技能常常没按上时调大。"
+                ),
             }
         )
         self.config_type.update(
@@ -123,6 +133,7 @@ class MapCollectionTask(MapAutomationTaskBase):
                             "加载页面等待秒数",
                             "卡带单步重试次数",
                             "本次最多卡带数",
+                            SKILL_INTERVAL_KEY,
                         ]
                     }
                 },
@@ -131,6 +142,11 @@ class MapCollectionTask(MapAutomationTaskBase):
                 "加载页面等待秒数": {"min": 10.0, "max": 120.0, "step": 1.0},
                 "卡带单步重试次数": {"min": 1, "max": 5},
                 "本次最多卡带数": {"min": 0, "max": 7},
+                SKILL_INTERVAL_KEY: {
+                    "min": SKILL_INTERVAL_RANGE[0],
+                    "max": SKILL_INTERVAL_RANGE[1],
+                    "step": 0.1,
+                },
             }
         )
 

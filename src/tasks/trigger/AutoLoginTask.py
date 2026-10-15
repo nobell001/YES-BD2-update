@@ -910,6 +910,11 @@ class AutoLoginTask(BaseBD2Task):
             # total wait budget must still end the clearing.
             self._login_clicked_at = now
         self._clear_clicks = getattr(self, "_clear_clicks", 0) + 1
+        # A dialog with its own button (镜中之战 恭喜晋级 … 确认, live 4K
+        # 2026-10-14) ignores the clear spot: 29 clicks until Leo closed it.
+        if self.close_known_popup("自动登录"):
+            self._last_clear_click_at = monotonic()
+            return
         if self._clear_clicks % CLEAR_CLICKS_BEFORE_RECOVERY == 0 and self._finish_by_recovery():
             return
         self._set_stage("清理公告")

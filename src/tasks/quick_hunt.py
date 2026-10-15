@@ -19,8 +19,9 @@ from src.utils.calibration import HD_720
 from src.utils.colour_rules import switch_yellow_ratio
 from src.utils.free_switch import ensure_free_switch_on
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
+from src.utils.ocr_numbers import pool_amount
 from src.utils.press_confirm import wait_for
-from src.utils.wait_limits import STUCK_SECONDS, capped
+from src.utils.wait_limits import LOADING_MAX_SECONDS, is_loading_dark, load_wait
 
 # Where the free rice goes (all of it, MAX), one setting per double case
 # (Leo 2026-10-12: 「金幣雙倍時 / 史萊姆雙倍時 / 皆雙倍時: [金幣][史萊姆][狩獵場]
@@ -82,8 +83,10 @@ def quick_hunt_cost(text: str) -> int | None:
 
 def quick_hunt_free_pool(text: str) -> int | None:
     """The free amount a of "a/b +5.6K"."""
-    matched = re.search(r"(\d{1,4})\s*[/／]\s*\d{1,4}", str(text))
-    return int(matched.group(1)) if matched else None
+    matched = re.search(r"(\d{1,4})\s*[/／]\s*(\d{1,4})", str(text))
+    if not matched:
+        return None
+    return pool_amount(int(matched.group(1)), int(matched.group(2)))
 
 
 def quick_hunt_stone_value(text: str) -> int | None:
@@ -306,7 +309,7 @@ class QuickHuntConfigMixin:
         '快速狩猎模板阈值': 0.78,
         '快速狩猎像素相似度阈值': 0.72,
         '快速狩猎界面等待秒数': 8.0,
-        '快速狩猎结算等待秒数': STUCK_SECONDS,
+        '快速狩猎结算等待秒数': LOADING_MAX_SECONDS,
         '快速狩猎入口测试': "",
         '快速狩猎菜单测试': "",
         '快速狩猎圣石测试': "",
@@ -669,12 +672,13 @@ class QuickHuntFeatureMixin:
         )
         return is_red, (x, y), bgr, hsv
 
-    def _quick_hunt_menu_shown(self, timeout: float) -> bool:
+    def _quick_hunt_menu_shown(self, timeout: float, load: bool = False) -> bool:
         text, _box = self._quick_hunt_wait_ocr(
             [r"狩猎场"],
             None,
             timeout,
             name="快速狩猎菜单确认",
+            load=load,
         )
         if not text:
             return False
@@ -716,7 +720,8 @@ class QuickHuntFeatureMixin:
                 # Neither 主页 nor the menu: most likely still loading (YES-BD2
                 # #8: 「画面还在转圈卡顿」).  Wait for the menu, press nothing.
                 self.log_info("快速狩猎：点了入口后画面还没出来，可能还在加载，再等一会。")
-                if self._quick_hunt_menu_shown(self._quick_hunt_ui_timeout()):
+                # Leo 2026-10-15 「你單純等載入怎麼可以改成只等10秒」: a load wait.
+                if self._quick_hunt_menu_shown(self._quick_hunt_ui_timeout(), load=True):
                     return "opened"
                 break
             self.log_info(f"快速狩猎：第{attempt}次点击入口后未确认狩猎菜单，重试。")
@@ -1234,8 +1239,14 @@ class QuickHuntFeatureMixin:
         return True
 
     def _quick_hunt_wait_result(self, stage: str) -> str:
-        end_at = monotonic() + capped(self.config.get("快速狩猎结算等待秒数", STUCK_SECONDS))
-        while monotonic() <= end_at:
+        # The result comes after the hunt's own loading: a load wait (Leo
+        # 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).
+        try:
+            seconds = float(self.config.get("快速狩猎结算等待秒数", LOADING_MAX_SECONDS))
+        except (TypeError, ValueError):
+            seconds = LOADING_MAX_SECONDS
+        wait = load_wait(monotonic(), seconds)
+        while True:
             frame = self.capture_frame()
             reward_text = self._quick_hunt_ocr_text(
                 frame,
@@ -1256,6 +1267,8 @@ class QuickHuntFeatureMixin:
             ):
                 self._click_mf_reference(1, 1, after_sleep=0.5)
                 return "depleted"
+            if wait.over(frame, monotonic(), loading=is_loading_dark(frame)):
+                break
             self.sleep(0.5)
         self.log_info(f"快速狩猎：{stage}等待结算超时。")
         return "failed"
@@ -1462,11 +1475,14 @@ class QuickHuntFeatureMixin:
         roi: tuple[float, float, float, float] | None,
         timeout: float,
         name: str,
+        load: bool = False,
     ) -> tuple[str, object | None]:
+        """``load``: the text comes after a loading screen (load_wait)."""
         compiled = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
         end_at = monotonic() + max(0.0, timeout)
+        wait = load_wait(monotonic(), timeout) if load else None
         last_text = ""
-        while monotonic() <= end_at:
+        while True:
             frame = self.capture_frame()
             boxes = self._quick_vision().ocr_boxes(frame, name, relative_roi=roi)
             text = " ".join(str(getattr(box, "name", "")) for box in boxes)
@@ -1479,6 +1495,11 @@ class QuickHuntFeatureMixin:
                     return text, box
             if any(pattern.search(normalized) for pattern in compiled):
                 return text, None
+            if wait is not None:
+                if wait.over(frame, monotonic(), loading=is_loading_dark(frame)):
+                    break
+            elif monotonic() > end_at:
+                break
             self.sleep(0.4)
         self.log_info(
             f"快速狩猎：{name} 超时，最后一次 OCR={last_text or '-'}。"

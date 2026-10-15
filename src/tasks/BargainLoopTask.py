@@ -23,7 +23,7 @@ from src.tasks.map_trade.navigator_trade import (
     BARGAIN_UPGRADE_MESSAGE,
 )
 from src.tasks.map_trade.vision import Vision
-from src.utils.wait_limits import STUCK_SECONDS
+from src.utils.wait_limits import LOADING_MAX_SECONDS
 
 LOOP_COUNT_KEY = "循环次数"
 DEFAULT_LOOPS = 10
@@ -72,7 +72,7 @@ class BargainLoopTask(MapAutomationTaskBase):
                 LOOP_COUNT_KEY: DEFAULT_LOOPS,
                 TRADE_VISION_THRESHOLD_KEY: 0.72,
                 TRADE_OCR_THRESHOLD_KEY: 0.20,
-                "加载页面等待秒数": STUCK_SECONDS,
+                "加载页面等待秒数": LOADING_MAX_SECONDS,
             }
         )
         self.config_description.update(

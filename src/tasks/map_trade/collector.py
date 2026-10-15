@@ -97,6 +97,7 @@ class Collector(SkillExecutionMixin):
         # card_id -> where and why a skill could not be confirmed (Leo
         # 2026-10-12: skip the card, but the report must say where).
         self._skill_skips: dict[str, str] = {}
+        self._unconfirmed_cards: set[str] = set()
         try:
             return self._with_skipped_cards(self._run_collection())
         except RuntimeError as exc:
@@ -185,6 +186,8 @@ class Collector(SkillExecutionMixin):
                     message="今日剩余吸取/召集/压制次数不足以安全完成下一张卡带",
                 )
 
+            # What _skip_card needs to tell whether a later card follows.
+            self._follow_args = (cards_this_run, card_limit, allowed)
             selected = None
             for _attempt in range(card_retries):
                 selected = self.navigator.select_collection_card(
@@ -552,7 +555,13 @@ class Collector(SkillExecutionMixin):
         None = go on; a result = stop, home was not reached."""
         self._skipped_cards.append(card)
         self.task.log_warning(f"地图采集：{card.label}{reason}，先跳过，继续下一张。")
-        self._restore_skill_group()
+        # A skipped card keeps the collection group too when a later card
+        # follows (Leo 2026-10-15 「一張卡帶跑完都會把技能欄切成錯的 下張圖又
+        # 切回來」: 2K, Q_cp7 skipped → group 3, Q_ep1 → group 2 again).  If
+        # none is entered after all, the run's end puts it back.
+        follow = getattr(self, "_follow_args", None)
+        if follow is None or not self._another_card_follows(card, *follow):
+            self._restore_skill_group()
         returned = self.navigator.return_home()
         if returned.success:
             return None
@@ -599,18 +608,32 @@ class Collector(SkillExecutionMixin):
         self._record_skill_failure(card.card_id, stage, result)
         problem = f"{stage}技能操作失败" + (f"：{result.message}" if result.message else "")
         self._skill_skips.setdefault(card.card_id, problem)
+        if self._press_probably_taken(result):
+            self._unconfirmed_cards.add(card.card_id)
         return self._skip_card(card, problem, completed_this_run)
+
+    @staticmethod
+    def _press_probably_taken(result: SkillExecutionResult) -> bool:
+        """The icon went grey after the press, only its count or toast could
+        not be read: most likely done, just not proven (live 4K 2026-10-14,
+        压制 11/75 read as 11775).  Leo: 「確定沒做」 and 「沒法確認」 are told
+        apart, and the second does not fail the whole run."""
+        return "icon=available->used" in str(result.message or "")
 
     def _with_skipped_cards(self, result: CollectionResult) -> CollectionResult:
         """A skipped card is not done, so the run is never reported as complete."""
         if not self._skipped_cards:
             return result
         cards = list({card.card_id: card for card in self._skipped_cards}.values())
-        notes = [
-            f"{card.label}{self._skill_skips[card.card_id]}，这张先跳过，下次运行再跑"
-            for card in cards
-            if card.card_id in self._skill_skips
-        ]
+        unconfirmed = getattr(self, "_unconfirmed_cards", set())
+        notes = []
+        for card in cards:
+            if card.card_id not in self._skill_skips:
+                continue
+            problem = self._skill_skips[card.card_id]
+            if card.card_id in unconfirmed:
+                problem = problem.replace("技能操作失败", "技能可能已按上但没能确认")
+            notes.append(f"{card.label}{problem}，这张先跳过，下次运行再跑")
         missing = [card for card in cards if card.card_id not in self._skill_skips]
         if missing:
             names = "、".join(card.label for card in missing)
@@ -620,9 +643,12 @@ class Collector(SkillExecutionMixin):
             )
         note = "；".join(notes)
         self.task.log_warning(f"地图采集：{note}。")
+        # Only presses that surely did not happen fail the run; one that
+        # most likely took (icon greyed) is reported, not failed.
+        failed = any(card.card_id not in unconfirmed for card in cards)
         return replace(
             result,
-            success=False,
+            success=result.success and not failed,
             message=f"{note}；{result.message}" if result.message else note,
         )
 

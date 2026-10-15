@@ -26,6 +26,7 @@ from src.tasks.map_trade.collector_constants import (
     ACTION_ICON_DETECTION_INTERVAL,
     ACTION_USED_RECHECK_SECONDS,
     ACTION_USED_RECHECKS,
+    DIM_WAIT_VALID_SECONDS,
     ACTION_ICON_DETECTION_SAMPLES,
     ACTION_OCR_WINDOW_INTERVAL,
     ACTION_OCR_WINDOW_SAMPLES,
@@ -55,6 +56,10 @@ from src.tasks.map_trade.models import (
 )
 from src.tasks.map_trade.vision import parse_used_limit
 
+# Cards whose battle areas need 压制 even after 吸收/召集 read grey: the
+# card's badge only completes with it (记忆边缘, Leo 2026-10-15).
+SUPPRESS_EVEN_WHEN_DONE_CARDS = frozenset({"Q_ep5"})
+
 # Used to split a count read without its slash ("7180" -> 7/80) until the
 # HUD has shown today's limit (see ``_known_limit``).
 SKILL_DAILY_LIMITS = {
@@ -69,6 +74,10 @@ SKILL_DAILY_LIMITS = {
 # 1.2 s 「現在跑圖間隔是0.8秒 可以先改成1.2秒」 after a player's 吸收 was only
 # pressed at the end).
 PIPELINE_CLICK_INTERVAL = 1.2
+# Leo 2026-10-14: the player sets it (「這個數字要讓用戶可以編輯 (0.5~2秒)」).
+SKILL_INTERVAL_KEY = "技能间隔秒数"
+SKILL_INTERVAL_DEFAULT = PIPELINE_CLICK_INTERVAL
+SKILL_INTERVAL_RANGE = (0.5, 2.0)
 PIPELINE_RECHECK_SECONDS = 0.6
 # A press the game did not take (a player 2026-10-09: 「召集点的太快了经常点
 # 不上失败」) is pressed once more after a pause, and then taken as done
@@ -595,7 +604,18 @@ class SkillExecutionMixin:
                 f"{count[0]}/{count[1]}；samples={samples}"
             ),
         )
+        if self._last_count_window_stable:
+            self._remember_limit(action.name, count[1])
         return count
+
+    def _remember_limit(self, action_name: str, limit: int) -> None:
+        """The limit a steady HUD read showed this run.  2K 2026-10-15: 压制
+        read 0/75 … 6/75 steadily, yet its default 80 stayed, so "7175" (the
+        slash read as 1) could not be split and the card was skipped."""
+        seen = getattr(self, "_seen_limits", None)
+        if seen is None:
+            seen = self._seen_limits = {}
+        seen[action_name] = int(limit)
 
     def _start_search(
         self,
@@ -641,6 +661,10 @@ class SkillExecutionMixin:
             frame.shape,
             after_sleep=ACTION_AFTER_CLICK_SECONDS,
         )
+        # The bar dims right after this press; only then is a grey icon
+        # waited out (see _detect_fresh_action_icon).
+        self._search_pressed_at = monotonic()
+        self._dim_waited_at = None
         feedback = self._read_action_feedback(search_action)
         if feedback.outcome == "success":
             self._wait_after_feedback_match(search_action, feedback)
@@ -857,6 +881,14 @@ class SkillExecutionMixin:
         armed: list[tuple[SkillAction, object, ActionIconDetection, tuple[int, int]]] = []
         map_done = False
         for action in actions:
+            if map_done and action.name == SUPPRESS_ACTION.name and (
+                card_id in SUPPRESS_EVEN_WHEN_DONE_CARDS
+                and map_role != CollectionMapRole.MAIN_AREA
+            ):
+                # Leo 2026-10-15 「活動卡帶記憶邊緣 戰鬥區 就算沒資源能吸收 也要按
+                # 壓制」: 2K, grey 吸收/召集 on its battle area skipped 压制 and
+                # the card stayed unfinished.  压制 is judged on its own icon.
+                map_done = False
             if map_done and action.name != SUMMON_ACTION.name:
                 # Leo 2026-10-07: a grey 吸收 (with 探查 on) means the map was
                 # done this week; 压制 stays pressable as monsters come back,
@@ -892,7 +924,7 @@ class SkillExecutionMixin:
                 last_click_at = self._settle_before_next_press(clicked, action, last_click_at)
             if last_click_at is not None:
                 # Slower PCs missed presses 0.5 s apart (player, 2026-10-09).
-                self.task.sleep(max(0.0, PIPELINE_CLICK_INTERVAL - (monotonic() - last_click_at)))
+                self.task.sleep(max(0.0, self._click_interval() - (monotonic() - last_click_at)))
             last_click_at = monotonic()
             self.vision.click_client(
                 detection.match.center,
@@ -904,8 +936,15 @@ class SkillExecutionMixin:
             clicked.append((action, detection, before, feedback))
         if clicked:
             # Let the last icon finish greying before it is judged (live 2K
-            # 2026-09-29: a lone 吸收 read "absent" right after the click).
-            self.task.sleep(ACTION_FEEDBACK_SUCCESS_DELAY_SECONDS)
+            # 2026-09-29: a lone 吸收 read "absent" right after the click);
+            # no longer than it takes to read grey.
+            last = clicked[-1][0]
+            if last.name == SUPPRESS_ACTION.name:
+                self.task.sleep(ACTION_FEEDBACK_SUCCESS_DELAY_SECONDS)
+            else:
+                self._icon_state_within(
+                    last.icon, ActionIconState.USED, ACTION_FEEDBACK_SUCCESS_DELAY_SECONDS
+                )
         verified = []
         for action, detection, before, feedback in clicked:
             _post_frame, post_detection = self._detect_action_icon(
@@ -940,6 +979,15 @@ class SkillExecutionMixin:
             return verified + results
         return results + verified
 
+    def _click_interval(self) -> float:
+        """The player's gap between skill presses, kept within 0.5-2 s."""
+        try:
+            value = float(self.task.config.get(SKILL_INTERVAL_KEY, SKILL_INTERVAL_DEFAULT))
+        except (AttributeError, TypeError, ValueError):
+            value = SKILL_INTERVAL_DEFAULT
+        low, high = SKILL_INTERVAL_RANGE
+        return min(high, max(low, value))
+
     def _icon_state_within(self, icon, wanted, timeout: float):
         """Poll single frames until the icon reads ``wanted`` (True) or the
         time runs out (False, with the last detection)."""
@@ -966,9 +1014,10 @@ class SkillExecutionMixin:
         taken, frame, seen = self._icon_state_within(
             action.icon, ActionIconState.USED, PRESS_TAKEN_WAIT_SECONDS
         )
-        if taken:
-            last_click_at = monotonic()
-        elif seen.state is ActionIconState.AVAILABLE and action.name not in pressed_again:
+        # A press seen taken keeps its click time: Leo's 1.2 s runs press to
+        # press, not from the moment it read grey (that made it ~2 s, live
+        # 4K 2026-10-14).
+        if not taken and seen.state is ActionIconState.AVAILABLE and action.name not in pressed_again:
             # Still bright: the press was dropped.  Press it again now
             # (Leo 2026-10-13 「按東西沒反應一定要補按吧」), once.
             self._status(f"{action.name}状态", "按了没反应，补按一次再按下一个")
@@ -1086,12 +1135,21 @@ class SkillExecutionMixin:
         frame, detection = self._detect_action_icon(action.icon, require_stable=True)
         if existing is not None:
             return frame, detection
+        # Only a 探查 pressed just now dims the bar, and the dim passes once
+        # for the whole bar (Leo 2026-10-15 「切換地圖後 按技能前都要罰站很久」:
+        # 2K, 探查 already running, 召集 then 压制 each still waited ~4 s).
+        pressed_at = getattr(self, "_search_pressed_at", None)
+        if pressed_at is None or monotonic() - pressed_at > DIM_WAIT_VALID_SECONDS:
+            return frame, detection
+        if getattr(self, "_dim_waited_at", None) is not None:
+            return frame, detection
         for _attempt in range(ACTION_USED_RECHECKS):
             if detection.state is not ActionIconState.USED:
                 break
             self._status(f"{action.name}图标", "看起来已使用，稍等再看一次")
             self.task.sleep(ACTION_USED_RECHECK_SECONDS)
             frame, detection = self._detect_action_icon(action.icon, require_stable=True)
+            self._dim_waited_at = monotonic()
         return frame, detection
 
     def _use_action(
@@ -1512,6 +1570,9 @@ class SkillExecutionMixin:
 
     def _known_limit(self, action_name: str) -> int | None:
         """Today's limit as the HUD showed it, else the usual one."""
+        seen = (getattr(self, "_seen_limits", None) or {}).get(action_name)
+        if seen:
+            return seen
         try:
             return self.progress.limit_of(action_name)
         except Exception:

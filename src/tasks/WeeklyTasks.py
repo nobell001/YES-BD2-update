@@ -18,6 +18,8 @@ ARCADE_TITLE_KEYWORDS = ("街机游戏",)
 MY_HOME_ENTRY_POINT = (165, 160)
 MY_HOME_TITLE_KEYWORDS = ("我的小屋",)
 VISIT_TAB_POINT = (174, 249)
+# A like adds 1; allow a second visitor's landing at the same moment.
+LIKE_MAX_RISE = 2
 VISIT_TITLE_KEYWORDS = ("参观",)
 VISIT_RANDOM_TAB_POINT = (266, 220)
 LIKE_BUTTON_POINT = (1751, 115)
@@ -142,7 +144,9 @@ class HomePopularityTask(_ClaimTaskBase):
         if before is not None:
             self._home_counts.add(before + 1)
         self.info_set(f"第{visit}间人气", f"{before} -> {after}")
-        if before is not None and after is not None and after > before:
+        # One like adds 1 (another visitor's may land with it); a bigger jump
+        # is a misread digit, not a like.
+        if before is not None and after is not None and 1 <= after - before <= LIKE_MAX_RISE:
             self.log_info(f"小屋增加人气：第{visit}间点赞成功（{before} -> {after}）。")
             return True
         self.log_info(f"小屋增加人气：第{visit}间点赞未生效（{before} -> {after}），换下一间。")

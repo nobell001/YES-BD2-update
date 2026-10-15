@@ -126,7 +126,7 @@ from src.utils.home_confirmation import (
     home_left_column_hits,
     home_left_column_brightness,
 )
-from src.utils.wait_limits import STUCK_SECONDS, capped
+from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait
 
 __all__ = [
     "BARGAIN_CONFIRM_POINT",
@@ -523,13 +523,23 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
 
     def wait_state(self, wanted: set[ScreenState], timeout: float) -> ScreenState:
         end_at = monotonic() + max(0.0, timeout)
+        # A full-length wait spans a loading screen: a load wait (Leo
+        # 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).  A shorter one is a
+        # quick look and stays as given.
+        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
         last = ScreenState.UNKNOWN
         announcement_clicks = 0
-        while monotonic() <= end_at:
+        while True:
             frame = self.vision.capture()
             last = self.classify(frame)
             self._status("导航状态", last.value)
             if last in wanted:
+                return last
+            if wait is not None:
+                loading = last == ScreenState.LOADING or is_loading_dark(frame)
+                if wait.over(frame, monotonic(), loading=loading):
+                    return last
+            elif monotonic() > end_at:
                 return last
             # A loading screen can end on home under an update notice, which
             # never classifies as HOME: the wait ran its full 45 s (live 2K
@@ -541,7 +551,6 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
             ):
                 announcement_clicks += 1
             self.task.sleep(0.5)
-        return last
 
     def clear_home_announcement(self, frame, clicks_so_far: int = 0) -> bool:
         """Click away a verified update notice over home; True when clicked."""
@@ -570,7 +579,13 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
         )
 
     def _loading_timeout(self) -> float:
-        return max(10.0, capped(self.task.config.get("加载页面等待秒数", STUCK_SECONDS)))
+        # Leo 2026-10-15 「你單純等載入怎麼可以改成只等10秒」: a loading screen
+        # gets at least LOADING_MAX_SECONDS; the saved setting only lengthens it.
+        try:
+            seconds = float(self.task.config.get("加载页面等待秒数", LOADING_MAX_SECONDS))
+        except (TypeError, ValueError):
+            seconds = LOADING_MAX_SECONDS
+        return max(LOADING_MAX_SECONDS, seconds)
 
     def _wait_for_cartridge_home(
         self,
@@ -580,12 +595,20 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
         allow_return_announcement_cleanup: bool = False,
     ) -> bool:
         end_at = monotonic() + max(0.0, timeout)
+        # Leaving a field for home passes the loading screen: a full-length
+        # wait is a load wait (Leo 2026-10-15 「一定會超過10秒甚至15秒」).
+        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
         last_left_hits = 0
         last_p95 = 0.0
         last_gacha_text = ""
         announcement_clicks = 0
-        while monotonic() <= end_at:
+        while wait is not None or monotonic() <= end_at:
             frame = self.vision.capture()
+            if wait is not None and is_loading_dark(frame):
+                if wait.over(frame, monotonic(), loading=True):
+                    break
+                self.task.sleep(interval)
+                continue
             (
                 confirmed,
                 last_left_hits,
@@ -601,6 +624,8 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
             )
             if confirmed:
                 return True
+            if wait is not None and wait.over(frame, monotonic()):
+                break
             return_announcement_detected = (
                 allow_return_announcement_cleanup
                 and self._clear_return_home_announcement_if_needed(
@@ -699,15 +724,20 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
         )
         left_hits = home_left_column_hits(left_text)
         p95_brightness = home_left_column_brightness(frame)
-        gacha_result = home_gacha_ocr_with_fallback(
-            lambda scale: self.vision.ocr_text(
-                frame,
-                f"主页抽抽乐 x{scale:g}",
-                relative_roi=HOME_GACHA_OCR_RELATIVE_ROI,
-                ocr_scale=scale,
-            )
-        )
-        gacha_text = gacha_result.text
+        if clear_context is None and left_hits < HOME_LEFT_COLUMN_REQUIRED_HITS:
+            # Home needs the left column too: without it the three 抽抽乐
+            # reads (x1/x2/x3) cannot change the answer (163 of them in one
+            # 跑图 at 4K 2026-10-14, each screen check 0.6-0.8 s).
+            gacha_text = ""
+        else:
+            gacha_text = home_gacha_ocr_with_fallback(
+                lambda scale: self.vision.ocr_text(
+                    frame,
+                    f"主页抽抽乐 x{scale:g}",
+                    relative_roi=HOME_GACHA_OCR_RELATIVE_ROI,
+                    ocr_scale=scale,
+                )
+            ).text
         self._status(
             "主页左列关键词",
             f"{left_hits}/{HOME_LEFT_COLUMN_REQUIRED_HITS}",

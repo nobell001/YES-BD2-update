@@ -16,6 +16,15 @@ from __future__ import annotations
 
 STUCK_SECONDS = 10.0
 
+# Leo 2026-10-15 「我說的10秒是卡死 或者辨識不到」「一定會超過10秒甚至15秒」:
+# a loading screen or a picture that keeps moving is the game working and
+# does not count towards STUCK_SECONDS; it is still not waited for past this.
+LOADING_MAX_SECONDS = 30.0
+
+# 95th-percentile brightness under which a frame is the black loading screen
+# (2K 10-15: 22 while loading story cartridge 1).
+LOADING_DARK_P95 = 40
+
 
 def capped(seconds, limit: float = STUCK_SECONDS) -> float:
     """``seconds`` as a float, never above ``limit``."""
@@ -68,3 +77,44 @@ class StillTimer:
         ):
             self.picture, self.since = picture, now
         return now - self.since
+
+
+def is_loading_dark(frame) -> bool:
+    """The black loading screen; an all-zero frame is a blank test frame."""
+    try:
+        if frame is None or not frame.any():
+            return False
+        import numpy as np
+
+        return float(np.percentile(frame[..., :3], 95)) < LOADING_DARK_P95
+    except (AttributeError, TypeError, IndexError, ValueError):
+        return False
+
+
+class ProgressWait:
+    """A wait that ends after STUCK_SECONDS without progress, or after
+    LOADING_MAX_SECONDS in all.  A loading screen or a moving picture is
+    progress; a still screen that is not the target is not (卡死／辨識不到)."""
+
+    def __init__(self, now: float, stuck: float = STUCK_SECONDS, cap: float = LOADING_MAX_SECONDS):
+        self.still = StillTimer()
+        self.stuck = stuck
+        self.cap_at = now + cap
+
+    def over(self, frame, now: float, loading: bool = False) -> bool:
+        if now >= self.cap_at:
+            return True
+        if loading:
+            self.still.reset()
+            return False
+        return self.still.still_for(frame, now) >= self.stuck
+
+
+def load_wait(now: float, seconds) -> ProgressWait:
+    """A wait for a page that comes after a loading screen (Leo 2026-10-15
+    「你單純等載入怎麼可以改成只等10秒」): ``seconds`` (a saved setting) or
+    LOADING_MAX_SECONDS in all, whichever is longer; it gives up sooner only
+    on a screen that stands still, not loading, for STUCK_SECONDS (or the
+    shorter ``seconds``)."""
+    seconds = max(0.0, float(seconds))
+    return ProgressWait(now, stuck=min(seconds, STUCK_SECONDS), cap=max(seconds, LOADING_MAX_SECONDS))

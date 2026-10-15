@@ -36,7 +36,12 @@ from src.utils.image_utils import (
     to_gray,
 )
 from src.utils import frame_recorder, known_popups, ocr_reread
-from src.utils.frozen_screen import FROZEN_SCREEN_SECONDS, FrozenScreen, FrozenWatch
+from src.utils.frozen_screen import (
+    FROZEN_SCREEN_SECONDS,
+    INEFFECTIVE_PRESSES,
+    FrozenScreen,
+    FrozenWatch,
+)
 from src.utils.ocr_utils import normalize_ocr_text
 from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, PressOutcome
@@ -658,7 +663,26 @@ class BaseBD2Task(BaseTask):
     def operate(self, func: Callable, block: bool = True, restore_cursor: bool = True):
         watch = getattr(self, "_frozen_watch", None)
         if watch is not None:
-            watch.pressed()
+            point, self._press_point = getattr(self, "_press_point", None), None
+            watch.pressed(point)
+            if watch.ineffective >= INEFFECTIVE_PRESSES and not getattr(self, "_closing_popup", False):
+                # The same spot pressed on and on with nothing changing:
+                # something sits on top that wants its own button (晋级/奖励
+                # pages).  Only a 确认 on an info-only page or a tap-to-return
+                # line is pressed here, never 关闭/取消 (Leo 2026-10-14: no
+                # change may misjudge a page the task opened itself).
+                watch.ineffective = 0
+                self._closing_popup = True
+                try:
+                    if self.close_known_popup(
+                        f"同一位置连续{INEFFECTIVE_PRESSES}次点了画面没变", info_only=True
+                    ):
+                        self.log_warning(
+                            f"连续{INEFFECTIVE_PRESSES}次点击画面都没有变化，"
+                            "发现弹窗挡住，已先关闭弹窗。"
+                        )
+                finally:
+                    self._closing_popup = False
         interaction = getattr(self.executor, "interaction", None)
         if interaction is not None and hasattr(interaction, "operate"):
             return interaction.operate(func, block=block, restore_cursor=restore_cursor)
@@ -679,6 +703,8 @@ class BaseBD2Task(BaseTask):
         action_name=None,
     ) -> Any:
         action_name = action_name or "operate_click"
+        if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+            self._press_point = (round(float(x), 3), round(float(y), 3))
         if not self._check_action_interval(action_name, interval):
             return False
         try:
@@ -772,7 +798,7 @@ class BaseBD2Task(BaseTask):
             result = self.look_again(look, label, grace, popups=False)
         return result
 
-    def close_known_popup(self, label: str = "") -> bool:
+    def close_known_popup(self, label: str = "", *, info_only: bool = False) -> bool:
         """Close a popup that covers the page with its harmless press
         (src/utils/known_popups; never 取消 mid-task, never a spend).  True
         when one was pressed."""
@@ -787,6 +813,11 @@ class BaseBD2Task(BaseTask):
             self.log_info(f"{label}：查看弹窗失败：{exc}")
             return False
         press = known_popups.pick(boxes)
+        if info_only and press is not None and press.label in (
+            known_popups.CLOSE_TEXT,
+            known_popups.CANCEL_TEXT,
+        ):
+            press = None
         center = self._ocr_box_center(press.box) if press is not None else None
         if center is None:
             return False

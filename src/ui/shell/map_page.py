@@ -305,7 +305,7 @@ class MapPage(Page):
                 )
             task = self.task()
             if task is not None:
-                keys = [key for key in ("执行地图采集", "启用") if key in task.config]
+                keys = [key for key in ("执行地图采集", "启用", "技能间隔秒数") if key in task.config]
                 column.addWidget(ConfigForm(task, keys=keys, labels={"启用": "单独跑时启用"}))
             self._more_built = True
         self.more.setVisible(not self.more.isVisible())

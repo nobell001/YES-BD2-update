@@ -76,7 +76,7 @@ from src.tasks.map_trade.trader_constants import (
 )
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.field_followers import dismiss_once_per_run
-from src.utils.wait_limits import STUCK_SECONDS, StillTimer
+from src.utils.wait_limits import STUCK_SECONDS, ProgressWait, StillTimer
 
 # The skill is full and must be starred up by the player (user choice,
 # 2026-09-28: skip buying and say so, never buy at full price).
@@ -400,14 +400,25 @@ class TradeNavigationMixin:
             )
         badge_frame, badge = confirmed
         self.vision.click_client(badge.best.result.center, badge_frame.shape, after_sleep=1.0)
-        end_at = monotonic() + self._loading_timeout()
+        # Loading does not count as stuck (Leo 2026-10-15 「我說的10秒是卡死
+        # 或者辨識不到」): 2K 10-15 the field came 13 s after the click and was
+        # given up on at 10 s.
+        wait = ProgressWait(monotonic())
         hits = 0
-        while monotonic() <= end_at:
-            state = self.classify()
-            hits = hits + 1 if state == ScreenState.SANDBOX else 0
-            if hits >= TRADE_CARD_SANDBOX_HITS:
-                dismiss_once_per_run(self)
-                return NavigationResult(True, ScreenState.SANDBOX, MERCHANT_CARD_ID)
+        while True:
+            frame = self.vision.capture()
+            # The black loading screen needs no full classify: each pass took
+            # ~3 s there, so only 3 looks fit.
+            state = ScreenState.LOADING if self._black_frame(frame) else self.classify(frame)
+            if state == ScreenState.SANDBOX:
+                hits += 1
+                if hits >= TRADE_CARD_SANDBOX_HITS:
+                    dismiss_once_per_run(self)
+                    return NavigationResult(True, ScreenState.SANDBOX, MERCHANT_CARD_ID)
+                continue  # the field is read: take the second frame at once
+            hits = 0
+            if wait.over(frame, monotonic(), loading=state == ScreenState.LOADING):
+                break
             self.task.sleep(0.5)
         return NavigationResult(False, self.classify(), "剧情游戏卡1入场确认超时")
 

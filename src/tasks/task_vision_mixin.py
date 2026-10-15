@@ -25,7 +25,7 @@ from src.utils.home_confirmation import (
 )
 from src.utils.image_utils import to_gray
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
-from src.utils.wait_limits import STUCK_SECONDS, capped
+from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait
 
 REFERENCE_WIDTH = FHD_1080.width
 
@@ -41,6 +41,17 @@ LOADING_TEMPLATE = TemplateSpec(
     threshold_key="加载页面阈值",
     default_threshold=0.72,
 )
+
+# How long the loading screen may stay: it is the game working, not a frozen
+# or unknown screen (Leo 2026-10-15 「我說的10秒是卡死 或者辨識不到」「你單純等
+# 載入怎麼可以改成只等10秒」), so the saved 「loading 消失等待秒数」 counts only
+# when it is longer than LOADING_MAX_SECONDS.
+def loading_gone_seconds(config) -> float:
+    try:
+        seconds = float(config.get("loading 消失等待秒数", LOADING_MAX_SECONDS))
+    except (TypeError, ValueError):
+        seconds = LOADING_MAX_SECONDS
+    return max(seconds, LOADING_MAX_SECONDS)
 
 
 class TaskVisionMixin:
@@ -142,7 +153,7 @@ class TaskVisionMixin:
         name: str,
         interval: float = 0.35,
     ) -> tuple[str, bool]:
-        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
+        end_at = monotonic() + loading_gone_seconds(self.config)
         while monotonic() <= end_at:
             frame = self.capture_frame()
             result = self._match(frame, spec)
@@ -223,7 +234,7 @@ class TaskVisionMixin:
         last_text: str = "",
         interval: float = 0.5,
     ) -> tuple[str, bool, str]:
-        end_at = monotonic() + capped(self.config.get("loading 消失等待秒数", STUCK_SECONDS))
+        end_at = monotonic() + loading_gone_seconds(self.config)
         while monotonic() <= end_at:
             frame = self.capture_frame()
             result = self._match(frame, spec)
@@ -292,12 +303,22 @@ class TaskVisionMixin:
     ) -> bool:
         if timeout is None:
             timeout = float(self.config.get("主页确认等待秒数", 10.0))
-        end_at = monotonic() + timeout
+        # Going home passes a loading screen (leaving a page or a field): a
+        # full home wait is a load wait (Leo 2026-10-15 「你單純等載入怎麼可以
+        # 改成只等10秒」).  A shorter one is a quick look and stays as given.
+        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
+        end_at = monotonic() + max(0.0, timeout)
         last_left_hits = 0
         last_p95 = 0.0
         last_gacha_text = ""
-        while monotonic() <= end_at:
+        while True:
             frame = self.capture_frame()
+            if wait is not None and is_loading_dark(frame):
+                if wait.over(frame, monotonic(), loading=True):
+                    break
+                self.info_set(f"{name} 左列关键词", "加载中")
+                self.sleep(interval)
+                continue
             (
                 confirmed,
                 last_left_hits,
@@ -323,6 +344,11 @@ class TaskVisionMixin:
                 gacha_ocr_text=last_gacha_text,
                 context=name,
             )
+            if wait is not None:
+                if wait.over(frame, monotonic()):
+                    break
+            elif monotonic() > end_at:
+                break
             self.sleep(interval)
 
         self.log_info(

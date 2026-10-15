@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import re
 
+from src.utils.ocr_numbers import pool_amount, within
+
 MULTIPLIER_RANGE = (1, 40)
 
 _MULTIPLIER = re.compile(r"(\d{1,2})\s*倍")
@@ -22,7 +24,7 @@ _FREE_POOL = re.compile(r"(?<![\d,.])(\d{1,2})\s*[/／]\s*(\d{1,2})(?!\d)")
 
 def parse_multiplier(text: object) -> int | None:
     match = _MULTIPLIER.search(str(text))
-    return int(match.group(1)) if match else None
+    return within(int(match.group(1)), *MULTIPLIER_RANGE) if match else None
 
 
 def parse_battle_count(text: object) -> int | None:
@@ -43,9 +45,9 @@ def parse_start_cost(text: object) -> int | None:
 def parse_free_cocktails(text: object) -> int | None:
     """Free cocktails a from 'a/40' in the top bar; the paid pool follows it."""
     match = _FREE_POOL.search(str(text))
-    if not match or int(match.group(2)) <= 0:
+    if not match:
         return None
-    return int(match.group(1))
+    return pool_amount(int(match.group(1)), int(match.group(2)), top_range=(1, 99))
 
 
 def adjust_step(current: int, target: int, big_step: int) -> str | None:

@@ -25,7 +25,7 @@ from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
 from src.utils import known_popups
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
 from src.utils.ocr_utils import fuzzy_substring_match, normalize_ocr_text
-from src.utils.wait_limits import STUCK_SECONDS
+from src.utils.wait_limits import LOADING_MAX_SECONDS
 
 # Room for the Esc steps after the back arrow and H.
 RECOVERY_ATTEMPTS = 8
@@ -42,8 +42,10 @@ BACK_BUTTON_POINT = (150 / REFERENCE_WIDTH, 50 / REFERENCE_HEIGHT)
 # Loading between pages is black with a faint logo (p99 grey ~40 live);
 # every real page has bright UI text.
 TRANSITION_P99_MAX = 70.0
-# Leo 2026-10-14 「頂多等8秒到10秒」: was 20 s.
-TRANSITION_WAIT_SECONDS = STUCK_SECONDS
+# Leo 2026-10-14 「頂多等8秒到10秒」: was 20 s.  The wait only lasts while
+# the screen is the black loading screen, which may take longer (Leo
+# 2026-10-15 「我說的10秒是卡死 或者辨識不到」「一定會超過10秒甚至15秒」).
+TRANSITION_WAIT_SECONDS = LOADING_MAX_SECONDS
 # Top-left page title beside the back arrow ("活动", "通行证", "装备"...).
 PAGE_TITLE_RELATIVE_ROI = (225 / REFERENCE_WIDTH, 15 / REFERENCE_HEIGHT, 650 / REFERENCE_WIDTH, 85 / REFERENCE_HEIGHT)
 NAVIGATOR_STATES = frozenset(
