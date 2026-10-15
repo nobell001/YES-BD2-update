@@ -114,28 +114,21 @@ COOKING_CARD_RELOOKS = 2
 COOKING_LIST_QUICK_SECONDS = 1.5
 COOKING_MAX_CHOICE = "MAX"
 COOKING_QUANTITY_ATTEMPTS = 3
+# After MAX is pressed: the detail page with a bright 开始 button, read again
+# for the press.  The slider itself is not compared (Leo 2026-10-15: pressed
+# MAX + pressed 制作 is enough; the white-bar check stopped 2K runs at MAX).
 COOKING_QUANTITY_VERIFY_SECONDS = 3.0
+# MAX in the quantity bar at the 1280x720 map-trade reference that
+# click_reference scales from, pressed when the text cannot be read (Leo
+# 2026-10-15 「找不到Max 按固定位置」).  Centre of the MAX text on Leo's full
+# 2560x1440 detail frame of 2026-10-15 (text box 926-995 x 1165-1187 there),
+# scaled to 720.
+COOKING_MAX_FIXED_POINT = (480, 588)
 # A swallowed press (skill icon / recipe card / 开始制作 / 返回 on a detail
 # page) failed the whole phase; after this long with the pre-click screen
 # still read on 2 frames the same press is repeated once.
 COOKING_RECLICK_AFTER = 3.0
 COOKING_RECLICK_HITS = 2
-
-# The PC quantity slider fills white and places its handle at this endpoint
-# after MAX takes effect. The template includes the handle and the track cap.
-COOKING_MAX_QUANTITY_TEMPLATE = TemplateSpec(
-    "料理数量最大值",
-    "cooking-quantity-max.png",
-    0.95,
-    relative_roi=(660 / FHD_1080.width, 968 / FHD_1080.height,
-                  730 / FHD_1080.width, 1035 / FHD_1080.height),
-    minimum_safe_threshold=0.95,
-    min_pixel_score=0.95,
-    min_zncc_score=0.95,
-    # 画面整体变亮（HDR、亮度、滤镜）时像素分会掉到门槛下：形状对了再按亮度对齐比一次
-    # （真实画面模拟变亮：余裕 0.018，3 张全掉，Leo 2026-10-12 根治亮度）。
-    brightness_tolerant=True,
-)
 
 COOKING_RECIPE_SPECS = {
     recipe: TemplateSpec(
@@ -545,7 +538,7 @@ class CookingFlowMixin:
 
         ready = self._select_max_cooking_quantity(recipe)
         if ready is None:
-            self.task.log_warning(f"料理：{recipe} 未确认 MAX 数量，停止制作。")
+            self.task.log_warning(f"料理：{recipe} 读不到 MAX，按固定位置后也没回到可制作的详情页，停止制作。")
             self._recover_cooking_list()
             return CookingRecipeOutcome.FAILED
         self._status(
@@ -679,33 +672,28 @@ class CookingFlowMixin:
     def _select_max_cooking_quantity(self, recipe: str) -> CookingDetailSnapshot | None:
         for attempt in range(1, COOKING_QUANTITY_ATTEMPTS + 1):
             if self._click_quantity_choice(recipe, COOKING_MAX_CHOICE):
-                ready = self._wait_for_max_detail(recipe, COOKING_QUANTITY_VERIFY_SECONDS)
-                if ready is not None:
+                ready = self._wait_for_cooking_detail(recipe, COOKING_QUANTITY_VERIFY_SECONDS)
+                if ready is not None and ready.enabled:
                     return ready
             self.task.log_info(
                 f"料理：{recipe} 第 {attempt}/{COOKING_QUANTITY_ATTEMPTS} 次"
-                "未确认数量滑块到达 MAX。"
+                "未按到 MAX 按钮。"
             )
-            # The quantity bar may not have drawn yet: retries back to back
+            # The quantity buttons may not have drawn yet: retries back to back
             # spent all three attempts within OCR time.
             self.task.sleep(0.5)
+        # Last resort: MAX is harmless, so press where it always sits.
+        detail = self._cooking_detail_snapshot(recipe)
+        if detail is None or not detail.enabled:
+            return None
+        self._status(f"料理-{recipe}数量点击中心", f"MAX 固定位置 {COOKING_MAX_FIXED_POINT}")
+        self.task.log_info(f"料理：{recipe} 读不到 MAX，改按固定位置。")
+        self.vision.click_reference(*COOKING_MAX_FIXED_POINT, after_sleep=0.0)  # 不用确认：已是 MAX 时画面不变，下一步读详情页
+        self.task.sleep(COOKING_QUANTITY_CLICK_SETTLE_SECONDS)
+        ready = self._wait_for_cooking_detail(recipe, COOKING_QUANTITY_VERIFY_SECONDS)
+        if ready is not None and ready.enabled:
+            return ready
         return None
-
-    def _wait_for_max_detail(
-        self,
-        recipe: str,
-        timeout: float,
-    ) -> CookingDetailSnapshot | None:
-        end_at = monotonic() + max(0.0, timeout)
-        while True:
-            snapshot = self._cooking_detail_snapshot(recipe)
-            if snapshot is not None and snapshot.enabled:
-                quantity = self.vision.match(snapshot.frame, COOKING_MAX_QUANTITY_TEMPLATE)
-                if self.vision.passes(quantity, COOKING_MAX_QUANTITY_TEMPLATE):
-                    return snapshot
-            if monotonic() >= end_at:
-                return None
-            self.task.sleep(COOKING_POLL_INTERVAL)
 
     def _cooking_detail_snapshot(
         self,
@@ -814,17 +802,13 @@ class CookingFlowMixin:
                 return True
             if monotonic() >= end_at:
                 return False
-            # A swallowed 开始 press leaves the button bright at MAX; press it
+            # A swallowed 开始 press leaves the button bright; press it
             # once more only then (a started cook greys it, so never twice).
             bright_hits = bright_hits + 1 if detail is not None and detail.enabled else 0
             if (
                 not reclicked
                 and bright_hits >= COOKING_RECLICK_HITS
                 and monotonic() - started >= COOKING_RECLICK_AFTER
-                and self.vision.passes(
-                    self.vision.match(detail.frame, COOKING_MAX_QUANTITY_TEMPLATE),
-                    COOKING_MAX_QUANTITY_TEMPLATE,
-                )
             ):
                 reclicked = True
                 bright_hits = 0
