@@ -28,8 +28,6 @@ from src.tasks.map_trade.navigator_constants import (
     MERCHANT_MENU_RECHECK_SECONDS,
     MERCHANT_MENU_REPRESSES,
     MERCHANT_NAV_CONFIRM_OCR_ROI,
-    MERCHANT_NAV_GUIDE_TEMPLATE,
-    MERCHANT_NAV_GUIDE_TIMEOUT,
     MERCHANT_NAV_LANDMARK_TIMEOUT,
     MERCHANT_NAV_MENU_OCR_INTERVAL,
     MERCHANT_NAV_MENU_OCR_ROI,
@@ -438,11 +436,7 @@ class TradeNavigationMixin:
 
     def _walk_to_merchant(self) -> bool:
         self._status("导航状态", "小地图导航到商店")
-        if not self.vision.click_template(
-            MERCHANT_NAV_GUIDE_TEMPLATE,
-            timeout=MERCHANT_NAV_GUIDE_TIMEOUT,
-            after_sleep=0.8,
-        ):
+        if not self._open_minimap_nav_menu():
             self.task.log_warning("跑商：未识别到小地图导航按钮，无法前往商店。")
             return False
         if not self._click_merchant_nav_destination():

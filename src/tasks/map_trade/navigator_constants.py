@@ -893,20 +893,23 @@ SANDBOX_LARGE_MAP_RIGHT_TEMPLATE = TemplateSpec(
     minimum_safe_threshold=0.95,
     min_zncc_score=0.90,
 )
+# 0.93, not 0.95: the 1920x1080 桌面分身 page 「战斗Ⅰ 卡勒塔市」 showed its left
+# arrow at 0.948 (pixel 0.87, zncc 0.97), so the seek turned the wrong way and
+# 角色卡7 was skipped (2K 2026-10-16).  The pixel and zncc gates still apply.
 TELEPORT_MAP_FORWARD_TEMPLATE = TemplateSpec(
     "传送阵地图向前",
     "image/green/TpMapLeft.png",
-    0.95,
+    0.93,
     min_pixel_score=0.85,
-    minimum_safe_threshold=0.95,
+    minimum_safe_threshold=0.93,
     min_zncc_score=0.90,
 )
 TELEPORT_MAP_BACKWARD_TEMPLATE = TemplateSpec(
     "传送阵地图向后",
     "image/green/TpMapRight.png",
-    0.95,
+    0.93,
     min_pixel_score=0.85,
-    minimum_safe_threshold=0.95,
+    minimum_safe_threshold=0.93,
     min_zncc_score=0.90,
 )
 # Two 1920×1080 enabled teleport-map samples bottomed out at

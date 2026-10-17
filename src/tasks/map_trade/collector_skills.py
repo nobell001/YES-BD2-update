@@ -56,10 +56,6 @@ from src.tasks.map_trade.models import (
 )
 from src.tasks.map_trade.vision import parse_used_limit
 
-# Cards whose battle areas need 压制 even after 吸收/召集 read grey: the
-# card's badge only completes with it (记忆边缘, Leo 2026-10-15).
-SUPPRESS_EVEN_WHEN_DONE_CARDS = frozenset({"Q_ep5"})
-
 # Used to split a count read without its slash ("7180" -> 7/80) until the
 # HUD has shown today's limit (see ``_known_limit``).
 SKILL_DAILY_LIMITS = {
@@ -881,13 +877,12 @@ class SkillExecutionMixin:
         armed: list[tuple[SkillAction, object, ActionIconDetection, tuple[int, int]]] = []
         map_done = False
         for action in actions:
-            if map_done and action.name == SUPPRESS_ACTION.name and (
-                card_id in SUPPRESS_EVEN_WHEN_DONE_CARDS
-                and map_role != CollectionMapRole.MAIN_AREA
-            ):
+            if map_done and action.name == SUPPRESS_ACTION.name:
                 # Leo 2026-10-15 「活動卡帶記憶邊緣 戰鬥區 就算沒資源能吸收 也要按
-                # 壓制」: 2K, grey 吸收/召集 on its battle area skipped 压制 and
-                # the card stayed unfinished.  压制 is judged on its own icon.
+                # 壓制」, and 10-16 the same on 戏水女王 and 角色卡7: grey
+                # 吸收/召集 on a battle area skipped 压制 and the card stayed
+                # unfinished.  压制 is judged on its own icon on every card
+                # (a card is only entered while its badges are unfinished).
                 map_done = False
             if map_done and action.name != SUMMON_ACTION.name:
                 # Leo 2026-10-07: a grey 吸收 (with 探查 on) means the map was

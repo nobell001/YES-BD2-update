@@ -2241,6 +2241,19 @@ class SandboxNavigationMixin:
                 if current.resolved_target_key == target.key:
                     return current
             start = current
+        # Last resort (Leo: every read needs a fallback): an arrow misread
+        # as missing ended the first side unpressed (2K 桌面分身 2026-10-16,
+        # 卡勒塔市's left arrow at 0.948).  Press that side's fixed place,
+        # even where the page seemed to end, and keep going while it moves.
+        current = start
+        for _ in range(TELEPORT_MAP_SEEK_LIMIT):
+            changed = self._move_area_map(card, current, directions[0], force=True)
+            if changed is None:
+                break
+            current = changed
+            if current.resolved_target_key == target.key:
+                return current
+        start = current
         return NavigationResult(
             False,
             ScreenState.AREA_MAP,
@@ -2445,29 +2458,44 @@ class SandboxNavigationMixin:
         travelled to, or None."""
         return self._travel_via_nav_menu(HUNTING_GROUND_NAV_ENTRY, TOWN_NPC_NAV_ENTRY)
 
+    def _open_minimap_nav_menu(self) -> bool:
+        """Press the minimap's ≡ button: its template, else its fixed place
+        once the field is confirmed (the menu read that follows checks it).
+
+        2K 桌面分身 2026-10-16: the game drew the button glowing with an
+        orange 「!」 badge, so the plain-icon template read -1.000 on every
+        field frame while the quick-switch button passed 0.97; 跑商 could not
+        reach the merchant and 跑图 could not go home.  Any field signal now
+        allows the fixed-place press (was the C/H/M/Q key caps only)."""
+        if self.vision.click_template(
+            MERCHANT_NAV_GUIDE_TEMPLATE, timeout=MERCHANT_NAV_GUIDE_TIMEOUT, after_sleep=0.8
+        ):
+            return True
+        frame = self.vision.capture()
+        # Two key caps, as the field check: on the same sand the C cap
+        # found nothing while H, M and Q passed.
+        in_field = (
+            sum(
+                self.vision.passes(self.vision.match(frame, spec), spec)
+                for spec in FIELD_ALL_KEYCAP_TEMPLATES
+            )
+            >= FIELD_KEYCAP_MIN_PASSES
+        ) or self.classify(frame) == ScreenState.SANDBOX
+        if not in_field:
+            return False
+        self._status("小地图导航", "模板未命中，已确认在箱庭，点击标定位置")
+        self.vision.click_reference(*MERCHANT_NAV_GUIDE_REFERENCE_POINT, after_sleep=0.8)
+        return True
+
     def _travel_via_nav_menu(self, *entries: str) -> str | None:
         """The minimap's ≡ menu -> the first of ``entries`` it lists (狩猎场,
         or a town NPC such as 艾琳) -> 确认, then the field once the trip (and
         any walk after it) ends.  The entry travelled to, or None."""
 
         wanted = "、".join(entries)
-        if not self.vision.click_template(
-            MERCHANT_NAV_GUIDE_TEMPLATE, timeout=MERCHANT_NAV_GUIDE_TIMEOUT, after_sleep=0.8
-        ):
-            frame = self.vision.capture()
-            # Two key caps, as the field check: on the same sand the C cap
-            # found nothing while H, M and Q passed.
-            if (
-                sum(
-                    self.vision.passes(self.vision.match(frame, spec), spec)
-                    for spec in FIELD_ALL_KEYCAP_TEMPLATES
-                )
-                < FIELD_KEYCAP_MIN_PASSES
-            ):
-                self.task.log_warning(f"跑图：未识别到小地图导航按钮，无法前往{wanted}。")
-                return None
-            self._status("小地图导航", "模板未命中，按键确认在箱庭，点击标定位置")
-            self.vision.click_reference(*MERCHANT_NAV_GUIDE_REFERENCE_POINT, after_sleep=0.8)
+        if not self._open_minimap_nav_menu():
+            self.task.log_warning(f"跑图：未识别到小地图导航按钮，无法前往{wanted}。")
+            return None
         choice = self._nav_menu_choice(entries)
         if choice is None:
             self.task.log_warning(f"跑图：导航菜单里没有{wanted}。")
@@ -3006,9 +3034,13 @@ class SandboxNavigationMixin:
         card: CardSpec,
         context: AreaMapContext,
         direction: str,
+        *,
+        force: bool = False,
     ) -> AreaMapContext | None:
+        """``force``: the seek's last resort - no end-of-list skip, and the
+        arrow's fixed place is pressed when the arrow is not read."""
         label = f"区域地图{'向右' if direction == 'right' else '向左'}翻页"
-        if self._area_map_page_end(context, direction):
+        if not force and self._area_map_page_end(context, direction):
             # Only the other arrow shows: this is the end of the list, and
             # pressing the missing arrow's place cost ~20 s on Q_ep2's last
             # page (Leo 2026-10-15 「活動卡帶第2的安全區是第三張地圖 要切換的時候
@@ -3047,7 +3079,12 @@ class SandboxNavigationMixin:
             # A blind press (no arrow seen, e.g. read before the arrows were
             # drawn, live 2K 2026-10-15) ends early once the unchanged page
             # shows only the other arrow, instead of waiting out two presses.
-            if blind and state == "same" and self._area_map_page_end(current, direction):
+            if (
+                blind
+                and not force
+                and state == "same"
+                and self._area_map_page_end(current, direction)
+            ):
                 end_reads.append(current)
                 return len(end_reads) >= TELEPORT_PAGE_END_READS
             end_reads.clear()

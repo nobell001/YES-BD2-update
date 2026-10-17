@@ -12,7 +12,10 @@ from src.tasks.map_trade.models import TemplateSpec
 from src.tasks.quick_hunt import QuickHuntConfigMixin
 from src.tasks.recovery import recover_to_home
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH, TaskVisionMixin
-from src.utils.home_confirmation import HOME_DIMMED_P95_THRESHOLD_DEFAULT
+from src.utils.home_confirmation import (
+    HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT,
+    HOME_DIMMED_P95_THRESHOLD_DEFAULT,
+)
 from src.utils.ocr_utils import normalize_ocr_text
 from src.utils.wait_limits import LOADING_MAX_SECONDS, is_loading_dark, load_wait
 
@@ -478,7 +481,16 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 break
             text = self._ocr_text(self.capture_frame(), name="公会签到返回页面")
             if self._keyword_match_count(text, GUILD_PAGE_KEYWORDS) < 1:
-                self.log_info("公会签到：返回后未见公会页面关键字，不再补点返回键。")
+                # Off the guild page but home not confirmed: an event popup
+                # dims home (2K 桌面分身 2026-10-16: 万圣节每日钻石通行证 7-day
+                # login popup covered the left column; the sign-in itself
+                # had worked).  Tap the blank spot once, as for the login
+                # notices, and look again.
+                self.log_info("公会签到：已离开公会页面，但主页被弹窗挡住，点空白处关掉再确认。")
+                self.operate_click(  # 不用确认：下一行看主页
+                    *HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT, after_sleep=1.0
+                )
+                home_ok = self._wait_for_home_confirmation("公会签到返回主页", timeout=4.0)
                 break
             self.log_info(
                 f"公会签到：第{attempt}次返回未生效（仍在公会页面），补点返回键。"
