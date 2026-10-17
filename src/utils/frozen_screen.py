@@ -99,6 +99,13 @@ class FrozenWatch:
         self.at_last_press = self.last
         self.last_point = point
 
+    def progress(self) -> None:
+        """The tool just recognised what it was waiting for: count from the
+        next look.  Leo 2026-10-15 「我說的10秒是卡死 或者辨識不到」: a still
+        page that is being read is not stuck (a player's slow 1080p PC spent
+        over 10 s reading the static buy page and was stopped, 2026-10-16)."""
+        self.picture = None
+
     def look(self, frame, now: float | None = None) -> None:
         """Raise FrozenScreen once the screen has been still long enough."""
         if self.paused:

@@ -838,3 +838,9 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
             self.task.info_set(key, value)
         except AttributeError:
             pass
+
+    def _note_progress(self) -> None:
+        """A wait read its target: not stuck (FrozenWatch.progress)."""
+        note = getattr(self.task, "note_progress", None)
+        if callable(note):
+            note()

@@ -8,7 +8,12 @@ import numpy as np
 from ok.task.exceptions import FinishedException, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
-from src.tasks.BaseBD2Task import BaseBD2Task, CartridgeSpecialPageResult
+from src.tasks.BaseBD2Task import (
+    QUICK_SWITCH_HOME_LOOK_SECONDS,
+    QUICK_SWITCH_REPRESS_LOOK_SECONDS,
+    BaseBD2Task,
+    CartridgeSpecialPageResult,
+)
 from src.tasks.map_trade.models import MatchResult, TemplateSpec
 from src.tasks.map_trade.navigator_constants import (
     AUTO_MOVE_CANCEL_ATTEMPTS,
@@ -62,6 +67,9 @@ HD720_REFERENCE_HEIGHT = HD_720.height
 SQUARE_CARTRIDGE_SLOT_POINT = (331 / REFERENCE_WIDTH, 970 / REFERENCE_HEIGHT)
 # Swallowed quick-switch clicks: up to this many category / slot clicks.
 SQUARE_CLICK_VERIFY_ATTEMPTS = 3
+# The 广场 card press counts as dropped once the unchanged selection page has
+# shown this long (was 8 s; Leo 2026-10-17 「切换卡带的时候可以点两下」).
+SQUARE_CARD_REPRESS_SECONDS = 2.5
 SQUARE_HOME_POINT = (1797 / REFERENCE_WIDTH, 63 / REFERENCE_HEIGHT)
 # The game's shortcut shown under that button (Leo 2026-10-11 「我點H就回到主頁了」).
 SQUARE_HOME_KEY = "H"
@@ -270,6 +278,19 @@ class SquareGoddessTask(BaseBD2Task):
                 stabilize=True,
             ),
             confirm_quick_switch_page=self._wait_for_quick_switch_page,
+            quick_switch_page_shown=lambda seconds: self._wait_for_quick_switch_page(
+                timeout=seconds, quiet=True
+            ),
+            repress_quick_switch=lambda: self._click_template_until(
+                QUICK_SWITCH_TEMPLATE,
+                timeout=QUICK_SWITCH_REPRESS_LOOK_SECONDS,
+                name="快速切换按钮",
+                after_sleep=0.0,
+                stabilize=True,
+            ),
+            home_shown=lambda: self._wait_for_cartridge_home(
+                timeout=QUICK_SWITCH_HOME_LOOK_SECONDS
+            ),
         ):
             self.log_info("广场女神像：未能从主页打开卡带快速切换页面。")
             return False
@@ -294,7 +315,9 @@ class SquareGoddessTask(BaseBD2Task):
         # 卡带格点击被吞时选择页原样停住；连续数秒仍是同一页（类别仍高亮）才重点，
         # 页面一变就不再点，避免载入中重复操作。
         for attempt in range(1, SQUARE_CLICK_VERIFY_ATTEMPTS):
-            if not self._quick_switch_still_shows(highlighted=True, seconds=8.0):
+            if not self._quick_switch_still_shows(
+                highlighted=True, seconds=SQUARE_CARD_REPRESS_SECONDS
+            ):
                 break
             self.log_info(f"广场女神像：第{attempt}次点击广场卡带后选择页仍在，重试。")
             self.operate_click(*SQUARE_CARTRIDGE_SLOT_POINT, after_sleep=0.0)
@@ -441,12 +464,18 @@ class SquareGoddessTask(BaseBD2Task):
         )
         return False
 
-    def _wait_for_quick_switch_page(self, interval: float = 0.5) -> bool:
+    def _wait_for_quick_switch_page(
+        self,
+        interval: float = 0.5,
+        timeout: float | None = None,
+        quiet: bool = False,
+    ) -> bool:
+        """``timeout`` set: a short look (no settle sleep, no log on a miss)."""
         self.info_set("当前阶段", "确认卡带选择页")
-        self.sleep(1.0)
-        end_at = monotonic() + float(
-            self.config.get("卡带选择页确认等待秒数", 10.0)
-        )
+        if timeout is None:
+            self.sleep(1.0)
+            timeout = float(self.config.get("卡带选择页确认等待秒数", 10.0))
+        end_at = monotonic() + max(0.0, timeout)
         last_text = ""
         while monotonic() <= end_at:
             frame = self.capture_frame()
@@ -464,6 +493,8 @@ class SquareGoddessTask(BaseBD2Task):
                 return True
             self.sleep(interval)
 
+        if quiet:
+            return False
         self.log_info(
             "广场女神像：点击快速切换后未确认卡带选择页，"
             f"OCR={last_text or '-'}。"

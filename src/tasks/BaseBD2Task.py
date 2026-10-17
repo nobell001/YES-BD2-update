@@ -72,6 +72,16 @@ KEY_TAP_SECONDS = 0.08
 HOME_KEY = "H"
 RECENT_CARTRIDGE_KEY = "F"
 QUICK_SWITCH_KEY = "P"
+# 广场 and 竞技场 are busy scenes where the game drops the quick-switch press
+# (player via Leo 2026-10-17 「切换卡带的时候可以点两下」): with no 卡带选择页
+# this long after the press, it is pressed once more while the button shows.
+QUICK_SWITCH_REPRESS_AFTER_SECONDS = 1.5
+# How long the button may take to read for that second press: on the open
+# 卡带选择页 it is gone, so nothing is pressed.
+QUICK_SWITCH_REPRESS_LOOK_SECONDS = 1.0
+# Before the P key: a short look whether 主页 is still up (the long home wait
+# also waits out loading and cost 10-30 s in a busy field).
+QUICK_SWITCH_HOME_LOOK_SECONDS = 3.0
 HOME_KEY_WAIT_SECONDS = 10.0
 ESCAPE_KEY_CODE = 0x1B  # VK_ESCAPE
 # The field's quick-switch (P) button, 1080p reference.
@@ -660,6 +670,13 @@ class BaseBD2Task(BaseTask):
             vcenter=vcenter,
         )
 
+    def note_progress(self) -> None:
+        """A wait recognised its target: the stuck-screen watch counts again
+        from the next look (FrozenWatch.progress)."""
+        watch = getattr(self, "_frozen_watch", None)
+        if watch is not None:
+            watch.progress()
+
     def operate(self, func: Callable, block: bool = True, restore_cursor: bool = True):
         watch = getattr(self, "_frozen_watch", None)
         if watch is not None:
@@ -1142,8 +1159,17 @@ class BaseBD2Task(BaseTask):
         ensure_home: Callable[[], bool],
         click_quick_switch: Callable[[], bool],
         confirm_quick_switch_page: Callable[[], bool],
+        *,
+        quick_switch_page_shown: Callable[[float], bool] | None = None,
+        repress_quick_switch: Callable[[], bool] | None = None,
+        home_shown: Callable[[], bool] | None = None,
     ) -> bool:
-        """Open the recent cartridge, click quick-switch, and confirm its page."""
+        """Open the recent cartridge, click quick-switch, and confirm its page.
+
+        ``quick_switch_page_shown(seconds)`` looks for the page that long,
+        ``repress_quick_switch`` presses the button only while it still reads
+        and ``home_shown`` is a short 主页 look; with them a dropped press is
+        made again at once instead of after the full page wait."""
         if not ensure_home():
             return False
 
@@ -1182,28 +1208,41 @@ class BaseBD2Task(BaseTask):
                     ensure_home=ensure_home,
                     click_quick_switch=click_quick_switch,
                 )
+        if (
+            quick_switch_opened
+            and quick_switch_page_shown is not None
+            and repress_quick_switch is not None
+            and not quick_switch_page_shown(QUICK_SWITCH_REPRESS_AFTER_SECONDS)
+        ):
+            self.info_set("当前阶段", "快速切换没反应，补点一次")
+            if repress_quick_switch():
+                self.log_info("点了快速切换按钮没看到卡带选择页，按钮还在，补点一次。")
         # Pressed but the page never showed (the game did not take the
         # click, YES-BD2 #23): the keys get their turn too.
         if quick_switch_opened and confirm_quick_switch_page():
             return True
-        return self._quick_switch_by_key(ensure_home, confirm_quick_switch_page)
+        return self._quick_switch_by_key(
+            ensure_home, confirm_quick_switch_page, home_shown=home_shown
+        )
 
     def _quick_switch_by_key(
         self,
         ensure_home: Callable[[], bool],
         confirm_quick_switch_page: Callable[[], bool],
+        home_shown: Callable[[], bool] | None = None,
     ) -> bool:
         """Last resort when the quick-switch button never read: the game's own
         keys (Leo 2026-10-11 「主頁進卡帶右下角那個P 也是快捷鍵」).  Still on 主页:
         F into the recent cartridge first.  Then P in the field, twice at most;
         P is never sent while 主页 shows (there it opens the collection)."""
-        if ensure_home():
+        home_now = home_shown or ensure_home
+        if home_now():
             self.log_info(f"还在主页，改按快捷键 {RECENT_CARTRIDGE_KEY} 进最近的卡带。")
-            if not self.tap_key(RECENT_CARTRIDGE_KEY, after_sleep=2.0) or ensure_home():
+            if not self.tap_key(RECENT_CARTRIDGE_KEY, after_sleep=2.0) or home_now():
                 self._save_flow_diagnostic("cartridge_quick_switch_failed")
                 return False
         for press in (1, 2):
-            if press > 1 and ensure_home():
+            if press > 1 and home_now():
                 break
             self.log_info(f"没认出快速切换按钮，第{press}次改按快捷键 {QUICK_SWITCH_KEY}。")
             if not self.tap_key(QUICK_SWITCH_KEY, after_sleep=1.5):

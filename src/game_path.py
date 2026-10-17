@@ -259,8 +259,14 @@ def _existing_game_path(candidates: Iterable[Path | str], exe_names: Iterable[st
         if key in seen:
             continue
         seen.add(key)
-        if path.name.lower() in allowed_names and path.is_file():
-            return str(path)
+        if path.name.lower() not in allowed_names:
+            continue
+        try:
+            if path.is_file():
+                return str(path)
+        except OSError:
+            # Same drive trouble as _windows_drive_roots (WinError 87).
+            continue
     return ""
 
 
@@ -323,8 +329,14 @@ def _windows_drive_roots() -> list[Path]:
 
     for letter in "CDEFG":
         drive = Path(f"{letter}:\\")
-        if drive.exists():
-            roots.append(drive)
+        # A locked, unformatted or virtual drive can answer a plain look
+        # with WinError 87 (参数错误), which Path.exists() does not swallow:
+        # a player's start failed on 'F:\\' (2026-10-17).  Skip that drive.
+        try:
+            if drive.exists():
+                roots.append(drive)
+        except OSError:
+            continue
     return roots
 
 

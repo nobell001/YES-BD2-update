@@ -109,6 +109,10 @@ from src.tasks.map_trade.navigator_constants import (
     StoryBadgeDetection,
     StoryBadgeGrid,
 )
+from src.tasks.BaseBD2Task import (
+    QUICK_SWITCH_HOME_LOOK_SECONDS,
+    QUICK_SWITCH_REPRESS_LOOK_SECONDS,
+)
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.calibration import FHD_1080
 from src.utils.cartridge_quick_switch import QUICK_SWITCH_STABLE_FRAMES
@@ -296,6 +300,23 @@ class StoryCardNavigationMixin:
                 return True
         return False
 
+    def _quick_switch_repress_hooks(self) -> dict:
+        """A dropped quick-switch press is made again at once, and 主页 gets a
+        short look before the P key (see open_cartridge_quick_switcher)."""
+        return {
+            "quick_switch_page_shown": lambda seconds: self._wait_for_ocr_keywords(
+                QUICK_SWITCH_PAGE_KEYWORDS, seconds, "卡带选择页", quiet=True
+            ),
+            "repress_quick_switch": lambda: self.vision.click_stable_template(
+                QUICK_SWITCH_TEMPLATE,
+                timeout=QUICK_SWITCH_REPRESS_LOOK_SECONDS,
+                after_sleep=QUICK_SWITCH_CLICK_AFTER_SLEEP,
+            ),
+            "home_shown": lambda: self._wait_for_cartridge_home(
+                timeout=QUICK_SWITCH_HOME_LOOK_SECONDS
+            ),
+        }
+
     def _open_story_quick_switcher(self, category: str = "story") -> NavigationResult:
         opened = self.task.open_cartridge_quick_switcher(
             ensure_home=self._wait_for_cartridge_home,
@@ -303,6 +324,7 @@ class StoryCardNavigationMixin:
                 QUICK_SWITCH_CLICK_TIMEOUT, QUICK_SWITCH_CLICK_AFTER_SLEEP
             ),
             confirm_quick_switch_page=self._wait_for_quick_switch_page,
+            **self._quick_switch_repress_hooks(),
         )
         if not opened:
             return NavigationResult(
@@ -2286,6 +2308,7 @@ class StoryCardNavigationMixin:
             ensure_home=self._wait_for_cartridge_home,
             click_quick_switch=lambda: self._click_quick_switch(10.0, 1.0),
             confirm_quick_switch_page=self._wait_for_quick_switch_page,
+            **self._quick_switch_repress_hooks(),
         )
         if opened:
             return NavigationResult(True, ScreenState.CARD_MENU)

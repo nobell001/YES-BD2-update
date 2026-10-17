@@ -165,6 +165,9 @@ AUTO_MOVE_TEXT_RELATIVE_ROI = (560 / 1920, 80 / 1080, 1360 / 1920, 980 / 1080)
 # show once the player ticked 不再显示.
 AUTO_MOVE_QUESTION_KEYWORDS = ("是否自动移动", "前往所选目的地")
 AUTO_MOVE_CANCEL_TEXT = "取消"
+NOT_BY_CIRCLE_MESSAGE = "不在传送阵旁（没有交互按钮），不用传送阵技能"
+# The game's interact key, as its hand prompt shows it in the field.
+INTERACT_KEY = "F"
 # Looks (0.5 s apart) for the large map to close by itself once a walk was
 # confirmed, before it is closed by its back button.
 MAP_SELF_CLOSE_LOOKS = 3
@@ -1723,10 +1726,41 @@ class SandboxNavigationMixin:
         # The portal skill is never pressed (Leo 2026-10-10: 「我是說技能 不要
         # 傳送陣」): only the 交互 button opens the map here; callers walk to
         # a circle on the area map or go through the ≡ menu.
+        return NavigationResult(False, ScreenState.SANDBOX, NOT_BY_CIRCLE_MESSAGE)
+
+    def _open_teleport_map_at_hunting_ground(self) -> NavigationResult:
+        """The teleport map right after the ≡ menu's 狩猎场 trip.  The trip
+        always lands on the hunting ground's circle, so its hand is there
+        even when it is not read (player 1080p 125% 2026-10-17, 第10章 回主城
+        failed here); then the game's interact key F (Leo 「傳到狩獵場一定會有
+        手勢可以按 沒辨識到就按f」).  The field is confirmed, so F is never
+        sent on 主页 (where it opens the recent cartridge)."""
+        opened = self.open_teleport_map_from_sandbox()
+        if opened.success or opened.message != NOT_BY_CIRCLE_MESSAGE:
+            return opened
+        tap_key = getattr(self.task, "tap_key", None)
+        if tap_key is None:
+            return opened
+        self._status("导航状态", f"狩猎场没认出交互手势，改按快捷键 {INTERACT_KEY}")
+        self.task.log_info(f"跑图：狩猎场没认出传送阵交互手势，改按快捷键 {INTERACT_KEY}。")
+        if not tap_key(INTERACT_KEY, after_sleep=TELEPORT_INTERACTION_CLICK_DELAY):
+            return NavigationResult(
+                False,
+                ScreenState.SANDBOX,
+                f"狩猎场没认出交互手势，快捷键 {INTERACT_KEY} 没能发送（游戏窗口不在最前面）",
+            )
+        pressed = self._wait_for_sandbox_map_open(
+            f"快捷键{INTERACT_KEY}",
+            expected_mode=MapPageMode.DIRECT_TELEPORT,
+            detect_skill_failure=False,
+        )
+        if pressed.success:
+            return pressed
         return NavigationResult(
             False,
-            ScreenState.SANDBOX,
-            "不在传送阵旁（没有交互按钮），不用传送阵技能",
+            pressed.state,
+            f"狩猎场没认出交互手势，按 {INTERACT_KEY} 后也没打开传送阵地图：{pressed.message}",
+            map_page_mode=pressed.map_page_mode,
         )
 
     def _teleport_generation_boxes(
@@ -2413,9 +2447,16 @@ class SandboxNavigationMixin:
         self._status("导航状态", "地图传送门不可用，前往狩猎场的传送阵")
         entry = self._travel_to_hunting_ground()
         if entry is None:
-            return opened
+            # Name the last step that failed, not only the first (player
+            # report 2026-10-17 showed just 「不在传送阵旁」).
+            return NavigationResult(
+                False,
+                walked.state,
+                f"{opened.message}；走去地图传送门失败（{walked.message}）；"
+                "小地图导航也没能去狩猎场或艾琳",
+            )
         if entry == HUNTING_GROUND_NAV_ENTRY:
-            return self.open_teleport_map_from_sandbox()
+            return self._open_teleport_map_at_hunting_ground()
         # 艾琳 stands in the town: its circle, walking there if needed.
         if self._click_sandbox_teleport_interaction():
             return self._wait_for_sandbox_map_open(
@@ -2890,7 +2931,7 @@ class SandboxNavigationMixin:
                     detect_skill_failure=False,
                 )
             elif (entry := self._travel_to_hunting_ground()) == HUNTING_GROUND_NAV_ENTRY:
-                opened = self.open_teleport_map_from_sandbox()
+                opened = self._open_teleport_map_at_hunting_ground()
             elif entry is not None:
                 # No 狩猎场 in the ≡ menu -> 艾琳 (Leo 2026-09-30).  She
                 # stands in the town, so the route starts right there.

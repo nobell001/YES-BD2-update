@@ -24,6 +24,7 @@ from src.tasks.map_trade.sale_days import (
 from src.tasks.map_trade.trader import Trader
 from src.tasks.map_trade.trader_cooking import MAIN_COOKING_RECIPES
 from src.tasks.map_trade.vision import Vision
+from src.utils.frozen_screen import FROZEN_SCREEN_SECONDS, FrozenScreen, FrozenWatch
 from src.utils.wait_limits import LOADING_MAX_SECONDS
 
 LEGACY_VISION_THRESHOLD_KEY = "跑图跑商识图阈值"
@@ -147,6 +148,20 @@ class MapAutomationTaskBase(BaseBD2Task):
                         self._save_diagnostic(f"{self.diagnostic_prefix}_{name}_failed")
                 except (TaskDisabledException, FinishedException):
                     raise
+                except FrozenScreen as exc:
+                    # The stuck guard fired inside a phase.  Caught as a plain
+                    # error it gave the 问题摘要 「买：」 with no reason, and the
+                    # fired watch failed every later phase (a player's 1080p
+                    # run, 2026-10-16).  Say why, start the watch over, go on.
+                    why = str(exc) or (
+                        f"画面 {FROZEN_SCREEN_SECONDS:.0f} 秒没有变化（点了没反应或认不出画面）"
+                    )
+                    if getattr(self, "_frozen_watch", None) is not None:
+                        self._frozen_watch = FrozenWatch()
+                    failed.append(name)
+                    self._note_phase_problem("fail", f"{name}：{why}")
+                    self.log_warning(f"{name}：{why}。")
+                    self._save_diagnostic(f"{self.diagnostic_prefix}_{name}_frozen")
                 except Exception as exc:
                     failed.append(name)
                     self._note_phase_problem("error", f"{name}：{exc}")

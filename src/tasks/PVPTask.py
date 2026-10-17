@@ -167,7 +167,10 @@ PVP_RANK_PAGE_TITLES = ("恭喜晋级", "段位下滑")
 PVP_SEASON_REWARD_AFTER_CLICK_SECONDS = 3.0
 # How long the shelf may stay up after the 镜中之战 card press before the
 # press counts as swallowed and is made once more.
-PVP_CARD_REPRESS_SECONDS = 4.0
+PVP_CARD_REPRESS_SECONDS = 2.5
+# 竞技场 drops presses more often (player via Leo 2026-10-17 「切换卡带的时候
+# 可以点两下」): the card is pressed again up to this many times.
+PVP_CARD_REPRESSES = 2
 # After a battle the 赛季奖励 page can cover the hub (first hub visit after the
 # Monday reset, player report 2026-10-12, v0.1.24): it is tapped away there.
 # When its 点击画面即可返回 line is not read, the tap goes to the blank spot
@@ -494,8 +497,10 @@ class PVPTask(BaseBD2Task):
         self.info_set("当前阶段", "点击镜中之战卡带")
         self._click_reference(*point, after_sleep=0.0)
         # A press the game swallowed leaves the shelf up (player 2026-10-13,
-        # v0.1.30: 30 s on 游戏卡珍藏集 after one press): press once more.
-        if self._collection_still_shows(PVP_CARD_REPRESS_SECONDS):
+        # v0.1.30: 30 s on 游戏卡珍藏集 after one press): press again.
+        for _repress in range(PVP_CARD_REPRESSES):
+            if not self._collection_still_shows(PVP_CARD_REPRESS_SECONDS):
+                break
             self.log_info("镜中之战：点了镜中之战卡带还停在游戏卡珍藏集，再点一次。")
             self._click_reference(*point, after_sleep=0.0)
         if self._wait_for_pvp_hub_after_cart(

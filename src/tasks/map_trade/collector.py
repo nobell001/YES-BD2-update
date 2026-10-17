@@ -98,6 +98,9 @@ class Collector(SkillExecutionMixin):
         # 2026-10-12: skip the card, but the report must say where).
         self._skill_skips: dict[str, str] = {}
         self._unconfirmed_cards: set[str] = set()
+        # card_id -> why a card was skipped (player report 2026-10-17: the
+        # summary said only 「这次跳过」 and the stage left over from before).
+        self._skip_reasons: dict[str, str] = {}
         try:
             return self._with_skipped_cards(self._run_collection())
         except RuntimeError as exc:
@@ -554,6 +557,7 @@ class Collector(SkillExecutionMixin):
         recorded for it and it stays in 跑图章节.
         None = go on; a result = stop, home was not reached."""
         self._skipped_cards.append(card)
+        self._skip_reasons.setdefault(card.card_id, reason)
         self.task.log_warning(f"地图采集：{card.label}{reason}，先跳过，继续下一张。")
         # A skipped card keeps the collection group too when a later card
         # follows (Leo 2026-10-15 「一張卡帶跑完都會把技能欄切成錯的 下張圖又
@@ -637,12 +641,26 @@ class Collector(SkillExecutionMixin):
         missing = [card for card in cards if card.card_id not in self._skill_skips]
         if missing:
             names = "、".join(card.label for card in missing)
+            reasons = getattr(self, "_skip_reasons", {})
+            why = "；".join(
+                f"{card.label}{reasons[card.card_id]}"
+                for card in missing
+                if reasons.get(card.card_id)
+            )
             notes.append(
-                f"{names}这次跳过，没有完成；没有这张卡带或不想跑的话，"
+                f"{names}这次跳过，没有完成"
+                + (f"（原因：{why}）" if why else "")
+                + "；没有这张卡带或不想跑的话，"
                 "可在「跑图章节」取消勾选（跑图页点一下这张卡带）"
             )
         note = "；".join(notes)
         self.task.log_warning(f"地图采集：{note}。")
+        # The summary's 「停在」 is 当前阶段: without this it kept the step of
+        # the card after the skip (Leo 4K 2026-10-17 「寻找快速切换按钮」).
+        info_set = getattr(self.task, "info_set", None)
+        if callable(info_set):
+            skipped = "、".join(card.label for card in cards)
+            info_set("当前阶段", f"地图采集：{skipped}跳过，没有完成")
         # Only presses that surely did not happen fail the run; one that
         # most likely took (icon greyed) is reported, not failed.
         failed = any(card.card_id not in unconfirmed for card in cards)

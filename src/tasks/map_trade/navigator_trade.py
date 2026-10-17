@@ -91,6 +91,10 @@ BARGAIN_LEGEND_MESSAGE = "砍价技能已经是传说等级，不用再砍了"
 BARGAIN_LEGEND_READS = 2
 
 
+MERCHANT_STAGE = "找商人无聊收集狂大叔"
+SHOP_ENTRY_STAGE = "进入商店"
+
+
 class TradeNavigationMixin:
     """Trade at the merchant 无聊收集狂大叔 of story cartridge 1 血骑士.
 
@@ -109,6 +113,10 @@ class TradeNavigationMixin:
         the menu's plain 商店 option instead (user, 2026-09-27).
         """
 
+        # The 问题摘要 shows 当前阶段; the story-card entry leaves its own
+        # (寻找快速切换按钮) behind, which read as the failing step (Leo's 2K
+        # and a player's report, 2026-10-16/17).
+        self._status("当前阶段", MERCHANT_STAGE)
         self._status("导航状态", "识别商人互动按钮")
         shop_opened = self._enter_q_sp6_shop(
             Q_SP6_SHOP_PRIORITY_TIMEOUT,
@@ -118,6 +126,7 @@ class TradeNavigationMixin:
             arrived = self.go_to_trade_merchant()
             if not arrived.success:
                 return arrived
+            self._status("当前阶段", MERCHANT_STAGE)
             shop_opened = self._enter_q_sp6_shop(
                 MERCHANT_NAV_LANDMARK_TIMEOUT,
                 log_timeout=True,
@@ -126,6 +135,7 @@ class TradeNavigationMixin:
                 return NavigationResult(False, self.classify(), MERCHANT_PROMPT_FAILURE_MESSAGE)
 
         self.task.sleep(Q_SP6_BARGAIN_RECHECK_DELAY)
+        self._status("当前阶段", SHOP_ENTRY_STAGE)
         self._status("导航状态", "确认砍价入口")
         if not self._confirm_merchant_menu():
             return NavigationResult(False, self.classify(), "商店页面未识别到砍价入口")
@@ -372,6 +382,7 @@ class TradeNavigationMixin:
         entered = self._enter_trade_card()
         if not entered.success:
             return entered
+        self._status("当前阶段", MERCHANT_STAGE)
         # The merchant route uses the minimap's ≡ menu (user 2026-09-28).
         self.ensure_small_minimap()
         if self._wait_for_merchant_prompt(2.0):
@@ -437,19 +448,29 @@ class TradeNavigationMixin:
     def _walk_to_merchant(self) -> bool:
         self._status("导航状态", "小地图导航到商店")
         if not self._open_minimap_nav_menu():
-            self.task.log_warning("跑商：未识别到小地图导航按钮，无法前往商店。")
+            # Second way there (Leo 「每個辨識都要有備案」): the area map's
+            # merchant icon.  The ≡ button drew an orange 「!」 on the 2K PC
+            # (10-16) and v0.1.42 had no fallback for it; Leo's 2K 一键日常
+            # failed 跑商 买 here on 10-17 (cause not proven: no log).
+            self._status("导航状态", "未识别到小地图导航按钮，改点地图商人图标")
+            if not self._walk_via_area_map():
+                self.task.log_warning("跑商：小地图导航按钮和地图商人图标都没找到，无法前往商店。")
+                return False
+            outcome = "walked"
+        elif not self._click_merchant_nav_destination():
             return False
-        if not self._click_merchant_nav_destination():
-            return False
-        outcome = self._confirm_travel()
+        else:
+            outcome = self._confirm_travel()
         if outcome == "stuck":
             return False
         if outcome == "unreachable":
             self._status("导航状态", "已在商店区域，改点地图商人图标")
             if not self._walk_via_area_map():
                 return False
-        elif not self._wait_for_merchant_prompt(MERCHANT_QUICK_ARRIVAL_TIMEOUT) and (
-            self.classify() == ScreenState.SANDBOX
+        elif (
+            outcome != "walked"
+            and not self._wait_for_merchant_prompt(MERCHANT_QUICK_ARRIVAL_TIMEOUT)
+            and self.classify() == ScreenState.SANDBOX
         ):
             # Inside the shop but away from the merchant, 立即前往 moves
             # nothing and no toast says so (live 2026-09-27): walk there via
@@ -598,6 +619,7 @@ class TradeNavigationMixin:
             popup_present = popup_marker in normalized
             if matched and not popup_present:
                 consecutive_hits += 1
+                self._note_progress()
                 sold_out_hits = 0
             else:
                 consecutive_hits = 0

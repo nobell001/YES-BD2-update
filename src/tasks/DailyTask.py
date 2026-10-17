@@ -229,6 +229,9 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         "my_home": "小屋页面检测分数",
         "business_collect 关键字": "一键收菜关键字命中",
     }
+    # Per sub-step: why it failed, and whether home was lost after it was done.
+    _step_why = ""
+    _home_lost_after_done = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -275,6 +278,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             return True
 
         self.info_set("状态", "公会、小屋、酒馆启动。")
+        self._why = ""
         steps = [
             ("公会签到", "执行公会签到", self.run_guild_sign_in),
             ("小屋签到", "执行小屋签到", self.run_my_home_sign_in),
@@ -285,6 +289,12 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         success = []
         failed = []
         skipped = []
+        # Why each failed step failed, for the 问题摘要: without it the
+        # summary took the run's last log line, which belonged to a later
+        # step (player 2026-10-17: 「失败：一键收菜：关闭经营管理弹窗」 while
+        # 一键收菜 was done and 公会签到 had failed).
+        reasons = {}
+        stuck_after = ""
         stop_remaining = False
         for name, config_key, func in steps:
             if name not in enabled:
@@ -296,6 +306,8 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
 
             self.info_set("当前任务", name)
             self.log_info(f"开始日常子任务：{name}")
+            self._step_why = ""
+            self._home_lost_after_done = False
             result = self._run_step(name, func)
             # A failed step is tried once more from home (player 2026-10-12,
             # v0.1.24: right after 08:00 the game's announcement board
@@ -304,6 +316,8 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             if not result:
                 if self._wait_for_home_confirmation(f"{name}失败后主页确认", timeout=3.0):
                     self.log_info(f"{name}：没成功，已回到主页，再试一次。")
+                    self._step_why = ""
+                    self._home_lost_after_done = False
                     result = self._run_step(name, func)
                 else:
                     home_lost = True
@@ -311,8 +325,13 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 skipped.append(name)
             elif result:
                 success.append(name)
+                if self._home_lost_after_done:
+                    stop_remaining = True
+                    stuck_after = name
+                    self.log_info(f"{name} 完成后未能确认回到主页，停止剩余子任务。")
             else:
                 failed.append(name)
+                reasons[name] = self._step_why or "原因没有记录到，请看摘要里的游戏画面"
                 # The steps are independent: only a game that is not back
                 # on home stops the rest (finding 24).
                 if name == enabled[-1]:
@@ -329,11 +348,18 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         self.info_set("完成", str(success))
         self.info_set("失败", str(failed))
         self.info_set("跳过", str(skipped))
-        self.info_set("状态", "公会、小屋、酒馆结束。")
+        whys = [f"{name}：{reasons[name]}" for name in failed]
+        if stuck_after:
+            whys.append(f"{stuck_after}做完后没能回到主页，后面的没做")
+        if whys:
+            self._why = "；".join(whys)
+            self.info_set("状态", f"公会、小屋、酒馆失败：{self._why}。")
+        else:
+            self.info_set("状态", "公会、小屋、酒馆结束。")
         self.log_completion(
             f"公会、小屋、酒馆结束：完成={success}, 失败={failed}, 跳过={skipped}"
         )
-        return not failed
+        return not whys
 
     def _run_step(self, name: str, func):
         try:
@@ -342,7 +368,28 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             raise
         except Exception as exc:
             self.log_error(f"日常子任务失败：{name}", exc)
-            return False
+            return self._step_failed(f"程序出错（{exc}）")
+
+    def _step_failed(self, why: str) -> bool:
+        """Note why the running sub-step failed; the first reason wins."""
+        if not getattr(self, "_step_why", ""):
+            self._step_why = why
+        return False
+
+    def _home_after_done(self, name: str) -> bool:
+        """The step's work is done but the back press did not show home.
+
+        A step is judged on its own work (2K 桌面分身 2026-10-16 and a player
+        2026-10-17: the sign-in had worked, then an event popup over home
+        failed the home check and 公会签到 was reported failed).  Home is
+        reached through the recovery flow, which closes popups; only when
+        that fails too do the remaining steps stop.
+        """
+        self.log_info(f"{name}：已完成，但回主页时没认出主页（可能被弹窗挡住），走回主页流程。")
+        if not recover_to_home(self):
+            self._home_lost_after_done = True
+            self.log_info(f"{name}：已完成，但没能回到主页。")
+        return True
 
     def _home_after_failed_step(self, name: str) -> bool:
         """True once home is confirmed again after a failed sub-step.
@@ -373,7 +420,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
 
     def run_guild_sign_in(self) -> bool | str:
         if not self._wait_for_home_confirmation("公会签到入口前主页确认"):
-            return False
+            return self._step_failed("开始前不在主页（可能被弹窗挡住）")
 
         guild_ready, frame = self._find_guild_entry()
         if not guild_ready:
@@ -383,7 +430,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 self.log_info("公会签到：未找到公会入口（可能未加入公会），跳过公会签到。")
                 return STEP_SKIPPED
             self.log_info("公会签到：未检测到公会入口模板，且画面已不是主页，不点击公会按钮。")
-            return False
+            return self._step_failed("没认出公会入口，画面也不是主页")
 
         self._status_set("公会判断", "已识别入口，进入公会")
         self._sleep_after_recognition()
@@ -432,7 +479,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 f"公会签到：公会入口按了{len(presses)}次都没看到公会页面"
                 "（游戏没反应或可能未加入公会），未签到。"
             )
-            return False
+            return self._step_failed(f"公会入口按了{len(presses)}次都没进入公会页面")
         if state == "toast":
             self.log_info("公会签到：检测到签到成功提示。")
             self._sleep_after_recognition()
@@ -441,7 +488,11 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             )
         else:
             self.log_info("公会签到：已进入公会页面（今日签到提示已出现过或未弹出）。")
-        return self._return_home_from_guild()
+        # Entering the guild page is the sign-in: a popup over home on the
+        # way back does not undo it.
+        if not self._return_home_from_guild():
+            return self._home_after_done("公会签到")
+        return True
 
     def _wait_guild_page(self, timeout: float, load: bool = False) -> tuple[str | None, str]:
         """"toast" (签到成功 shown), "page" (guild page UI) or None.
@@ -527,7 +578,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
 
     def run_my_home_sign_in(self) -> bool:
         if not self._wait_for_home_confirmation("小屋签到入口前主页确认"):
-            return False
+            return self._step_failed("开始前不在主页（可能被弹窗挡住）")
 
         # The my-home.png template scores -1 at 4K, so waiting for it first
         # cost ~19 s per run (live 2026-09-27); the page title is read on
@@ -557,15 +608,17 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         else:
             self.log_info("小屋签到：未确认小屋页面标题，不执行返回点击。")
             self._status_set("小屋签到返回主页结果", "未执行")
-            return False
+            return self._step_failed("点了小屋入口，没认出小屋页面")
 
         home_ok = self._wait_for_home_confirmation("小屋签到返回主页")
         self._status_set("小屋签到返回主页结果", "通过" if home_ok else "失败")
-        return home_ok
+        if not home_ok:
+            return self._home_after_done("小屋签到")
+        return True
 
     def run_business_collect(self) -> bool:
         if not self._wait_for_home_confirmation("一键收菜入口前主页确认"):
-            return False
+            return self._step_failed("开始前不在主页（可能被弹窗挡住）")
 
         wait = float(self.config.get("一键收菜菜单等待秒数", 8.0))
         first_wait = min(wait, BUSINESS_ENTRY_RETRY_SECONDS)
@@ -586,7 +639,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         if not found:
             self.log_info("一键收菜：未检测到经营管理弹窗关键字，跳过点击。")
             self._status_set("一键收菜返回主页结果", "未执行")
-            return False
+            return self._step_failed("点了经营管理，没认出经营管理弹窗")
 
         claim = self._business_popup_box(boxes, frame, BUSINESS_COLLECT_CLAIM_TEXT)
         # The keyword gate can pass while the popup is still fading in (live
@@ -648,7 +701,11 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         self._settle_business_collect()
         home_ok = self._wait_for_home_confirmation("一键收菜返回主页")
         self._status_set("一键收菜返回主页结果", "通过" if home_ok else "失败")
-        return home_ok and claimed
+        if not claimed:
+            return self._step_failed("按了「一键获得」，没看到领取结果")
+        if not home_ok:
+            return self._home_after_done("一键收菜")
+        return True
 
     @staticmethod
     def _business_claim_colour(frame, box) -> tuple[float, float] | None:

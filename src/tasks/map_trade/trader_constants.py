@@ -81,6 +81,9 @@ BUY_CONFIRM_KEYWORDS = (
     "是否购买所有加入收藏的商品",
 )
 BUY_CONFIRM_TIMEOUT = STUCK_SECONDS
+# A press that opened nothing is pressed once more after this long (a
+# player's 2026-10-16 run sat 10 s on the unchanged shop and was stopped).
+BUY_CONFIRM_FIRST_TIMEOUT = 4.0
 BUY_CONFIRM_INTERVAL = 0.25
 BUY_CONFIRM_CLOSE_TIMEOUT = 5.0
 BUY_CONFIRM_PRE_CLICK_DELAY = 0.8
