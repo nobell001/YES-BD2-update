@@ -2785,11 +2785,39 @@ class SandboxNavigationMixin:
         for point in points:
             self._status("导航状态", f"区域地图点击{target.title}出口 {point}")
             self.vision.click_client(point, frame.shape, after_sleep=WALK_CLICK_SETTLE_SECONDS)
-            if here not in self._field_map_header():
+            if here not in self._field_map_header() or self._confirm_exit_walk_question(here):
                 return True
-            if picker and self._click_exit_picker(target) and here not in self._field_map_header():
+            if picker and self._click_exit_picker(target) and (
+                here not in self._field_map_header() or self._confirm_exit_walk_question(here)
+            ):
                 return True
         return False
+
+    def _confirm_exit_walk_question(self, here: str) -> bool:
+        """Press 确认 on the 自动移动 dialog an area-map exit click opened;
+        True once the walk started.
+
+        A player 2026-10-17 (v0.1.44, 1080p): without 不再显示 ticked the
+        game asks 「是否自动移动前往所选目的地？」 after the exit click too.
+        The header stays readable above the dialog, so the click looked
+        ignored and the next spot landed on the dialog's 不再显示 box; every
+        walked card was skipped.  An unconfirmed dialog is cancelled so the
+        next spot is not clicked onto it."""
+        frame = self.vision.capture()
+        if not self._auto_move_question_shown(self._walk_text(frame)):
+            return False
+        self._status("导航状态", "点出口后弹出自动移动确认窗，点确认")
+        if not self._click_sandbox_navigation_destination_confirmation(frame):
+            self._cancel_auto_move_dialog()
+            return False
+        for look in range(MAP_SELF_CLOSE_LOOKS):
+            if here not in self._field_map_header():
+                return True
+            if look + 1 < MAP_SELF_CLOSE_LOOKS:
+                self.task.sleep(SANDBOX_NAVIGATION_OCR_INTERVAL * 2)
+        # The walk goes on with the map closed (as after a large-map 确认).
+        self._close_field_map()
+        return True
 
     def _click_exit_picker(self, target: CollectionMapTarget) -> bool:
         """The small list an area-map spot opens when several things stand

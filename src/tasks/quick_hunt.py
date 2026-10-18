@@ -239,7 +239,12 @@ QUICK_HUNT_STONE_COUNT_ROI = _quick_hunt_relative_roi(1794, 288, 1689, 80)
 # 2026-10-10).  Leo: 「聖石如果偵測玩家收起來 就把它點開」.
 QUICK_HUNT_FOLD_BUTTON_ROI = _quick_hunt_relative_roi(1650, 78, 1800, 170)
 
-QUICK_HUNT_DOUBLE_ROI = _quick_hunt_relative_roi(168, 337, 135, 205)
+# The badges sit at about (153, 225) and (153, 321).  The box was once only
+# 33 px wide, so a picture shifted by 8 px (a 1639x921 window at 125% scale,
+# v0.1.37) read no badge at all; now it allows about 40 px either way.
+QUICK_HUNT_DOUBLE_ROI = _quick_hunt_relative_roi(100, 185, 215, 370)
+# Above this line a badge belongs to 金币, below it to 史莱姆.
+QUICK_HUNT_DOUBLE_SPLIT_Y = 273 / REFERENCE_HEIGHT
 # How long the double badges are looked for (Leo: wait at most 5 s).
 QUICK_HUNT_DOUBLE_READ_SECONDS = 5.0
 
@@ -998,9 +1003,7 @@ class QuickHuntFeatureMixin:
             spec,
             minimum_score=vision.threshold_for(spec),
         )
-        split_y = frame.shape[0] * (
-            QUICK_HUNT_DOUBLE_ROI[1] + QUICK_HUNT_DOUBLE_ROI[3]
-        ) / 2
+        split_y = frame.shape[0] * QUICK_HUNT_DOUBLE_SPLIT_Y
         states = {"金币": False, "经验": False}
         details = []
         for match in matches:
