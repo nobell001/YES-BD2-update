@@ -41,6 +41,7 @@ from src.utils.frozen_screen import (
     INEFFECTIVE_PRESSES,
     FrozenScreen,
     FrozenWatch,
+    loading_words,
 )
 from src.utils.ocr_utils import normalize_ocr_text
 from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
@@ -555,7 +556,16 @@ class BaseBD2Task(BaseTask):
 
         watch = getattr(self, "_frozen_watch", None)
         if watch is not None:
-            watch.look(frame)
+            try:
+                watch.look(frame)
+            except FrozenScreen as exc:
+                # A still loading/connecting screen that is not black (slow
+                # PC or network) is waited for like the black one.
+                word = "" if str(exc) or watch.loading_hold else self._loading_words_on(frame)
+                if not word:
+                    raise
+                watch.hold_for_loading(word)
+                self.log_info(f"画面停着但写着「{word}」，当成加载继续等。")
         height, width = frame.shape[:2]
         self.info_set("截图方式", self.capture_method_name)
         self.info_set("游戏分辨率", f"{width}x{height}")
@@ -814,6 +824,16 @@ class BaseBD2Task(BaseTask):
             # A popup covered the page (赛季奖励, 获得道具...): closed, look again.
             result = self.look_again(look, label, grace, popups=False)
         return result
+
+    def _loading_words_on(self, frame) -> str:
+        """The loading/connecting word the frame shows, "" when none (one OCR)."""
+        try:
+            boxes = list(self.ocr(frame=frame, name="卡住前看载入字样", reread=False) or [])
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception:
+            return ""
+        return loading_words(" ".join(str(getattr(box, "name", "")) for box in boxes))
 
     def close_known_popup(self, label: str = "", *, info_only: bool = False) -> bool:
         """Close a popup that covers the page with its harmless press

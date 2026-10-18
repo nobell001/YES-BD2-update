@@ -40,6 +40,19 @@ CHANGED_PIXELS = 4
 # the login's clear spot was pressed 29 times under a 恭喜晋级 page that only
 # its 确认 closes).  From this many on, a known popup is looked for first.
 INEFFECTIVE_PRESSES = 3
+# Words of a loading or connecting screen that is not black (Leo 2026-10-18
+# 「有人電腦比較卡」: a slow PC or network keeps it up past FROZEN_SCREEN_SECONDS
+# without moving).  Such a still screen is waited for up to
+# LOADING_WORDS_SECONDS (Leo 2026-10-18 「黑畫面一樣30秒 第二個20秒」).
+# Not "BROWNDUST": the home announcement banner carries the logo too.
+LOADING_WORDS_SECONDS = 20.0
+LOADING_WORDS = ("nowloading", "loading", "加载", "载入", "读取中", "连接中", "连线中", "通信中", "请稍候")
+
+
+def loading_words(text: object) -> str:
+    """The loading word the text shows ("" when none)."""
+    flat = "".join(str(text or "").split()).lower()
+    return next((word for word in LOADING_WORDS if word in flat), "")
 
 
 class FrozenScreen(Exception):
@@ -79,6 +92,17 @@ class FrozenWatch:
     at_last_press: np.ndarray | None = None
     last_point: tuple | None = None
     ineffective: int = 0
+    # A still screen that reads as loading (hold_for_loading): waited for up
+    # to LOADING_WORDS_SECONDS until the picture changes.
+    loading_hold: bool = False
+    loading_word: str = ""
+
+    def hold_for_loading(self, word: str = "") -> None:
+        """The still screen that just fired shows loading words: keep
+        watching it up to LOADING_WORDS_SECONDS instead."""
+        self.fired = False
+        self.loading_hold = True
+        self.loading_word = word
 
     def pressed(self, point: tuple | None = None) -> None:
         """The tool pressed or typed something: count from the next look.
@@ -123,13 +147,27 @@ class FrozenWatch:
             or changed(picture, self.picture)
         ):
             self.picture, self.since = picture, now
+            self.loading_hold = False
         self.seen = now
         # The black loading screen (a faint logo at most) may stand still
         # for longer than a stuck page (Leo 2026-10-15 「一定會超過10秒甚至15秒」).
         loading = is_loading_dark(picture[..., None])
-        limit = max(self.seconds, LOADING_MAX_SECONDS) if loading else self.seconds
+        if loading:
+            limit = max(self.seconds, LOADING_MAX_SECONDS)
+        elif self.loading_hold:
+            limit = max(self.seconds, LOADING_WORDS_SECONDS)
+        else:
+            limit = self.seconds
         if now - self.since >= limit:
             self.fired = True
+            # Leo 2026-10-18 「卡住要寫原因」: which screen, how long, why.
+            if self.loading_hold:
+                raise FrozenScreen(
+                    f"画面停在「{self.loading_word or '加载'}」{limit:.0f} 秒没有结束"
+                    "（可能网络或电脑比较慢）"
+                )
             if loading:
-                raise FrozenScreen(f"加载画面 {limit:.0f} 秒没有结束")
+                raise FrozenScreen(
+                    f"黑色加载画面 {limit:.0f} 秒没有结束（可能网络或电脑比较慢）"
+                )
             raise FrozenScreen()
