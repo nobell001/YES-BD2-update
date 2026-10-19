@@ -40,6 +40,9 @@ KEEP_DAYS = 7
 RING_SIZE = 600
 # Lines of a record (repeats folded into one).
 LOG_LINES = 6
+# A line of the report: long enough for a run that skipped many cards to
+# keep each reason (player 2026-10-19: cut off after 120 characters).
+NOTE_CHARS = 320
 FRAME_WIDTH = 1920
 # The seconds before a problem: one small frame every BEFORE_GAP seconds of
 # the run, the last BEFORE_FRAMES of them saved with the problem (about 1 MB
@@ -727,7 +730,7 @@ def _capture(task, how: str, note: str, current: dict) -> dict:
         "how": how,
         "task": str(getattr(task, "name", "") or ""),
         "stage": _stage(task),
-        "note": scrub(note)[:120],
+        "note": scrub(note)[:NOTE_CHARS],
         "env": environment(executor),
         "logs": _logs(current, now),
     }
@@ -761,7 +764,7 @@ def _logs(current: dict, until: float) -> list[dict]:
     ]
     folded = fold(lines)[-LOG_LINES:]
     return [
-        {"at": entry["at"], "level": entry["level"], "text": entry["text"][:120],
+        {"at": entry["at"], "level": entry["level"], "text": entry["text"][:NOTE_CHARS],
          "count": entry["count"]}
         for entry in folded
     ]

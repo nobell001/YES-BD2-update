@@ -640,12 +640,21 @@ class Collector(SkillExecutionMixin):
             notes.append(f"{card.label}{problem}，这张先跳过，下次运行再跑")
         missing = [card for card in cards if card.card_id not in self._skill_skips]
         if missing:
-            names = "、".join(card.label for card in missing)
+            names = _card_names(missing)
             reasons = getattr(self, "_skip_reasons", {})
+            # Cards that stopped for the same reason share one entry, so a
+            # long run of skips keeps every reason inside the report's line
+            # (player 2026-10-19: nine chapters skipped, the reasons of
+            # 第5–11章 were cut off after 第3章's).
+            grouped: dict[str, list] = {}
+            for card in missing:
+                if reasons.get(card.card_id):
+                    grouped.setdefault(reasons[card.card_id], []).append(card)
             why = "；".join(
-                f"{card.label}{reasons[card.card_id]}"
-                for card in missing
-                if reasons.get(card.card_id)
+                f"{group[0].label}{reason}"
+                if len(group) == 1
+                else f"{_card_names(group)}都{reason}"
+                for reason, group in grouped.items()
             )
             notes.append(
                 f"{names}这次跳过，没有完成"
@@ -659,7 +668,7 @@ class Collector(SkillExecutionMixin):
         # the card after the skip (Leo 4K 2026-10-17 「寻找快速切换按钮」).
         info_set = getattr(self.task, "info_set", None)
         if callable(info_set):
-            skipped = "、".join(card.label for card in cards)
+            skipped = _card_names(cards)
             info_set("当前阶段", f"地图采集：{skipped}跳过，没有完成")
         # Only presses that surely did not happen fail the run; one that
         # most likely took (icon greyed) is reported, not failed.
@@ -741,3 +750,29 @@ class Collector(SkillExecutionMixin):
             self.task.info_set(key, value)
         except AttributeError:
             pass
+
+
+def _card_names(cards) -> str:
+    """「第3章、第5章至第11章」: chapters in a row are named as a range."""
+    names: list[str] = []
+    run: list = []
+
+    def flush() -> None:
+        if len(run) > 2:
+            names.append(f"{run[0].label}至{run[-1].label}")
+        else:
+            names.extend(card.label for card in run)
+        run.clear()
+
+    for card in cards:
+        if (
+            run
+            and card.category == run[-1].category
+            and card.number == run[-1].number + 1
+        ):
+            run.append(card)
+            continue
+        flush()
+        run.append(card)
+    flush()
+    return "、".join(names)

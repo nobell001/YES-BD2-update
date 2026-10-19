@@ -167,6 +167,9 @@ AUTO_MOVE_TEXT_RELATIVE_ROI = (560 / 1920, 80 / 1080, 1360 / 1920, 980 / 1080)
 AUTO_MOVE_QUESTION_KEYWORDS = ("是否自动移动", "前往所选目的地")
 AUTO_MOVE_CANCEL_TEXT = "取消"
 NOT_BY_CIRCLE_MESSAGE = "不在传送阵旁（没有交互按钮），不用传送阵技能"
+# ≡-menu entries also found by a part of the name when one character is
+# misread (「狩猎扬」), on a box no longer than the name.
+NAV_ENTRY_NAMES = {"狩猎场": ("狩猎场", "狩猎", "猎场")}
 # The game's interact key, as its hand prompt shows it in the field.
 INTERACT_KEY = "F"
 # Looks (0.5 s apart) for the large map to close by itself once a walk was
@@ -2454,7 +2457,8 @@ class SandboxNavigationMixin:
                 False,
                 walked.state,
                 f"{opened.message}；走去地图传送门失败（{walked.message}）；"
-                "小地图导航也没能去狩猎场或艾琳",
+                "小地图导航也没能去狩猎场或艾琳"
+                + (f"（{why}）" if (why := getattr(self, "_nav_failure", "")) else ""),
             )
         if entry == HUNTING_GROUND_NAV_ENTRY:
             return self._open_teleport_map_at_hunting_ground()
@@ -2535,12 +2539,19 @@ class SandboxNavigationMixin:
         any walk after it) ends.  The entry travelled to, or None."""
 
         wanted = "、".join(entries)
+        # Which part failed goes into the run's message, not only the log
+        # (player 1080p 2026-10-19: 第3章 tried the ≡ menu three times and
+        # the report could not say why).
+        self._nav_failure = ""
         if not self._open_minimap_nav_menu():
+            self._nav_failure = "没认出小地图的≡按钮"
             self.task.log_warning(f"跑图：未识别到小地图导航按钮，无法前往{wanted}。")
             return None
         choice = self._nav_menu_choice(entries)
         if choice is None:
-            self.task.log_warning(f"跑图：导航菜单里没有{wanted}。")
+            seen = getattr(self, "_nav_menu_seen", "")
+            self._nav_failure = f"≡菜单里没读到{wanted}" + (f"，读到：{seen}" if seen else "，什么字都没读到")
+            self.task.log_warning(f"跑图：导航菜单里没有{wanted}（读到：{seen or '-'}）。")
             return None
         entry, point, shape = choice
         # A lost press left the menu open, and the field check below then
@@ -2553,9 +2564,11 @@ class SandboxNavigationMixin:
             sleep=self.task.sleep,
             log=self.task.log_info,
         ):
+            self._nav_failure = f"点了≡菜单的{entry}没有反应"
             self.task.log_warning(f"跑图：点了导航菜单的{entry}没有反应。")
             return None
         if self._confirm_travel() == "stuck":
+            self._nav_failure = "前往确认窗的「确认」读不到"
             return None
         arrived = self._wait_for_field_hud(
             timeout=self._loading_timeout(),
@@ -2564,6 +2577,7 @@ class SandboxNavigationMixin:
             failure_message=f"前往{entry}后未确认箱庭",
         ).success
         if not arrived:
+            self._nav_failure = f"前往{entry}后没认出地图画面"
             return None
         # An NPC entry walks on to the NPC after the loading screen.
         self._wait_auto_move_finished(SANDBOX_NAVIGATION_WALK_TIMEOUT)
@@ -2578,28 +2592,50 @@ class SandboxNavigationMixin:
 
         end_at = monotonic() + MERCHANT_NAV_MENU_OCR_TIMEOUT
         seen = False
+        self._nav_menu_seen = ""
         while True:
             frame = self.vision.capture()
-            listed: dict[str, tuple[int, int]] = {}
-            texts = []
-            for box in self.vision.ocr_boxes(frame, "导航菜单", MERCHANT_NAV_MENU_OCR_ROI):
-                text = normalize_text(self.vision.simplify(str(getattr(box, "name", ""))))
-                center = self._ocr_box_center(box)
-                if not text or center is None:
-                    continue
-                texts.append(text)
-                for entry in entries:
-                    if entry in text:
-                        listed.setdefault(entry, center)
+            listed, texts = self._nav_menu_entries(frame, entries)
             self._status("导航菜单", " ".join(texts) or "-")
             timed_out = monotonic() >= end_at
+            if not listed and timed_out:
+                # Last read before giving up (Leo's ladder: read again 2×):
+                # small menu words a model misreads at 1× (v6 rec, 2026-10-19).
+                listed, more = self._nav_menu_entries(frame, entries, ocr_scale=2.0)
+                texts = texts or more
+                if listed:
+                    self._status("导航菜单", "放大两倍后读到 " + " ".join(more))
             if listed and (seen or timed_out):
                 entry = next(item for item in entries if item in listed)
                 return entry, listed[entry], frame.shape
             if timed_out:
+                self._nav_menu_seen = " ".join(texts)[:40]
                 return None
             seen = bool(listed)
             self.task.sleep(MERCHANT_NAV_MENU_OCR_INTERVAL)
+
+    def _nav_menu_entries(self, frame, entries: tuple[str, ...], **kwargs):
+        """The wanted ``entries`` the ≡ menu shows (with click points), and
+        every text read.  An entry also counts by a part of its name that no
+        other entry carries (「狩猎」/「猎场」 for one character misread)."""
+
+        listed: dict[str, tuple[int, int]] = {}
+        texts = []
+        for box in self.vision.ocr_boxes(frame, "导航菜单", MERCHANT_NAV_MENU_OCR_ROI, **kwargs):
+            text = normalize_text(self.vision.simplify(str(getattr(box, "name", ""))))
+            center = self._ocr_box_center(box)
+            if not text or center is None:
+                continue
+            texts.append(text)
+            for entry in entries:
+                if entry in text or (
+                    # A part only on a box no longer than the name itself,
+                    # so a longer entry carrying it (快速狩猎…) never counts.
+                    len(text) <= len(entry)
+                    and any(name in text for name in NAV_ENTRY_NAMES.get(entry, ()))
+                ):
+                    listed.setdefault(entry, center)
+        return listed, texts
 
     def _nav_entry_taken(self, entry: str) -> bool:
         """After pressing ``entry`` in the ≡ menu: the menu no longer lists
