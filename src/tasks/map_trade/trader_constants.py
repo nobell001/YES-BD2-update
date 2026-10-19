@@ -76,6 +76,10 @@ BUY_CONFIRM_DIALOG_REGION = (
     753 / FHD_1080.height,
 )
 BUY_CONFIRM_POINT = (1045 / FHD_1080.width, 697 / FHD_1080.height)
+# 「一键购买全部收藏」 on the 购买 page (1920x1080 frame, 2026-10).  Pressed
+# when its words cannot be read (Leo 2026-10-19 「買如果沒有成功就點固定位置
+# 確保買到」).  「一键购买」 (everything, not only favourites) sits 240 px right.
+BUY_ALL_FAVORITES_POINT = (1435 / FHD_1080.width, 1005 / FHD_1080.height)
 BUY_CONFIRM_KEYWORDS = (
     "一键购买全部收藏",
     "是否购买所有加入收藏的商品",

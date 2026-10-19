@@ -16,6 +16,7 @@ from src.tasks.map_trade.phase_ledger import PhaseDeferred
 from src.tasks.map_trade.trader_constants import (
     BUY_ALL_FAVORITES_INTERVAL,
     BUY_ALL_FAVORITES_KEYWORD,
+    BUY_ALL_FAVORITES_POINT,
     BUY_ALL_FAVORITES_STABLE_HITS,
     BUY_ALL_FAVORITES_TIMEOUT,
     BUY_CONFIRM_CLOSE_TIMEOUT,
@@ -64,7 +65,9 @@ class BuyFlowMixin:
         self._status("当前阶段", "一键购买全部收藏")
         purchase_state = self._wait_for_buy_all_favorites_state()
         if purchase_state is None:
-            return False
+            completed = self._buy_all_favorites_at_fixed_point()
+            self._buy_completed_in_current_shop = completed
+            return completed
         if purchase_state[0] is None:
             self._buy_completed_in_current_shop = True
             return True
@@ -170,21 +173,43 @@ class BuyFlowMixin:
                 confirmed = self._wait_for_purchase_confirmation()
             else:
                 again = self._wait_for_buy_all_favorites_state(BUY_CONFIRM_FIRST_TIMEOUT)
-                if again is None or again[0] is None:
-                    self.task.log_warning(
-                        "买：点了一键购买全部收藏没有出现确认弹窗，也读不到可以再点的按钮，停止购买。"
+                if again is not None and again[0] is None:
+                    return True
+                if again is None:
+                    self.task.log_info(
+                        "买：点了一键购买全部收藏没有出现确认弹窗，也读不到按钮，改按它的固定位置。"
                     )
-                    return False
+                    return self._buy_all_favorites_at_fixed_point()
                 self.task.log_info("买：点了一键购买全部收藏没有出现确认弹窗，再点一次。")
                 self.vision.click_client(  # 不用确认：the dialog is waited for below
                     again[0], again[1].shape, after_sleep=BUY_ALL_FAVORITES_CLICK_AFTER_SLEEP
                 )
                 confirmed = self._wait_for_purchase_confirmation(log_timeout=False)
             if not confirmed:
-                self.task.log_warning(
-                    "买：点了一键购买全部收藏，确认弹窗一直没有出现或读不到，停止购买。"
-                )
-                return False
+                return self._confirm_unread_purchase_dialog()
+        return self._press_purchase_confirm()
+
+    def _buy_all_favorites_at_fixed_point(self) -> bool:
+        """The 一键购买全部收藏 words were not read: press where it sits."""
+        self.task.log_info("买：读不到「一键购买全部收藏」，按它的固定位置。")
+        self.task.operate_click(  # 不用确认：the dialog is waited for below
+            *BUY_ALL_FAVORITES_POINT, after_sleep=BUY_ALL_FAVORITES_CLICK_AFTER_SLEEP
+        )
+        if self._wait_for_purchase_confirmation(
+            BUY_CONFIRM_FIRST_TIMEOUT, log_timeout=False
+        ) or self._purchase_dialog_partly_read():
+            return self._press_purchase_confirm()
+        return self._confirm_unread_purchase_dialog()
+
+    def _confirm_unread_purchase_dialog(self) -> bool:
+        """No confirm dialog was read: press 确认 where it sits, then the
+        sold-out labels on the bought favourites say whether it worked."""
+        self.task.log_info("买：读不到购买确认弹窗，按确认的固定位置，再看商品是否售罄。")
+        self.task.sleep(BUY_CONFIRM_PRE_CLICK_DELAY)
+        self.task.operate_click(*BUY_CONFIRM_POINT, after_sleep=BUY_CONFIRM_POST_CLICK_DELAY)  # 不用确认：售罄 is checked below
+        return self._sold_out_after_buy()
+
+    def _press_purchase_confirm(self) -> bool:
         self.task.log_info(
             f"买：购买确认弹窗OCR完成，等待{BUY_CONFIRM_PRE_CLICK_DELAY:.1f}秒后点击确认。"
         )
@@ -200,7 +225,22 @@ class BuyFlowMixin:
                 self.task.log_info("买：已确认购买全部收藏商品。")
                 return True
             self.task.log_info(f"买：第{attempt}次点击确认后购买弹窗仍在。")
-        self.task.log_warning("买：购买确认弹窗没有关闭，未确认是否买到。")
+        return self._sold_out_after_buy()
+
+    def _sold_out_after_buy(self, timeout: float = BUY_TO_SELL_TIMEOUT) -> bool:
+        """The 售罄 labels on the favourites prove the purchase went through."""
+        end_at = monotonic() + max(0.0, timeout)
+        hits = 0
+        while True:
+            match = self.vision.match(self.vision.capture(), BUY_TO_SELL_SOLD_OUT_TEMPLATE)
+            hits = hits + 1 if self.vision.passes(match, BUY_TO_SELL_SOLD_OUT_TEMPLATE) else 0
+            if hits >= BUY_TO_SELL_SOLD_OUT_STABLE_HITS:
+                self.task.log_info("买：收藏的商品已显示售罄，确认买到。")
+                return True
+            if monotonic() >= end_at:
+                break
+            self.task.sleep(BUY_TO_SELL_INTERVAL)
+        self.task.log_warning("买：按了购买和确认，商品没有显示售罄，未确认买到。")
         return False
 
     def _wait_purchase_dialog_closed(self, timeout: float = BUY_CONFIRM_CLOSE_TIMEOUT) -> bool:
