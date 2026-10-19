@@ -625,8 +625,8 @@ msgstr "Today's Dailies"
 msgid "任务奖励"
 msgstr "Quest rewards"
 
-msgid "依次打开每张通行证，领取通行证任务经验与等级奖励（只点全部获得，绝不点购买）。"
-msgstr "Opens each Pass in turn and claims Pass quest EXP and level rewards (only taps Claim All, never Buy)."
+msgid "依次打开左侧有红点的通行证，每张点一次全部获得（绝不点购买）。"
+msgstr "Opens each Pass with a red mark on the left and taps Claim All once on each (never Buy)."
 
 msgid "做料理"
 msgstr "Cook"

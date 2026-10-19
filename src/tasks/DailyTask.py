@@ -17,7 +17,7 @@ from src.utils.home_confirmation import (
     HOME_DIMMED_P95_THRESHOLD_DEFAULT,
 )
 from src.utils.ocr_utils import normalize_ocr_text
-from src.utils.wait_limits import LOADING_MAX_SECONDS, is_loading_dark, load_wait
+from src.utils.wait_limits import LOADING_MAX_SECONDS, is_loading_dark, load_wait, scene_at_press
 
 GUILD_TEMPLATE = TemplateSpec(
     name="guild",
@@ -93,6 +93,9 @@ BUSINESS_COLLECT_KEYWORDS = [
 GUILD_SIGN_IN_ENTRY_REFERENCE_POINT = (370, 155)
 GUILD_SIGN_IN_SUCCESS_ACKNOWLEDGE_REFERENCE_POINT = (450, 650)
 BACK_BUTTON_REFERENCE_POINT = (100, 50)
+GUILD_BACK_ATTEMPTS = 4
+GUILD_BACK_LOOK_SECONDS = 2.0
+GUILD_BACK_LAST_LOOK_SECONDS = 4.0
 MY_HOME_ENTRY_REFERENCE_POINT = (166, 158)
 MY_HOME_TITLE_RELATIVE_ROI = (0.11, 0.01, 0.25, 0.10)
 MY_HOME_TITLE_OCR_RETRY_INTERVAL = 0.4
@@ -499,7 +502,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
 
         ``load``: the page comes after the guild loading screen (load_wait)."""
         end_at = monotonic() + timeout
-        wait = load_wait(monotonic(), timeout) if load else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self)) if load else None
         text = ""
         while True:
             frame = self.capture_frame()
@@ -520,15 +523,22 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
 
         返回键点击可能被切页动画吞掉（BUG-20260901-02：单击定胜负让游戏
         滞留公会页面，本批与后续批次的公会任务全部失败）；主页确认失败且
-        全帧 OCR 仍能读到公会页面关键字时才补点返回键，最多 3 次。
+        全帧 OCR 仍能读到公会页面关键字时才补点返回键，最多 4 次。
+
+        桌面分身 1080p 2026-10-18: the first two presses right after the
+        sign-in were both swallowed and each waited 4 s for home (11 s in
+        all).  Home shows within 2 s once a press works, so the look after
+        a press is 2 s; the last press keeps the 4 s look.
         """
         home_ok = False
-        for attempt in range(1, 4):
+        for attempt in range(1, GUILD_BACK_ATTEMPTS + 1):
             self._click_reference(*BACK_BUTTON_REFERENCE_POINT, after_sleep=1.0)
-            if self._wait_for_home_confirmation("公会签到返回主页", timeout=4.0):
+            last = attempt >= GUILD_BACK_ATTEMPTS
+            look = GUILD_BACK_LAST_LOOK_SECONDS if last else GUILD_BACK_LOOK_SECONDS
+            if self._wait_for_home_confirmation("公会签到返回主页", timeout=look):
                 home_ok = True
                 break
-            if attempt >= 3:
+            if last:
                 break
             text = self._ocr_text(self.capture_frame(), name="公会签到返回页面")
             if self._keyword_match_count(text, GUILD_PAGE_KEYWORDS) < 1:
@@ -553,7 +563,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         """``load``: the page comes after the my-home loading (load_wait)."""
         vision = self._quick_vision()
         end_at = monotonic() + timeout
-        wait = load_wait(monotonic(), timeout) if load else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self)) if load else None
         while True:
             frame = self.capture_frame()
             result = self._match(frame, MY_HOME_TEMPLATE)

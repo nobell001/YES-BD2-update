@@ -74,7 +74,7 @@ from src.tasks.map_trade.trader_constants import (
 )
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.field_followers import dismiss_once_per_run
-from src.utils.wait_limits import STUCK_SECONDS, ProgressWait, StillTimer
+from src.utils.wait_limits import STUCK_SECONDS, ProgressWait, StillTimer, scene_at_press
 
 # The skill is full and must be starred up by the player (user choice,
 # 2026-09-28: skip buying and say so, never buy at full price).
@@ -412,7 +412,7 @@ class TradeNavigationMixin:
         # Loading does not count as stuck (Leo 2026-10-15 「我說的10秒是卡死
         # 或者辨識不到」): 2K 10-15 the field came 13 s after the click and was
         # given up on at 10 s.
-        wait = ProgressWait(monotonic())
+        wait = ProgressWait(monotonic(), before=scene_at_press(self.task))
         hits = 0
         while True:
             frame = self.vision.capture()

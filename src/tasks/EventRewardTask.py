@@ -24,6 +24,7 @@ import numpy as np
 from qfluentwidgets import FluentIcon
 
 from src.tasks.BaseBD2Task import TEMPLATE_DIR
+from src.tasks.claim_page import find_red_badges
 from src.tasks.RewardClaimTasks import _ClaimTaskBase
 from src.utils.chinese import to_simplified
 from src.utils.image_utils import template_match_response
@@ -38,7 +39,6 @@ LIST_SCROLL_POINT = (422 / 1920, 540 / 1080)
 LIST_CAPTION_ROI = (322, 262, 202, 545)
 # The red badge sits in this strip at each card's top-right corner.
 BADGE_STRIP = (496, 265, 30, 545)
-BADGE_MIN_AREA, BADGE_MAX_AREA = 80, 400  # 17-18 px squares measured
 BADGE_TO_CARD_CENTER = 34
 LIST_SCROLL_NOTCHES = 3  # about 2.5 cards; the list overshoots, so wait
 LIST_SETTLE_SECONDS = 1.5
@@ -158,22 +158,7 @@ def views_match(first, second) -> bool:
 
 def find_badges(frame) -> list[int]:
     """Reference y of each red ◆! badge in the card list, top to bottom."""
-    height, width = frame.shape[:2]
-    scale = width / 1920
-    x, y, w, h = BADGE_STRIP
-    crop = frame[int(y * scale) : int((y + h) * scale), int(x * scale) : int((x + w) * scale), :3]
-    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-    red = (
-        ((hsv[..., 0] <= 8) | (hsv[..., 0] >= 172)) & (hsv[..., 1] >= 150) & (hsv[..., 2] >= 150)
-    ).astype(np.uint8)
-    count, _labels, stats, _centroids = cv2.connectedComponentsWithStats(red, 8)
-    found = []
-    for index in range(1, count):
-        _cx, cy, _cw, ch, area = stats[index]
-        area_ref = area / scale / scale
-        if BADGE_MIN_AREA <= area_ref <= BADGE_MAX_AREA:
-            found.append(round(y + (cy + ch / 2) / scale))
-    return sorted(found)
+    return find_red_badges(frame, BADGE_STRIP)
 
 
 def diamond_template_ready() -> bool:

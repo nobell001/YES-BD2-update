@@ -44,7 +44,7 @@ from src.utils.stage_walk import (
     plan_step,
     predict_after_step,
 )
-from src.utils.wait_limits import STUCK_SECONDS, StillTimer, is_loading_dark, load_wait
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer, is_loading_dark, load_wait, scene_at_press
 
 # Click-to-move: clicks on the marker, each followed by a wait for the
 # character to walk onto it and the 末日之书 page to open.
@@ -311,7 +311,7 @@ class DoomBookTask(_ClaimTaskBase):
         # field after 离开, 主页): a load wait (Leo 2026-10-15 「你單純等載入
         # 怎麼可以改成只等10秒」).  A shorter one is a quick look.
         end_at = monotonic() + timeout
-        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self)) if timeout >= STUCK_SECONDS else None
         while True:
             frame = self.capture_frame()
             if check(frame):

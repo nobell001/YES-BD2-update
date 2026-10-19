@@ -21,6 +21,13 @@ STUCK_SECONDS = 10.0
 # does not count towards STUCK_SECONDS; it is still not waited for past this.
 LOADING_MAX_SECONDS = 30.0
 
+# Leo 2026-10-19 「可以20秒」 (after the 2K clone's bright 「FANTASIA SQUARE」
+# splash was cut at 10 s): the 10 s is for 判断不出来 / 按了没反应 / 不知道要做
+# 什么, not for loading.  A screen that a press changed and that then stands
+# still is loading, whatever it looks like: waited for up to this long.  Only a
+# screen the press left as it was counts as stuck after STUCK_SECONDS.
+CHANGED_LOAD_SECONDS = 20.0
+
 # 95th-percentile brightness under which a frame is the black loading screen
 # (2K 10-15: 22 while loading story cartridge 1).
 LOADING_DARK_P95 = 40
@@ -48,6 +55,25 @@ def _thumb(frame):
     if small.ndim == 3:
         small = small[..., :3].mean(axis=2)
     return small.astype("float32")
+
+
+def scene(frame):
+    """A small picture of ``frame`` for ``scene_moved`` (None when empty)."""
+    return _thumb(frame)
+
+
+def scene_moved(before, picture, min_diff: float = SCENE_MOVE_MIN_DIFF) -> bool:
+    """``picture`` differs from ``before`` as much as a moving scene does."""
+    if before is None or picture is None:
+        return False
+    if before.shape != picture.shape:
+        return True
+    return float(abs(picture.astype("float32") - before.astype("float32")).mean()) >= min_diff
+
+
+def scene_at_press(task):
+    """The screen the task saw right before its last press (None if unknown)."""
+    return getattr(task, "_scene_at_press", None)
 
 
 class StillTimer:
@@ -94,12 +120,24 @@ def is_loading_dark(frame) -> bool:
 class ProgressWait:
     """A wait that ends after STUCK_SECONDS without progress, or after
     LOADING_MAX_SECONDS in all.  A loading screen or a moving picture is
-    progress; a still screen that is not the target is not (卡死／辨識不到)."""
+    progress; a still screen that is not the target is not (卡死／辨識不到).
 
-    def __init__(self, now: float, stuck: float = STUCK_SECONDS, cap: float = LOADING_MAX_SECONDS):
+    With ``before`` (the screen right before the press, ``scene_at_press``),
+    a still screen that the press changed is loading and stops only after
+    CHANGED_LOAD_SECONDS; one the press left as it was (按了没反应) after
+    ``stuck``."""
+
+    def __init__(
+        self,
+        now: float,
+        stuck: float = STUCK_SECONDS,
+        cap: float = LOADING_MAX_SECONDS,
+        before=None,
+    ):
         self.still = StillTimer()
         self.stuck = stuck
         self.cap_at = now + cap
+        self.before = before
 
     def over(self, frame, now: float, loading: bool = False) -> bool:
         if now >= self.cap_at:
@@ -107,14 +145,23 @@ class ProgressWait:
         if loading:
             self.still.reset()
             return False
-        return self.still.still_for(frame, now) >= self.stuck
+        limit = self.stuck
+        if self.before is not None and scene_moved(self.before, _thumb(frame)):
+            limit = max(limit, CHANGED_LOAD_SECONDS)
+        return self.still.still_for(frame, now) >= limit
 
 
-def load_wait(now: float, seconds) -> ProgressWait:
+def load_wait(now: float, seconds, before=None) -> ProgressWait:
     """A wait for a page that comes after a loading screen (Leo 2026-10-15
     「你單純等載入怎麼可以改成只等10秒」): ``seconds`` (a saved setting) or
     LOADING_MAX_SECONDS in all, whichever is longer; it gives up sooner only
     on a screen that stands still, not loading, for STUCK_SECONDS (or the
-    shorter ``seconds``)."""
+    shorter ``seconds``), or CHANGED_LOAD_SECONDS when ``before`` shows the
+    press changed the screen."""
     seconds = max(0.0, float(seconds))
-    return ProgressWait(now, stuck=min(seconds, STUCK_SECONDS), cap=max(seconds, LOADING_MAX_SECONDS))
+    return ProgressWait(
+        now,
+        stuck=min(seconds, STUCK_SECONDS),
+        cap=max(seconds, LOADING_MAX_SECONDS),
+        before=before,
+    )

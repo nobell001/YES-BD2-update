@@ -58,7 +58,7 @@ from src.utils.image_utils import (
     stabilize_template_match,
 )
 from src.utils.ocr_utils import normalize_ocr_text
-from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped, is_loading_dark, load_wait
+from src.utils.wait_limits import STUCK_SECONDS, StillTimer, capped, is_loading_dark, load_wait, scene_at_press
 
 REFERENCE_WIDTH = FHD_1080.width
 REFERENCE_HEIGHT = FHD_1080.height
@@ -359,7 +359,7 @@ class SquareGoddessTask(BaseBD2Task):
         end_at = monotonic() + wait_seconds
         # Leaving the square loads (Leo 2026-10-15 「你單純等載入怎麼可以改成只等
         # 10秒」): a full wait does not end while the screen is loading.
-        wait = load_wait(monotonic(), wait_seconds) if wait_seconds >= STUCK_SECONDS else None
+        wait = load_wait(monotonic(), wait_seconds, before=scene_at_press(self)) if wait_seconds >= STUCK_SECONDS else None
         last_left_hits = 0
         last_p95 = 0.0
         last_gacha_text = ""
@@ -1059,7 +1059,7 @@ class SquareGoddessTask(BaseBD2Task):
         2026-10-15 「我說的10秒是卡死 或者辨識不到」).  2K 10-15: the square
         came 11 s after the click and 「向女神像许愿」 was already up while its
         picture had not matched yet, so the wish prompt counts as arrived."""
-        wait = load_wait(monotonic(), timeout)
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self))
         last_score = -1.0
         while True:
             frame = self.capture_frame()

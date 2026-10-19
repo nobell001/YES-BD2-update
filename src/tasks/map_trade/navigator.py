@@ -126,7 +126,7 @@ from src.utils.home_confirmation import (
     home_left_column_hits,
     home_left_column_brightness,
 )
-from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait
+from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait, scene_at_press
 
 __all__ = [
     "BARGAIN_CONFIRM_POINT",
@@ -526,7 +526,7 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
         # A full-length wait spans a loading screen: a load wait (Leo
         # 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).  A shorter one is a
         # quick look and stays as given.
-        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self.task)) if timeout >= STUCK_SECONDS else None
         last = ScreenState.UNKNOWN
         announcement_clicks = 0
         while True:
@@ -597,7 +597,7 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
         end_at = monotonic() + max(0.0, timeout)
         # Leaving a field for home passes the loading screen: a full-length
         # wait is a load wait (Leo 2026-10-15 「一定會超過10秒甚至15秒」).
-        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self.task)) if timeout >= STUCK_SECONDS else None
         last_left_hits = 0
         last_p95 = 0.0
         last_gacha_text = ""

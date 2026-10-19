@@ -43,11 +43,16 @@ def parse_start_cost(text: object) -> int | None:
 
 
 def parse_free_cocktails(text: object) -> int | None:
-    """Free cocktails a from 'a/40' in the top bar; the paid pool follows it."""
+    """Free cocktails a from 'a/40' in the top bar; the paid pool follows it.
+
+    a may be above 40 ("50/40", player 2026-10-18: rewards pile free
+    cocktails past the daily refill); 倍数 x 场数 stays capped at 40 anyway."""
     match = _FREE_POOL.search(str(text))
     if not match:
         return None
-    return pool_amount(int(match.group(1)), int(match.group(2)), top_range=(1, 99))
+    return pool_amount(
+        int(match.group(1)), int(match.group(2)), top_range=(1, 99), amount_max=99
+    )
 
 
 def adjust_step(current: int, target: int, big_step: int) -> str | None:

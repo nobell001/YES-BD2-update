@@ -143,6 +143,7 @@ from src.tasks.map_trade.navigator_constants import (
     WALK_CAUGHT_KEYWORDS,
     WALK_CLICK_SETTLE_SECONDS,
     WALK_EXIT_ATTEMPTS,
+    WALK_LABEL_KNOWN_READ_TIMEOUT,
     WALK_LABEL_READ_INTERVAL,
     WALK_LABEL_READ_TIMEOUT,
     FIELD_MAP_CLOSE_TIMEOUT,
@@ -2765,13 +2766,19 @@ class SandboxNavigationMixin:
                 for x, y in spots
             ]
         else:
-            end_at = monotonic() + WALK_LABEL_READ_TIMEOUT
+            known = WALK_LABEL_EDGES.get(edge)
+            # With a recorded label place the reads stop sooner (桌面分身
+            # 2026-10-18: 角色卡3 禁闭室's label was under the character's
+            # icon and 5 s of re-reads ended at the recorded place anyway);
+            # 2.5 s still covers labels that show ~2 s after the header (ch14).
+            end_at = monotonic() + (
+                WALK_LABEL_KNOWN_READ_TIMEOUT if known is not None else WALK_LABEL_READ_TIMEOUT
+            )
             points = self._exit_label_points(frame, target)
             while not points and monotonic() < end_at:
                 self.task.sleep(WALK_LABEL_READ_INTERVAL)
                 frame = self.vision.capture()
                 points = self._exit_label_points(frame, target)
-            known = WALK_LABEL_EDGES.get(edge)
             if not points and known is not None:
                 # The character's icon covers the label when it stands at
                 # that exit (after an expulsion, ch14 live): use where the

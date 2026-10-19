@@ -29,7 +29,9 @@ from src.utils import accounts, colour_check, game_language
 from src.utils.home_confirmation import (
     HOME_GACHA_OCR_RELATIVE_ROI,
     HOME_LEFT_COLUMN_OCR_RELATIVE_ROI,
+    HOME_DIMMED_P95_THRESHOLD_DEFAULT,
     HOME_LEFT_COLUMN_REQUIRED_HITS,
+    home_left_column_brightness,
     home_left_column_hits,
 )
 
@@ -126,6 +128,10 @@ def _colour_notify(now: float) -> bool:
 
 
 def _check_colours(task, frame, now: float) -> None:
+    # 桌面分身 2026-10-18: the login notice dimmed home (left column 56/185)
+    # and the dimmed colours read as HDR; a dimmed home is no colour reading.
+    if home_left_column_brightness(frame) < HOME_DIMMED_P95_THRESHOLD_DEFAULT:
+        return
     check = colour_check.check_settled(frame, task.next_frame, task.sleep)
     if check.distance is None:
         return  # the home top bar is not on screen, or the colours were off only once

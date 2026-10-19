@@ -1029,6 +1029,8 @@ WALK_CLICK_SETTLE_SECONDS = 2.5
 # teleport while its header already reads (ch14 左侧回廊, live 2K
 # 2026-09-30: found on the 5th read, 2.2 s); read them again for this long.
 WALK_LABEL_READ_TIMEOUT = 5.0
+# Exits with a recorded label place (WALK_LABEL_EDGES) fall back to it sooner.
+WALK_LABEL_KNOWN_READ_TIMEOUT = 2.5
 WALK_LABEL_READ_INTERVAL = 0.4
 # A walk that ends on the map it started from (a patrol expelled it, or it
 # stopped short) clicks the exit again, once.

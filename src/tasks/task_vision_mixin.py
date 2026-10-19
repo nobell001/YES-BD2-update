@@ -25,7 +25,7 @@ from src.utils.home_confirmation import (
 )
 from src.utils.image_utils import to_gray
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
-from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait
+from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait, scene_at_press
 
 REFERENCE_WIDTH = FHD_1080.width
 
@@ -306,7 +306,7 @@ class TaskVisionMixin:
         # Going home passes a loading screen (leaving a page or a field): a
         # full home wait is a load wait (Leo 2026-10-15 「你單純等載入怎麼可以
         # 改成只等10秒」).  A shorter one is a quick look and stays as given.
-        wait = load_wait(monotonic(), timeout) if timeout >= STUCK_SECONDS else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self)) if timeout >= STUCK_SECONDS else None
         end_at = monotonic() + max(0.0, timeout)
         last_left_hits = 0
         last_p95 = 0.0

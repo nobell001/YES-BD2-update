@@ -25,7 +25,13 @@ from time import monotonic
 import cv2
 import numpy as np
 
-from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark
+from src.utils.wait_limits import (
+    CHANGED_LOAD_SECONDS,
+    LOADING_MAX_SECONDS,
+    STUCK_SECONDS,
+    is_loading_dark,
+    scene_moved,
+)
 
 # Leo 2026-10-14 「頂多等8秒到10秒」: was 15 s.  A slow-PC re-look
 # (SLOW_PC_GRACE_SECONDS, 5 s) still fits.
@@ -152,10 +158,15 @@ class FrozenWatch:
         # The black loading screen (a faint logo at most) may stand still
         # for longer than a stuck page (Leo 2026-10-15 「一定會超過10秒甚至15秒」).
         loading = is_loading_dark(picture[..., None])
+        changed_by_press = not loading and scene_moved(self.at_last_press, picture)
         if loading:
             limit = max(self.seconds, LOADING_MAX_SECONDS)
         elif self.loading_hold:
             limit = max(self.seconds, LOADING_WORDS_SECONDS)
+        elif changed_by_press:
+            # The last press changed the screen: it is loading, not 按了没反应
+            # (Leo 2026-10-19 「可以20秒」), whatever it looks like.
+            limit = max(self.seconds, CHANGED_LOAD_SECONDS)
         else:
             limit = self.seconds
         if now - self.since >= limit:
@@ -169,5 +180,10 @@ class FrozenWatch:
             if loading:
                 raise FrozenScreen(
                     f"黑色加载画面 {limit:.0f} 秒没有结束（可能网络或电脑比较慢）"
+                )
+            if changed_by_press:
+                raise FrozenScreen(
+                    f"点了之后画面换了，但停了 {limit:.0f} 秒没有往下走"
+                    "（可能网络或电脑比较慢，或认不出这个画面）"
                 )
             raise FrozenScreen()

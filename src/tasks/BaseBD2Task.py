@@ -48,6 +48,7 @@ from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, PressOutcome
 from src.utils.press_confirm import press_and_confirm as _press_and_confirm
 from src.utils.template_resolution import offline_template_scale
+from src.utils.wait_limits import scene
 
 logger = Logger.get_logger(__name__)
 PROBE_OUTPUT_DIR = Path("probe_outputs")
@@ -566,6 +567,7 @@ class BaseBD2Task(BaseTask):
                     raise
                 watch.hold_for_loading(word)
                 self.log_info(f"画面停着但写着「{word}」，当成加载继续等。")
+        self._last_scene = scene(frame)
         height, width = frame.shape[:2]
         self.info_set("截图方式", self.capture_method_name)
         self.info_set("游戏分辨率", f"{width}x{height}")
@@ -592,11 +594,14 @@ class BaseBD2Task(BaseTask):
         """ok-script's OCR; a small box that read nothing is read again.
 
         See ``src/utils/ocr_reread.py``: bordered, then enlarged 2× and 3×,
-        stopping at the first read that finds text.  Callers that already
-        enlarge the box themselves pass ``reread=False``.
+        stopping at the first read that finds text.  A read of only stray
+        marks counts as nothing (the v6 recognizer on a fixed-size input read
+        the player's 跑商 title as 「4」 at 0.77, where v5 read nothing and the
+        bordered read found 购买).  Callers that already enlarge the box
+        themselves pass ``reread=False``.
         """
         boxes = super().ocr(*args, **kwargs)
-        if boxes or not reread or args:
+        if not reread or args or ocr_reread.trusted(boxes):
             return boxes
         frame = kwargs.get("frame")
         if frame is None or kwargs.get("box") is not None or not ocr_reread.qualifies(frame):
@@ -688,6 +693,9 @@ class BaseBD2Task(BaseTask):
             watch.progress()
 
     def operate(self, func: Callable, block: bool = True, restore_cursor: bool = True):
+        # What the screen was before this press: a load wait tells a press
+        # that changed it (loading) from one that did nothing (wait_limits).
+        self._scene_at_press = getattr(self, "_last_scene", None)
         watch = getattr(self, "_frozen_watch", None)
         if watch is not None:
             point, self._press_point = getattr(self, "_press_point", None), None

@@ -80,6 +80,7 @@ from src.utils.wait_limits import (
     capped,
     is_loading_dark,
     load_wait,
+    scene_at_press,
 )
 
 REFERENCE_WIDTH = FHD_1080.width
@@ -734,7 +735,9 @@ class PVPTask(BaseBD2Task):
         self.info_set("当前阶段", "确认主页")
         # Home may still be loading (back from PVP or a field): a load wait
         # (Leo 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).
-        wait = load_wait(monotonic(), float(self.config.get("主页确认等待秒数", 10.0)))
+        wait = load_wait(
+            monotonic(), float(self.config.get("主页确认等待秒数", 10.0)), before=scene_at_press(self)
+        )
         last_left_hits = 0
         last_p95 = 0.0
         last_gacha_text = ""
@@ -788,7 +791,7 @@ class PVPTask(BaseBD2Task):
 
         The PVP field comes after a loading screen: a load wait (Leo
         2026-10-15 「你單純等載入怎麼可以改成只等10秒」), see load_wait."""
-        wait = load_wait(monotonic(), timeout)
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self))
         handled: set[str] = set()
         action_count = 0
         last_text = ""
@@ -1802,7 +1805,7 @@ class PVPTask(BaseBD2Task):
     def _click_leave_button(self) -> bool:
         # The result page comes after the battle ends: a load wait (Leo
         # 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).
-        wait = load_wait(monotonic(), self._load_seconds("PVP 离开等待秒数"))
+        wait = load_wait(monotonic(), self._load_seconds("PVP 离开等待秒数"), before=scene_at_press(self))
         last_text = ""
         while True:
             frame = self.capture_frame()

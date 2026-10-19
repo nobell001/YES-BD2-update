@@ -21,7 +21,7 @@ from src.utils.free_switch import ensure_free_switch_on
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
 from src.utils.ocr_numbers import pool_amount
 from src.utils.press_confirm import wait_for
-from src.utils.wait_limits import LOADING_MAX_SECONDS, is_loading_dark, load_wait
+from src.utils.wait_limits import LOADING_MAX_SECONDS, is_loading_dark, load_wait, scene_at_press
 
 # Where the free rice goes (all of it, MAX), one setting per double case
 # (Leo 2026-10-12: 「金幣雙倍時 / 史萊姆雙倍時 / 皆雙倍時: [金幣][史萊姆][狩獵場]
@@ -196,7 +196,12 @@ QUICK_HUNT_DIALOG_DRAW_SECONDS = 3.0
 QUICK_HUNT_DIALOG_BUTTONS = re.compile(r"取消|MIN|MAX", re.IGNORECASE)
 QUICK_HUNT_HOME_LAST_WAIT_SECONDS = 6.0
 
-QUICK_HUNT_RESOURCE_ROI = _quick_hunt_relative_roi(1724, 80, 1602, 38)
+# The whole top-right "a/b +stock" pill.  With no stored rice/torches the
+# yellow "+…" is absent and "60/60" sits further right (x ~1718–1780): the
+# old right edge 1724 cut it to "60" and the free count read None (player
+# 问题摘要, v0.1.43, 1080p, 2026-10-17).  Only "a/b" is parsed, so the stock
+# text inside the box is ignored.
+QUICK_HUNT_RESOURCE_ROI = _quick_hunt_relative_roi(1880, 80, 1602, 38)
 # Small counters are read as if the frame were this tall (4K).
 SMALL_TEXT_HEIGHT = 2160
 
@@ -1248,7 +1253,7 @@ class QuickHuntFeatureMixin:
             seconds = float(self.config.get("快速狩猎结算等待秒数", LOADING_MAX_SECONDS))
         except (TypeError, ValueError):
             seconds = LOADING_MAX_SECONDS
-        wait = load_wait(monotonic(), seconds)
+        wait = load_wait(monotonic(), seconds, before=scene_at_press(self))
         while True:
             frame = self.capture_frame()
             reward_text = self._quick_hunt_ocr_text(
@@ -1483,7 +1488,7 @@ class QuickHuntFeatureMixin:
         """``load``: the text comes after a loading screen (load_wait)."""
         compiled = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
         end_at = monotonic() + max(0.0, timeout)
-        wait = load_wait(monotonic(), timeout) if load else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self)) if load else None
         last_text = ""
         while True:
             frame = self.capture_frame()

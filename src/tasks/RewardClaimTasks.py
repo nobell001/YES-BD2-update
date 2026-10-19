@@ -9,10 +9,10 @@ from __future__ import annotations
 from qfluentwidgets import FluentIcon
 
 from src.tasks.BaseBD2Task import BaseBD2Task
-from src.tasks.claim_page import ClaimButton, ClaimPageMixin
-from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
+from src.tasks.claim_page import ClaimButton, ClaimPageMixin, find_red_badges
+from src.tasks.task_vision_mixin import REFERENCE_HEIGHT
 from src.utils.chinese import to_simplified
-from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
+from src.utils.ocr_utils import keyword_match_count
 
 # Shared left-hand tab positions on the mail and mission pages.
 FIRST_TAB_POINT = (285, 151)
@@ -34,24 +34,28 @@ MISSION_CLAIM_BUTTON = ClaimButton(BOTTOM_CLAIM_ROI, ("全部获得", "全部领
 
 PASS_ENTRY_POINT = (1659, 262)
 PASS_TITLE_KEYWORDS = ("通行证",)
-# Left column listing every active pass card (each caption ends in 通行证).
-PASS_LIST_ROI = (315, 265, 220, 330)
-# The list shows three cards (~107 px apart); a fourth pass sits in the slot
-# below PASS_LIST_ROI or only appears after scrolling the list down.
+# Left column listing every active pass card (each caption ends in 通行证);
+# three show at once, a fourth sits below them or after scrolling.
 PASS_LIST_EXTENDED_ROI = (315, 265, 220, 440)
 PASS_LIST_SCROLL_POINT = (425 / 1920, 430 / 1080)
 PASS_LIST_SCROLL_ROUNDS = 2
 # A caption containing this is a purchase control, never a pass card.
 PASS_PURCHASE_KEYWORDS = ("购买",)
-PASS_REWARD_TAB_POINT = (1593, 403)
-PASS_MISSION_TAB_POINT = (1593, 680)
-# Area around a pass tab whose highlight changes when it is selected.
-PASS_TAB_HALF_SIZE = (100, 40)
-# Around a card's caption: the selected card's highlight.
-PASS_CARD_MARGIN = (20, 35)
+# Leo 2026-10-19: like 活动, a pass to claim carries a red ◆「!」 at its card's
+# top-right corner.  The pass list is the 活动 list's widget (same x, ~107 px
+# a card); the strip is a little wider and starts higher until a 4K frame of
+# a badged pass pins it.
+PASS_BADGE_STRIP = (490, 225, 50, 520)
+PASS_BADGE_TO_CARD_CENTER = 34
+PASS_CARD_X = 425
+# Around the pressed card: its highlight changes when it is selected.
+PASS_CARD_HALF_SIZE = (110, 50)
 # Only the right half of the panel: the purchase button sits at (729, 765).
 PASS_CLAIM_BUTTON = ClaimButton((1150, 700, 450, 130), ("全部获得", "全部领取"))
 PASS_MAX_CARDS = 6
+# A pass opened this many times and still badged is left (its badge is for
+# something 全部获得 does not claim).
+PASS_MAX_VISITS = 2
 
 
 class _ClaimTaskBase(ClaimPageMixin, BaseBD2Task):
@@ -150,31 +154,55 @@ class MissionRewardTask(_ClaimTaskBase):
 
 
 class PassRewardTask(_ClaimTaskBase):
+    """Leo 2026-10-19: open only the passes with a red 「!」 on the left, press
+    全部获得 once on each (one press now claims mission experience and level
+    rewards together), and look at the list again after every claim.  No
+    second round from the top like 活动."""
+
     claim_log_name = "pass"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "领取通行证"
-        self.description = (
-            "依次打开每张通行证，领取通行证任务经验与等级奖励（只点全部获得，绝不点购买）。"
-        )
+        self.description = "依次打开左侧有红点的通行证，每张点一次全部获得（绝不点购买）。"
         self.icon = FluentIcon.TAG
 
     def run_claim(self) -> bool:
         if not self._open_page_from_home("通行证", PASS_ENTRY_POINT, PASS_TITLE_KEYWORDS):
             return self._claim_fail("打开通行证")
-        cards = self._pass_cards()
-        self.info_set("通行证数量", len(cards))
-        if not cards:
-            self.log_info("通行证：左侧列表未识别到任何通行证。")
-            return self._claim_fail("识别通行证列表")
-        handled: list[str] = []
-        failed = self._claim_passes(cards, handled, PASS_LIST_ROI)
-        if failed is None:
-            failed = self._claim_more_passes(handled)
-        if failed is not None:
-            return self._claim_fail(f"领取{failed}")
-        self.info_set("通行证数量", len(handled))
+        self._pass_cards()  # the captions go to the run info
+        skipped: dict[str, str] = {}
+        visits: dict[str, int] = {}
+        claimed = 0
+        scrolls = 0
+        for _step in range(PASS_MAX_CARDS * PASS_MAX_VISITS + PASS_LIST_SCROLL_ROUNDS + 1):
+            frame = self.capture_frame()
+            target = self._next_pass_badge(frame, skipped)
+            if target is None:
+                if scrolls >= PASS_LIST_SCROLL_ROUNDS:
+                    break
+                scrolls += 1
+                self.info_set("当前阶段", "通行证：向下滚动列表查找更多红点")
+                self.scroll_client(
+                    PASS_LIST_SCROLL_POINT, -1, count=3, interval=0.05, after_sleep=0.8
+                )
+                continue
+            badge_y, caption = target
+            key = caption or f"y{badge_y}"
+            visits[key] = visits.get(key, 0) + 1
+            if visits[key] > PASS_MAX_VISITS:
+                self.log_info(f"通行证「{key}」：点过两次全部获得红点仍在，跳过。")
+                skipped[key] = "处理两次还在"
+                continue
+            if not self._claim_badged_pass(key, badge_y):
+                return self._claim_fail(f"领取{key}")
+            claimed += 1
+        self.info_set("通行证数量", claimed)
+        if not claimed and not skipped:
+            self.log_info("通行证：左侧没有红点，没有可领的。")
+        if skipped:
+            left = "、".join(f"「{key}」{why}" for key, why in skipped.items())
+            self.log_info(f"通行证：这些还有红点，没领：{left}。")
         if not self._leave_to_home("通行证", PASS_TITLE_KEYWORDS):
             return self._claim_fail("通行证返回主页")
         return True
@@ -189,7 +217,7 @@ class PassRewardTask(_ClaimTaskBase):
         ]
 
     def _pass_cards(
-        self, roi: tuple[int, int, int, int] = PASS_LIST_ROI, wait: float = 4.0
+        self, roi: tuple[int, int, int, int] = PASS_LIST_EXTENDED_ROI, wait: float = 4.0
     ) -> list[str]:
         boxes = self._wait_boxes(
             roi, "通行证列表", lambda found: bool(self._pass_caption_boxes(found)), timeout=wait
@@ -198,142 +226,50 @@ class PassRewardTask(_ClaimTaskBase):
         self.info_set("通行证列表", "、".join(captions) or "-")
         return captions[:PASS_MAX_CARDS]
 
-    @staticmethod
-    def _pass_handled(caption: str, handled: list[str]) -> bool:
-        # Exact match only: passes can differ by a single character (e.g. an
-        # issue number), and re-claiming a pass is harmless while skipping a
-        # new one is not.
-        # OCR sometimes returns a Traditional glyph ("滿月" for 满月, live 2K
-        # 2026-09-29), which claimed the same pass twice.
-        wanted = normalize_ocr_text(to_simplified(caption))
-        return any(normalize_ocr_text(to_simplified(done)) == wanted for done in handled)
-
-    def _claim_passes(
-        self,
-        cards: list[str],
-        handled: list[str],
-        roi: tuple[int, int, int, int],
-    ) -> str | None:
-        """Claim every card not handled yet; returns the caption that failed."""
-        for position, caption in enumerate(cards):
-            if len(handled) >= PASS_MAX_CARDS:
-                break
-            if self._pass_handled(caption, handled):
-                continue
-            opened = self._claim_one_pass(len(handled) + 1, caption, roi=roi, position=position)
-            if not opened:
-                return caption
-            # Only the card actually opened counts as handled: a misread
-            # caption opened by position stays open for the next scan.
-            if not self._pass_handled(opened, handled):
-                handled.append(opened)
-        return None
-
-    def _claim_more_passes(self, handled: list[str]) -> str | None:
-        """Look below the visible cards for more passes and claim them."""
-        for round_index in range(PASS_LIST_SCROLL_ROUNDS + 1):
-            if len(handled) >= PASS_MAX_CARDS:
-                return None
-            if round_index:
-                self.info_set("当前阶段", "通行证：向下滚动列表查找更多通行证")
-                self.scroll_client(
-                    PASS_LIST_SCROLL_POINT, -1, count=3, interval=0.05, after_sleep=0.8
-                )
-            cards = self._pass_cards(PASS_LIST_EXTENDED_ROI, wait=1.5)
-            new = [caption for caption in cards if not self._pass_handled(caption, handled)]
-            if not new:
-                if round_index:
-                    # Scrolled and nothing new appeared: the list has ended.
-                    return None
-                continue
-            self.log_info(f"通行证：发现更多通行证：{'、'.join(new)}。")
-            failed = self._claim_passes(cards, handled, PASS_LIST_EXTENDED_ROI)
-            if failed is not None:
-                return failed
-        return None
-
-    def _claim_one_pass(
-        self,
-        index: int,
-        caption: str,
-        roi: tuple[int, int, int, int] = PASS_LIST_ROI,
-        position: int | None = None,
-    ) -> str | None:
-        """Claim one card; returns the caption of the card opened, or None."""
-        # Re-read the list each time: the highlighted card changes its layout.
-        seen = {"cards": [], "frame": None}
-
-        def find_caption():
-            seen["frame"] = self.capture_frame()
-            seen["cards"] = self._pass_caption_boxes(
-                self._roi_boxes(seen["frame"], roi, "通行证列表")
-            )
-            return self._box_with(seen["cards"], (caption,))
-
-        target = self.look_again(find_caption)
-        frame, cards = seen["frame"], seen["cards"]
-        opened = caption
-        if target is None:
-            # OCR may read the caption slightly differently; fall back to order.
-            order = index - 1 if position is None else position
-            target = cards[order] if 0 <= order < len(cards) else None
-            if target is not None:
-                opened = str(getattr(target, "name", ""))
-                self.log_info(f"通行证：按位置打开「{opened}」，未确认就是「{caption}」。")
-        if target is None:
-            self.log_info(f"通行证：列表中找不到「{caption}」。")
+    def _next_pass_badge(self, frame, skipped: dict[str, str]):
+        """(badge y, caption) of the first badged pass not skipped, or None."""
+        badges = find_red_badges(frame, PASS_BADGE_STRIP)
+        self.info_set("通行证红点", ",".join(str(y) for y in badges) or "-")
+        if not badges:
             return None
-        self.info_set("当前阶段", f"通行证 {index}：{opened}")
-        tab_rois = tuple(
-            self._pass_tab_roi(point) for point in (PASS_MISSION_TAB_POINT, PASS_REWARD_TAB_POINT)
+        boxes = self._pass_caption_boxes(
+            self._roi_boxes(frame, PASS_LIST_EXTENDED_ROI, "通行证列表")
         )
+        for badge_y in badges:
+            caption = self._pass_caption_near(frame, boxes, badge_y)
+            if (caption or f"y{badge_y}") not in skipped:
+                return badge_y, caption
+        return None
+
+    @staticmethod
+    def _pass_caption_near(frame, boxes: list, badge_y: int) -> str:
+        """Simplified caption of the card under the badge (its nearest below)."""
+        height = frame.shape[0] if frame is not None else REFERENCE_HEIGHT
+        sy = REFERENCE_HEIGHT / max(1, height)
+        best, best_gap = "", None
+        for box in boxes:
+            center = (float(box.y) + float(box.height) / 2) * sy
+            gap = center - badge_y
+            if 0 <= gap <= 100 and (best_gap is None or gap < best_gap):
+                best, best_gap = to_simplified(str(getattr(box, "name", ""))), gap
+        return best
+
+    def _claim_badged_pass(self, key: str, badge_y: int) -> bool:
+        self.info_set("当前阶段", f"打开通行证：{key}")
+        card_y = badge_y + PASS_BADGE_TO_CARD_CENTER
+        half_w, half_h = PASS_CARD_HALF_SIZE
+        card_roi = (PASS_CARD_X - half_w, max(0, card_y - half_h), 2 * half_w, 2 * half_h)
         changed = self._click_until_changed(
-            f"通行证 {opened}",
-            lambda: self._click_box(target, after_sleep=0.2),
-            (self._pass_card_roi(frame, target), PASS_CLAIM_BUTTON.roi) + tab_rois,
+            f"通行证 {key}",
+            lambda: self._click_reference(PASS_CARD_X, card_y, after_sleep=0.2),
+            (card_roi, PASS_CLAIM_BUTTON.roi),
             attempts=2,
             wait=1.2,
         )
-        # The top card is already selected on entry, so "unchanged" is normal
-        # for the first card pressed.  Any other card that changed nothing was
-        # not opened: claiming now would claim the previous pass again.
-        if not changed and not (index == 1 and target is cards[0]):
-            self.log_info(f"通行证：点了「{opened}」画面一直没变化，没有打开，不领取。")
-            self._save_flow_diagnostic(f"{self.claim_log_name}_{opened}_card_failed")
-            return None
-        # Mission experience first so the level rewards it unlocks are claimed too.
-        tabs = (("任务", PASS_MISSION_TAB_POINT), ("奖励", PASS_REWARD_TAB_POINT))
-        for tab_name, tab_point in tabs:
-            label = f"{opened}{tab_name}"
-            switched = self._click_until_changed(
-                label,
-                lambda point=tab_point: self._click_reference(*point, after_sleep=0.2),
-                (self._pass_tab_roi(tab_point), PASS_CLAIM_BUTTON.roi),
-                attempts=2,
-                wait=1.0,
-            )
-            if not switched:
-                self.log_info(f"{label}：分页点击后画面未变化，按已在该分页处理。")
-            if not self._claim_all(label, PASS_CLAIM_BUTTON, PASS_TITLE_KEYWORDS):
-                return None
-        return opened
-
-    @staticmethod
-    def _pass_tab_roi(point: tuple[int, int]) -> tuple[int, int, int, int]:
-        half_w, half_h = PASS_TAB_HALF_SIZE
-        return (point[0] - half_w, point[1] - half_h, 2 * half_w, 2 * half_h)
-
-    @staticmethod
-    def _pass_card_roi(frame, box) -> tuple[int, int, int, int]:
-        """The caption box (full-frame pixels) grown to its card, in reference units."""
-        height, width = frame.shape[:2]
-        sx, sy = REFERENCE_WIDTH / max(1, width), REFERENCE_HEIGHT / max(1, height)
-        margin_x, margin_y = PASS_CARD_MARGIN
-        x = max(0, round(float(box.x) * sx) - margin_x)
-        y = max(0, round(float(box.y) * sy) - margin_y)
-        return (
-            x,
-            y,
-            round(float(box.width) * sx) + 2 * margin_x,
-            round(float(box.height) * sy) + 2 * margin_y,
-        )
+        if not changed:
+            # The selected card (the top one on entry) changes nothing when
+            # pressed.  If the press was lost instead, the previous pass's
+            # button is grey and nothing is pressed; the badge stays and the
+            # card is opened again on the next look.
+            self.log_info(f"通行证「{key}」：点了画面没变化，按已打开处理。")
+        return self._claim_all(key, PASS_CLAIM_BUTTON, PASS_TITLE_KEYWORDS)

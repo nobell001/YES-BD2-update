@@ -6,7 +6,7 @@ from src.tasks.BaseBD2Task import BaseBD2Task
 from src.tasks.task_vision_mixin import LOADING_TEMPLATE, TaskVisionMixin, loading_gone_seconds
 from src.utils.ocr_utils import keyword_match_count
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
-from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, StillTimer, is_loading_dark, load_wait
+from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, StillTimer, is_loading_dark, load_wait, scene_at_press
 
 KEYWORD_MATCH_RATIO = 0.9
 
@@ -647,7 +647,7 @@ class FreeGachaTask(TaskVisionMixin, BaseBD2Task):
         """``loading_extends``: the page comes after the gacha loading (Leo
         2026-10-15 「你單純等載入怎麼可以改成只等10秒」): see load_wait."""
         end_at = monotonic() + max(0.0, timeout)
-        wait = load_wait(monotonic(), timeout) if loading_extends else None
+        wait = load_wait(monotonic(), timeout, before=scene_at_press(self)) if loading_extends else None
         last_text = ""
         while True:
             frame = self.capture_frame()

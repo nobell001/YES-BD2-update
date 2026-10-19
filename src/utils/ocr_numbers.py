@@ -8,13 +8,21 @@ again or stops without spending anything.
 from __future__ import annotations
 
 
-def pool_amount(amount: int, top: int, *, top_range: tuple[int, int] = (1, 999)) -> int | None:
+def pool_amount(
+    amount: int,
+    top: int,
+    *,
+    top_range: tuple[int, int] = (1, 999),
+    amount_max: int | None = None,
+) -> int | None:
     """``amount`` of an "amount/top" pool, or None when it cannot be real.
 
     Nothing is guessed (Leo 2026-10-14: a safe range, no repairs that could
     misjudge): an amount above its top ("124/90") is refused, and the caller
-    reads again or stops without spending."""
-    if not top_range[0] <= top <= top_range[1] or not 0 <= amount <= top:
+    reads again or stops without spending.  ``amount_max`` is for pools the
+    game lets run over their top (free cocktails "50/40", player 2026-10-18)."""
+    high = top if amount_max is None else amount_max
+    if not top_range[0] <= top <= top_range[1] or not 0 <= amount <= high:
         return None
     return amount
 

@@ -38,6 +38,7 @@ This tool is a modified version of ok-bd2 by GodRaymond233
 | msvc-runtime | Installs Microsoft Visual C++ runtime DLLs beside the packaged Python runtime | Proprietary Microsoft redistributable components. The wheel includes the Visual Studio 2022 redistribution notice; release builds must preserve the package notice and comply with Microsoft's redistribution terms. | https://pypi.org/project/msvc-runtime/ |
 | numpy | Array processing used by tests and image matching helpers | BSD-3-Clause with bundled third-party notices | https://github.com/numpy/numpy |
 | onnxocr-ppocrv5 | OCR inference pipeline | Apache-2.0 | https://github.com/ok-oldking/OnnxOCR |
+| PP-OCRv6 small recognizer (`assets/ocr/ppocrv6_small_rec`) | Text recognition model, ONNX export taken from the onnxocr 4.0.0 wheel | Apache-2.0 (PaddleOCR model; OnnxOCR export) | https://github.com/jingsongliujing/OnnxOCR |
 | OpenCC | Chinese text conversion | Apache-2.0 | https://github.com/BYVoid/OpenCC |
 | opencv-python | Image processing and template matching | Apache-2.0 | https://github.com/opencv/opencv-python |
 | OpenVINO | OCR/model runtime acceleration | Apache-2.0 | https://github.com/openvinotoolkit/openvino |
