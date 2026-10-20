@@ -19,7 +19,9 @@ STUCK_SECONDS = 10.0
 # Leo 2026-10-15 「我說的10秒是卡死 或者辨識不到」「一定會超過10秒甚至15秒」:
 # a loading screen or a picture that keeps moving is the game working and
 # does not count towards STUCK_SECONDS; it is still not waited for past this.
-LOADING_MAX_SECONDS = 30.0
+# Leo 2026-10-20 「改成45秒」 (was 30 s: a 1080p player's 「MIRROR WARS」
+# loading screen was still at 94% when the wait gave up).
+LOADING_MAX_SECONDS = 45.0
 
 # Leo 2026-10-19 「可以20秒」 (after the 2K clone's bright 「FANTASIA SQUARE」
 # splash was cut at 10 s): the 10 s is for 判断不出来 / 按了没反应 / 不知道要做
@@ -117,6 +119,30 @@ def is_loading_dark(frame) -> bool:
         return False
 
 
+# Reads a frame and says what marks it as a loading screen ("94%", "加载"),
+# "" when nothing does.  The running task sets it (BaseBD2Task.capture_frame)
+# so every wait asks it before giving up, without an OCR on every look.
+_loading_reader = None
+
+
+def set_loading_reader(reader) -> None:
+    global _loading_reader
+    _loading_reader = reader
+
+
+def read_loading_sign(frame) -> str:
+    reader = _loading_reader
+    if reader is None or frame is None:
+        return ""
+    try:
+        return str(reader(frame) or "")
+    except Exception as exc:
+        # The task being stopped must still stop the wait.
+        if type(exc).__name__ in ("TaskDisabledException", "FinishedException"):
+            raise
+        return ""
+
+
 class ProgressWait:
     """A wait that ends after STUCK_SECONDS without progress, or after
     LOADING_MAX_SECONDS in all.  A loading screen or a moving picture is
@@ -148,7 +174,14 @@ class ProgressWait:
         limit = self.stuck
         if self.before is not None and scene_moved(self.before, _thumb(frame)):
             limit = max(limit, CHANGED_LOAD_SECONDS)
-        return self.still.still_for(frame, now) >= limit
+        if self.still.still_for(frame, now) < limit:
+            return False
+        # Leo 2026-10-20 「10秒限制 不該在這種時候」: a still screen that shows
+        # the loading ring's percent or a loading word is loading, not stuck.
+        if read_loading_sign(frame):
+            self.still.reset()
+            return False
+        return True
 
 
 def load_wait(now: float, seconds, before=None) -> ProgressWait:

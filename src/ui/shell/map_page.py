@@ -8,7 +8,7 @@ from PySide6.QtCore import QRectF, Qt, Signal
 from PySide6.QtGui import QFont, QPainter, QPixmap
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from src.ui.shell import actions, data, icons, motion, theme
+from src.ui.shell import actions, data, icons, motion, skill_interval_dialog, theme
 from src.ui.shell.config_form import ConfigForm
 from src.ui.shell.page import Page, pill, set_pill
 from src.ui.shell.widgets import (
@@ -30,6 +30,7 @@ TASK_NAME = "每周跑图"
 BATCH_KEY = "每周跑图"
 RANGE_KEY = "跑图章节"
 LIMIT_KEY = "本次最多卡带数"
+INTERVAL_KEY = "技能间隔秒数"
 SKILLS = (("吸收", "magnet"), ("召集", "users-round"), ("压制", "shield"))
 
 
@@ -213,7 +214,7 @@ class MapPage(Page):
         top, grid = grid_container(300, 14, 2)
         week = Card()
         column = vbox(week, (18, 16, 18, 16), 8)
-        column.addWidget(Text("本周进度", "eyebrow"))
+        column.addWidget(Text("本周进度", "h3"))
         line = hbox(None, (0, 0, 0, 0), 6)
         self.week_value = Text("", "huge")
         self.week_unit = Text("", "muted")
@@ -229,7 +230,17 @@ class MapPage(Page):
         skills = Card()
         skill_column = vbox(skills, (18, 16, 18, 16), 10)
         head = hbox(None, (0, 0, 0, 0), 8)
-        head.addWidget(Text("今天的技能次数", "eyebrow"), 1)
+        head.addWidget(Text("今天的技能次数", "h3"))
+        # Leo 2026-10-20: the interval beside the counts, not hidden behind
+        # ⋯: a small clock and 「1.2s」 that lights up under the mouse; a
+        # click opens a small window to change it.
+        self.interval_button = Button("", "chip", "clock", size="sm", on_click=self._pick_interval)
+        self.interval_button.setToolTip(t("技能间隔") + " · " + t(
+            "吸收、召集、压制之间隔几秒再按下一个。电脑或网络较慢、技能常常没按上时调大。"
+        ))
+        head.addSpacing(4)
+        head.addWidget(self.interval_button)
+        head.addStretch(1)
         self.skill_foot = Text("", "muted")
         head.addWidget(self.skill_foot)
         skill_column.addLayout(head)
@@ -305,10 +316,43 @@ class MapPage(Page):
                 )
             task = self.task()
             if task is not None:
-                keys = [key for key in ("执行地图采集", "启用", "技能间隔秒数") if key in task.config]
+                keys = [key for key in ("执行地图采集", "启用") if key in task.config]
                 column.addWidget(ConfigForm(task, keys=keys, labels={"启用": "单独跑时启用"}))
             self._more_built = True
         self.more.setVisible(not self.more.isVisible())
+
+    def _interval(self) -> float | None:
+        task = self.task()
+        if task is None or INTERVAL_KEY not in task.config:
+            return None
+        try:
+            return float(task.config.get(INTERVAL_KEY))
+        except (TypeError, ValueError):
+            return None
+
+    def _show_interval(self) -> None:
+        value = self._interval()
+        self.interval_button.setVisible(value is not None)
+        if value is not None:
+            self.interval_button.setText(skill_interval_dialog.seconds_text(value))
+
+    def _pick_interval(self) -> None:
+        current = self._interval()
+        task = self.task()
+        if current is None or task is None:
+            return
+        the_type = (getattr(task, "config_type", None) or {}).get(INTERVAL_KEY) or {}
+        limits = (float(the_type.get("min", 0.5)), float(the_type.get("max", 2.0)))
+        default = float((getattr(task, "default_config", None) or {}).get(INTERVAL_KEY, 1.2))
+        chosen = skill_interval_dialog.ask(self.window(), current, limits, default)
+        if chosen is not None:
+            self._set_interval(chosen)
+
+    def _set_interval(self, value: float) -> None:
+        task = self.task()
+        if task is not None:
+            task.config[INTERVAL_KEY] = float(value)
+        self._show_interval()
 
     def _set_limit(self, value: str) -> None:
         task = self.task()
@@ -389,6 +433,7 @@ class MapPage(Page):
         self.start_button.setEnabled(actions.can_start() and task is not None)
         if task is not None:
             self.limit.set_value(str(int(task.config.get(LIMIT_KEY, 0) or 0)))
+        self._show_interval()
 
         from src.utils import accounts
 
@@ -420,6 +465,7 @@ class MapPage(Page):
             bar.set_value(used / max(1, limit), "warn" if used >= limit else "primary")
             value.set_text(f"{used} / {limit}")
             left.append(limit - used)
+        self._show_interval()
         self.skill_foot.set_text("今天的次数用完了" if min(left) <= 0 else tf("每天 {time} 重置", time=data.daily_reset_clock()))
 
         story, character, event = self._selected(progress)

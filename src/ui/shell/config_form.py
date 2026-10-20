@@ -208,6 +208,8 @@ class ConfigForm(QWidget):
         kind = the_type.get("widget") or the_type.get("type")
         if kind == "drop_down":
             return self._drop_down(key, list(the_type.get("options") or []))
+        if kind == "segmented":
+            return self._segmented(key, list(the_type.get("options") or []))
         if kind == "multi_selection":
             return self._multi(key, list(the_type.get("options") or []))
         if kind == "toggle_choice":
@@ -267,11 +269,16 @@ class ConfigForm(QWidget):
         finally:
             widget.blockSignals(False)
 
+    def _segmented(self, key: str, options: list[str]):
+        # The chosen option filled violet like a lit switch, so it reads at a
+        # glance (Leo 2026-10-20 「選取的選項要深紫色」).
+        segmented = Segmented(options, str(self.task.config.get(key)), self, accent=True)
+        segmented.changed.connect(lambda v, k=key: self._set(k, v))
+        return segmented, lambda: segmented.set_value(str(self.task.config.get(key)))
+
     def _drop_down(self, key: str, options: list[str]):
         if len(options) <= 4 and sum(len(str(option)) for option in options) <= SEGMENTED_MAX_TEXT:
-            segmented = Segmented(options, str(self.task.config.get(key)), self)
-            segmented.changed.connect(lambda v, k=key: self._set(k, v))
-            return segmented, lambda: segmented.set_value(str(self.task.config.get(key)))
+            return self._segmented(key, options)
         combo = ComboBox(self)
         for option in options:
             combo.addItem(t(str(option)), userData=option)

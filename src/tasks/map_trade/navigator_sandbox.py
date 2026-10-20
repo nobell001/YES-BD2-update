@@ -29,6 +29,7 @@ from src.tasks.map_trade.models import (
     TOWN_NAV_ENTRIES,
     WALK_EDGES,
     WALK_LABEL_EDGES,
+    WALK_ONLY_TARGETS,
     WALKED_EVENT_CARD_IDS,
     CardSpec,
     CollectionMapRole,
@@ -186,6 +187,11 @@ STORY_ENTRY_PAGE_RESERVE_SECONDS = 5.0
 STORY_ENTRY_AFTER_PAGE_SECONDS = 10.0
 # One more look when the wait ends with the field on its last frame.
 FIELD_HUD_LAST_LOOK_SECONDS = 1.5
+
+# How long a field is looked for after a teleport page failed to open.
+SANDBOX_MAP_CLOSE_TIMEOUT = 3.0
+# What reopens a circle's 传送页 that did not open after its hand.
+CIRCLE_PAGE_AGAIN = ("hand", "key")
 
 class SandboxNavigationMixin:
     @staticmethod
@@ -1702,22 +1708,14 @@ class SandboxNavigationMixin:
                 ScreenState.SANDBOX,
                 "徒步回退后仍未识别到传送阵交互按钮",
             )
-        return self._wait_for_sandbox_map_open(
-            "徒步回退交互",
-            expected_mode=MapPageMode.DIRECT_TELEPORT,
-            detect_skill_failure=False,
-        )
+        return self._open_circle_page("徒步回退交互")
 
     def open_teleport_map_from_sandbox(self) -> NavigationResult:
         """Open the teleport map through the circle's 交互 button."""
 
         self._status("导航状态", "优先识别箱庭传送阵交互按钮")
         if self._click_sandbox_teleport_interaction():
-            opened = self._wait_for_sandbox_map_open(
-                "传送阵交互按钮",
-                expected_mode=MapPageMode.DIRECT_TELEPORT,
-                detect_skill_failure=False,
-            )
+            opened = self._open_circle_page("传送阵交互按钮")
             if opened.success:
                 return opened
             return NavigationResult(
@@ -2464,11 +2462,7 @@ class SandboxNavigationMixin:
             return self._open_teleport_map_at_hunting_ground()
         # 艾琳 stands in the town: its circle, walking there if needed.
         if self._click_sandbox_teleport_interaction():
-            return self._wait_for_sandbox_map_open(
-                "传送阵交互按钮",
-                expected_mode=MapPageMode.DIRECT_TELEPORT,
-                detect_skill_failure=False,
-            )
+            return self._open_circle_page("传送阵交互按钮")
         walked = self._walk_to_sandbox_teleport_interaction()
         if walked.success:
             return walked
@@ -2967,6 +2961,66 @@ class SandboxNavigationMixin:
         self.task.log_warning("跑图：小地图放大状态未能切回。")
         return False
 
+    def _back_to_field_after_failed_open(self, opened: NavigationResult) -> bool:
+        """A map page that opened in the wrong mode is closed; otherwise the
+        field is looked at once more before the next way is tried.  True
+        when the story field is confirmed again."""
+        mode = getattr(opened, "map_page_mode", None)
+        if mode is not None and mode != MapPageMode.UNKNOWN:
+            return self._close_confirmed_map_page(
+                {mode}, timeout=SANDBOX_MAP_CLOSE_TIMEOUT
+            ).success
+        return self._wait_for_current_sandbox(timeout=SANDBOX_MAP_CLOSE_TIMEOUT).success
+
+    def _open_circle_page(self, trigger_name: str) -> NavigationResult:
+        """After the hand on a teleport circle was pressed: make sure the
+        circle's 传送页 really opens (Leo 2026-10-20 「在傳送陣上 有互動可以點
+        為什麼會打不開 應該要確保他打開」, v0.2.2 第8章 on a 2560x1440
+        monitor: 「传送阵交互按钮后未稳定确认direct_teleport」).
+
+        When the page is not confirmed, whatever opened instead is closed,
+        the field is confirmed, and the circle is opened again: its hand
+        once more, then the game's interact key F.  F is sent only on a
+        confirmed field (on 主页 it opens the recent cartridge)."""
+        opened = self._wait_for_sandbox_map_open(
+            trigger_name,
+            expected_mode=MapPageMode.DIRECT_TELEPORT,
+            detect_skill_failure=False,
+        )
+        tries = []
+        for again in CIRCLE_PAGE_AGAIN:
+            if opened.success:
+                return opened
+            if not self._back_to_field_after_failed_open(opened):
+                break
+            if again == "hand":
+                if not self._click_sandbox_teleport_interaction():
+                    continue
+                how = "再按一次交互手势"
+            else:
+                tap_key = getattr(self.task, "tap_key", None)
+                if tap_key is None or not tap_key(
+                    INTERACT_KEY, after_sleep=TELEPORT_INTERACTION_CLICK_DELAY
+                ):
+                    continue
+                how = f"改按快捷键 {INTERACT_KEY}"
+            tries.append(how)
+            self._status("导航状态", f"传送页没打开（{opened.message}），{how}")
+            self.task.log_info(f"跑图：按了传送阵交互后传送页没打开，{how}。")
+            opened = self._wait_for_sandbox_map_open(
+                f"{trigger_name}（{how}）",
+                expected_mode=MapPageMode.DIRECT_TELEPORT,
+                detect_skill_failure=False,
+            )
+        if opened.success or not tries:
+            return opened
+        return NavigationResult(
+            False,
+            opened.state,
+            f"{opened.message}（已{'、'.join(tries)}）",
+            map_page_mode=opened.map_page_mode,
+        )
+
     def prepare_collection_main_area(
         self, card_id: str, *, via_hunting_ground: bool = False
     ) -> NavigationResult:
@@ -2992,29 +3046,37 @@ class SandboxNavigationMixin:
                 )
             self._status("导航状态", f"经{npc}未到{card.targets[0].title}，改用原来的回城方式")
         if via_hunting_ground:
-            entry = None
+            opened = None
             if self._click_sandbox_teleport_interaction():
                 # Already on a teleport circle: its map reaches the town
                 # directly, no need for the hunting ground.
-                opened = self._wait_for_sandbox_map_open(
-                    "传送阵交互按钮",
-                    expected_mode=MapPageMode.DIRECT_TELEPORT,
-                    detect_skill_failure=False,
-                )
-            elif (entry := self._travel_to_hunting_ground()) == HUNTING_GROUND_NAV_ENTRY:
-                opened = self._open_teleport_map_at_hunting_ground()
-            elif entry is not None:
-                # No 狩猎场 in the ≡ menu -> 艾琳 (Leo 2026-09-30).  She
-                # stands in the town, so the route starts right there.
-                if self.current_collection_target(card) == card.targets[0].key:
-                    return NavigationResult(
-                        True, ScreenState.SANDBOX, f"经{entry}到达{card.targets[0].title}"
+                opened = self._open_circle_page("传送阵交互按钮")
+                if not opened.success:
+                    # Hand again and F did not open it either: the ≡ menu
+                    # way below is the last fallback, never the end of the
+                    # card (Leo 2026-10-20, v0.2.2 第8章).
+                    self._status(
+                        "导航状态",
+                        f"传送阵交互后没打开传送页（{opened.message}），改走小地图导航",
                     )
-                opened = self._open_teleport_map_anywhere(card)
-            else:
-                # Neither in the ≡ menu (ch13 had no 狩猎场, live
-                # 2026-09-29): walk to this map's own teleport circle.
-                opened = self._open_teleport_map_anywhere(card)
+                    self._back_to_field_after_failed_open(opened)
+                    opened = None
+            if opened is None:
+                entry = self._travel_to_hunting_ground()
+                if entry == HUNTING_GROUND_NAV_ENTRY:
+                    opened = self._open_teleport_map_at_hunting_ground()
+                elif entry is not None:
+                    # No 狩猎场 in the ≡ menu -> 艾琳 (Leo 2026-09-30).  She
+                    # stands in the town, so the route starts right there.
+                    if self.current_collection_target(card) == card.targets[0].key:
+                        return NavigationResult(
+                            True, ScreenState.SANDBOX, f"经{entry}到达{card.targets[0].title}"
+                        )
+                    opened = self._open_teleport_map_anywhere(card)
+                else:
+                    # Neither in the ≡ menu (ch13 had no 狩猎场, live
+                    # 2026-09-29): walk to this map's own teleport circle.
+                    opened = self._open_teleport_map_anywhere(card)
         else:
             opened = self._open_teleport_map_anywhere(card)
         if not opened.success:
@@ -3075,6 +3137,21 @@ class SandboxNavigationMixin:
             self._status("导航状态", f"经{town_npc}未到{next_target.title}，改为走过去")
         if edge in WALK_EDGES or edge in WALK_LABEL_EDGES or edge in EVENT_WALK_EDGES:
             return self._walk_to_collection_map(card, current_target, next_target)
+        via = self._walk_neighbour(card, current_target, next_target)
+        if via is not None:
+            self._status(
+                "导航状态",
+                f"{next_target.title}没有传送阵，先到{via.title}再走过去",
+            )
+            step = self.advance_collection_map(card_id, current_target, via)
+            if not step.success:
+                return NavigationResult(
+                    False,
+                    step.state,
+                    f"去{next_target.title}要先到{via.title}，但没到（{step.message}）",
+                    map_page_mode=step.map_page_mode,
+                )
+            return self._walk_to_collection_map(card, via, next_target)
         if town_npc and next_target.key == card.targets[0].key:
             # Chapter 14 back to the town: the ≡ menu's 艾琳 (11 s, live 2K
             # 2026-09-30).  Without 压制 the walk to 左侧回廊's circle from the
@@ -3122,6 +3199,29 @@ class SandboxNavigationMixin:
             card,
             next_target,
             changed,
+        )
+
+    @staticmethod
+    def _walk_neighbour(
+        card: CardSpec,
+        current_target: CollectionMapTarget,
+        next_target: CollectionMapTarget,
+    ) -> CollectionMapTarget | None:
+        """The map ``next_target`` is walked to from, when it has no circle
+        and the character is not standing there."""
+        if (card.card_id, next_target.key) not in WALK_ONLY_TARGETS:
+            return None
+        return next(
+            (
+                target
+                for target in card.targets
+                if target.key not in (current_target.key, next_target.key)
+                and (
+                    (card.card_id, target.key, next_target.key) in WALK_EDGES
+                    or (card.card_id, target.key, next_target.key) in WALK_LABEL_EDGES
+                )
+            ),
+            None,
         )
 
     def _area_map_page_state(

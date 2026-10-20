@@ -8,6 +8,7 @@ from ok.task.exceptions import FinishedException, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
 from src.tasks.BaseBD2Task import (
+    FIELD_FOLLOWERS_KEY,
     FIEND_HUNT_REWARD_DISMISS_TEXT,
     FIEND_HUNT_REWARD_TITLE,
     RECENT_CARTRIDGE_SPECIAL_PAGE_MAX_ACTIONS,
@@ -47,6 +48,7 @@ from src.utils.cartridge_quick_switch import (
     category_highlight_ratio,
 )
 from src.utils.colour_rules import switch_knob_side, switch_yellow_ratio
+from src.utils.field_followers import FOLLOWERS_DISMISSED
 from src.utils.free_switch import ensure_free_switch_on
 from src.utils.home_confirmation import (
     HOME_DIMMED_P95_THRESHOLD_DEFAULT,
@@ -104,6 +106,11 @@ PVP_BACK_HOME_REFERENCE_POINT = (1797, 63)  # 1920×1080 参考
 # Top-left back arrow of the pre-battle stage screen (same as every page's).
 PVP_STAGE_BACK_REFERENCE_POINT = (150, 50)
 PVP_CARTRIDGE_SLOT_POINT = (152 / REFERENCE_WIDTH, 970 / REFERENCE_HEIGHT)
+# Hub entry: how long to stand for the "!" followers, and the pause after the
+# F key that goes when no press was seen to clear them (Leo 2026-10-20).
+PVP_FOLLOWERS_STAND_SECONDS = 5.0
+PVP_FOLLOWERS_KEY_SETTLE_SECONDS = 1.0
+PVP_FOLLOWERS_DISMISSED_SETTLE_SECONDS = 1.5
 PVP_AUTO_BATTLE_SCREEN_ROI = (1470, 910, 170, 150)
 # Reference ROI for the multiplier value in the main auto-battle popup. The value
 # sits directly left of the settings gear (reference x ≈ 868 at 1280x720); the ROI
@@ -881,8 +888,19 @@ class PVPTask(BaseBD2Task):
     def _clear_pvp_hub_notice_if_present(self) -> None:
         # The hub "!" is the field F button: it shows while the characters
         # that follow the player after login are around, and they stand on
-        # the stage until it is pressed (Leo, 2026-10-03).
-        self.dismiss_field_followers()
+        # the stage until it is pressed (Leo, 2026-10-03).  Leo 2026-10-20
+        # 「開局站的5秒 如果有成功點掉就繼續 沒成功點掉就先按一下f 然後等1秒 才走到
+        # 舞台」: looked for every time; unless a press is seen to clear it,
+        # the F key goes once anyway in case the icon was missed.
+        outcome = self.dismiss_field_followers(
+            appear_seconds=PVP_FOLLOWERS_STAND_SECONDS, even_if_done_today=True
+        )
+        if outcome == FOLLOWERS_DISMISSED:
+            # 「點掉也要等個1.5秒 才走」 (Leo 2026-10-20).
+            self.sleep(PVP_FOLLOWERS_DISMISSED_SETTLE_SECONDS)
+            return
+        self.log_info("镜中之战：开场 5 秒没确认赶走跟随角色，先按一次 F，等 1 秒再走去舞台。")
+        self.tap_key(FIELD_FOLLOWERS_KEY, after_sleep=PVP_FOLLOWERS_KEY_SETTLE_SECONDS)
 
     def _click_pvp_stage_once(self, timeout: float) -> bool:
         return self._click_template_until(

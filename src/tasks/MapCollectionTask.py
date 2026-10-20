@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+from ok import Config
+from ok.util.file import get_relative_path
 from qfluentwidgets import FluentIcon
 
 from src.tasks.map_trade.collector import Collector
@@ -17,6 +22,11 @@ from src.tasks.MapTradeTask import (
     MapAutomationTaskBase,
 )
 from src.utils.wait_limits import LOADING_MAX_SECONDS
+
+# Leo 2026-10-20: 技能间隔 moved out of 跑图's ⋯ menu to a small 「1.2s」 by
+# the skill counts; players who had the tool before are shown it once
+# (src/ui/shell/new_setting_notice.py).
+MAP_NOTICE_KEY = "_跑图技能间隔提示"
 
 
 class MapCollectionTask(MapAutomationTaskBase):
@@ -103,6 +113,7 @@ class MapCollectionTask(MapAutomationTaskBase):
                 "本次最多卡带数": 0,
                 "跑图章节": "全部",
                 SKILL_INTERVAL_KEY: SKILL_INTERVAL_DEFAULT,
+                MAP_NOTICE_KEY: False,
             }
         )
         self.config_description.update(
@@ -149,6 +160,18 @@ class MapCollectionTask(MapAutomationTaskBase):
                 },
             }
         )
+
+    def load_config(self):
+        # Saved settings from before this update: show the new place once.
+        # A new install has no file and is not asked.
+        path = Path(get_relative_path(Config.config_folder, f"{self.__class__.__name__}.json"))
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, ValueError):
+            saved = {}
+        super().load_config()
+        if isinstance(saved, dict) and saved and MAP_NOTICE_KEY not in saved:
+            self.config[MAP_NOTICE_KEY] = True
 
     def run(self):
         if not bool(self.config.get("启用", True)):

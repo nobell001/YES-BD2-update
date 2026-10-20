@@ -9,6 +9,7 @@ from src.tasks import problem_report
 from src.tasks.BaseBD2Task import RECOGNITION_SETTLE_KEY, BaseBD2Task
 from src.tasks.quick_hunt import (
     QUICK_HUNT_CHILD_CONFIG_KEYS,
+    QUICK_HUNT_STONE_KEY,
     QuickHuntConfigMixin,
     QuickHuntFeatureMixin,
     quick_hunt_targets_from_legacy,
@@ -16,6 +17,8 @@ from src.tasks.quick_hunt import (
 
 # Set when an update moved old settings over; src/ui/shell/new_setting_notice.py.
 QUICK_HUNT_NOTICE_KEY = "_米饭目标新设定提示"
+# Set once for players who had the tool before 圣石属性 could be picked.
+STONE_NOTICE_KEY = "_圣石属性新设定提示"
 from src.tasks.task_vision_mixin import TaskVisionMixin
 from src.utils.home_confirmation import HOME_DIMMED_P95_THRESHOLD_DEFAULT
 
@@ -124,6 +127,7 @@ class QuickHuntTask(
         visible_keys.extend(("主页压暗阈值", "主页确认等待秒数"))
         self.default_config["启用"] = True
         self.default_config[QUICK_HUNT_NOTICE_KEY] = False
+        self.default_config[STONE_NOTICE_KEY] = False
         self.config_description["启用"] = "是否执行独立的快速狩猎任务。"
         self.config_type["启用"] = {"sub_configs": {True: visible_keys}}
         ordered_keys = ("启用", *visible_keys)
@@ -156,6 +160,10 @@ class QuickHuntTask(
             # The tool shows the new rows once at the next start (Leo 2026-10-12:
             # 「更新完第一次開工具 指引用戶去點這個設定」).
             self.config[QUICK_HUNT_NOTICE_KEY] = True
+        if isinstance(legacy, dict) and legacy and QUICK_HUNT_STONE_KEY not in legacy:
+            # Leo 2026-10-20: the torches still go to the least held element
+            # (the default), and the tool shows the new row once.
+            self.config[STONE_NOTICE_KEY] = True
 
     def run(self):
         test_action = getattr(self, "_quick_hunt_test_action", None)

@@ -41,14 +41,14 @@ from src.utils.frozen_screen import (
     INEFFECTIVE_PRESSES,
     FrozenScreen,
     FrozenWatch,
-    loading_words,
+    loading_sign,
 )
 from src.utils.ocr_utils import normalize_ocr_text
 from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, PressOutcome
 from src.utils.press_confirm import press_and_confirm as _press_and_confirm
 from src.utils.template_resolution import offline_template_scale
-from src.utils.wait_limits import scene
+from src.utils.wait_limits import scene, set_loading_reader
 
 logger = Logger.get_logger(__name__)
 PROBE_OUTPUT_DIR = Path("probe_outputs")
@@ -73,6 +73,14 @@ KEY_TAP_SECONDS = 0.08
 # 2026-10-11), so P is never sent while 主页 shows.
 HOME_KEY = "H"
 RECENT_CARTRIDGE_KEY = "F"
+# The field F button that sends the "!" followers away, and how 镜中之战 / the
+# square look for them (Leo 2026-10-20 「先等5秒等這些靠過來」).
+FIELD_FOLLOWERS_KEY = "F"
+FIELD_FOLLOWERS_LOOK_SECONDS = 5.0
+FIELD_FOLLOWERS_GATHER_SECONDS = 5.0
+FIELD_FOLLOWERS_SETTLE_SECONDS = 1.5
+# After today's press: two frames, no waiting.
+FIELD_FOLLOWERS_QUICK_LOOK_SECONDS = 0.5
 QUICK_SWITCH_KEY = "P"
 # 广场 and 竞技场 are busy scenes where the game drops the quick-switch press
 # (player via Leo 2026-10-17 「切换卡带的时候可以点两下」): with no 卡带选择页
@@ -555,6 +563,9 @@ class BaseBD2Task(BaseTask):
         if frame is None:
             raise RuntimeError("未能从 BD2 截取画面。")
 
+        # Every wait asks the task looking at the game whether a still screen
+        # shows the loading ring or a loading word before calling it stuck.
+        set_loading_reader(self._loading_words_on)
         watch = getattr(self, "_frozen_watch", None)
         if watch is not None:
             try:
@@ -562,7 +573,7 @@ class BaseBD2Task(BaseTask):
             except FrozenScreen as exc:
                 # A still loading/connecting screen that is not black (slow
                 # PC or network) is waited for like the black one.
-                word = "" if str(exc) or watch.loading_hold else self._loading_words_on(frame)
+                word = "" if watch.loading_hold else self._loading_words_on(frame)
                 if not word:
                     raise
                 watch.hold_for_loading(word)
@@ -834,14 +845,16 @@ class BaseBD2Task(BaseTask):
         return result
 
     def _loading_words_on(self, frame) -> str:
-        """The loading/connecting word the frame shows, "" when none (one OCR)."""
+        """The loading ring's percent or loading/connecting word the frame
+        shows, "" when none (one OCR)."""
         try:
             boxes = list(self.ocr(frame=frame, name="卡住前看载入字样", reread=False) or [])
         except (TaskDisabledException, FinishedException):
             raise
         except Exception:
             return ""
-        return loading_words(" ".join(str(getattr(box, "name", "")) for box in boxes))
+        height, width = frame.shape[:2]
+        return loading_sign(boxes, width, height)
 
     def close_known_popup(self, label: str = "", *, info_only: bool = False) -> bool:
         """Close a popup that covers the page with its harmless press
@@ -1322,7 +1335,38 @@ class BaseBD2Task(BaseTask):
         self.operate_click(x / 1920, y / 1080, after_sleep=1.0)
         return True
 
-    def dismiss_field_followers(self, appear_seconds: float = 3.0) -> str:
+    def clear_field_followers(self) -> str:
+        """The square (Leo 2026-10-20): wait 5 s in place once the "!" shows so
+        the crowd has come over, press it, and fall back to the F key.  Once
+        they were sent away today (镜中之战 runs first) there is no wait, only
+        a quick look (「鏡中之戰趕走過 工具就記錄一下 廣場就不用等了」)."""
+        from src.utils.field_followers import FOLLOWERS_DISMISSED, dismissed_today
+
+        if dismissed_today():
+            outcome = self.dismiss_field_followers(
+                appear_seconds=FIELD_FOLLOWERS_QUICK_LOOK_SECONDS,
+                use_key=True,
+                even_if_done_today=True,
+            )
+        else:
+            outcome = self.dismiss_field_followers(
+                appear_seconds=FIELD_FOLLOWERS_LOOK_SECONDS,
+                gather_seconds=FIELD_FOLLOWERS_GATHER_SECONDS,
+                use_key=True,
+            )
+        if outcome == FOLLOWERS_DISMISSED:
+            # 「點掉也要等個1.5秒 才走」 (Leo 2026-10-20).
+            self.sleep(FIELD_FOLLOWERS_SETTLE_SECONDS)
+        return outcome
+
+    def dismiss_field_followers(
+        self,
+        appear_seconds: float = 3.0,
+        *,
+        gather_seconds: float = 0.0,
+        use_key: bool = False,
+        even_if_done_today: bool = False,
+    ) -> str:
         """Send away the "!" characters that follow the player after login.
 
         Presses the field F button while it shows the "!" icon; see
@@ -1342,7 +1386,7 @@ class BaseBD2Task(BaseTask):
             mark_dismissed,
         )
 
-        if dismissed_today():
+        if dismissed_today() and not even_if_done_today:
             self.info_set("跟随角色按钮", "今日已赶走")
             return FOLLOWERS_DONE_TODAY
 
@@ -1379,11 +1423,20 @@ class BaseBD2Task(BaseTask):
             self.info_set("当前阶段", "点击F键感叹号，赶走跟随角色")
             self.operate_click(x, y, after_sleep=0.0, name="跟随角色按钮")
 
+        def press_key() -> None:
+            self.info_set("当前阶段", "点击没赶走跟随角色，改按F键")
+            self.log_info("箱庭：点了感叹号没赶走跟随角色，改按快捷键 F。")
+            self.tap_key(FIELD_FOLLOWERS_KEY)
+
+        if gather_seconds > 0:
+            self.info_set("跟随角色按钮", "等待跟随角色靠过来")
         outcome = dismiss_field_followers(
             observe,
             click,
             self.sleep,
             appear_seconds=appear_seconds,
+            gather_seconds=gather_seconds,
+            press_key=press_key if use_key else None,
         )
         if outcome == FOLLOWERS_DISMISSED:
             mark_dismissed()

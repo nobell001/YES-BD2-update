@@ -32,6 +32,11 @@ OWN_PAGES = {
     "MapTradeTask": ("trade", "跑商", "买什么、做哪些料理、每天卖什么都在那里设定"),
     "MapCollectionTask": ("map", "跑图", "跑哪些卡带、每次最多跑几张都在那里设定"),
 }
+# Settings of an OWN_PAGES task that are also changed right here (Leo
+# 2026-10-20: 跑图's 技能间隔 「任務設定裡也要可以讓用戶調整」).
+OWN_PAGE_KEYS = {
+    "MapCollectionTask": ("技能间隔秒数",),
+}
 
 BATCH_OPTION_LABELS = {
     "失败后继续": "一项失败后继续跑后面的",
@@ -348,6 +353,16 @@ class TaskPage(Page):
                 )
             )
             self.detail_layout.addWidget(pointer)
+            keys = [
+                key for key in OWN_PAGE_KEYS.get(type(task).__name__, ()) if key in task.config
+            ]
+            if keys:
+                box = Inset()
+                box_row = hbox(box, (16, 10, 16, 10), 12)
+                form = ConfigForm(task, keys=keys)
+                box_row.addWidget(form)
+                self.detail_layout.addWidget(box)
+                self.form = form
         elif task is not None:
             # Same right edge as the 加入一键… switch above, which sits in a
             # box with a 16 px inner margin (Leo, 2026-10-04: 開關沒有對齊).

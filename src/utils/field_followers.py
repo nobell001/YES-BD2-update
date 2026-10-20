@@ -132,27 +132,46 @@ def dismiss_field_followers(
     interval: float = 0.35,
     settle_seconds: float = 1.5,
     max_clicks: int = 2,
+    gather_seconds: float = 0.0,
+    press_key: Callable[[], None] | None = None,
     clock: Callable[[], float] = monotonic,
 ) -> str:
     """Press the F "!" button until the followers are gone.
 
     Waits up to ``appear_seconds`` for the icon (the crowd can arrive a moment
-    after the field loads).  Returns ``FOLLOWERS_ABSENT`` when the icon never
-    showed on two frames in a row, ``FOLLOWERS_DISMISSED`` when a press made it
-    go away, or ``FOLLOWERS_STILL_VISIBLE`` after ``max_clicks`` presses.
+    after the field loads).  Once it shows, ``gather_seconds`` are waited in
+    place so the whole crowd has come over before the press (Leo 2026-10-20
+    「有辨識到的話就在原地等5秒，點掉才行動」).  When a click leaves the icon up,
+    ``press_key`` (the F key) gets the next turn (「點不到就按F」).  Returns
+    ``FOLLOWERS_ABSENT`` when the icon never showed on two frames in a row,
+    ``FOLLOWERS_DISMISSED`` when a press made it go away, or
+    ``FOLLOWERS_STILL_VISIBLE`` after every press was used.
     """
-    clicks = 0
+    presses = 0
+    max_presses = max_clicks + (1 if press_key is not None else 0)
+    gathered = gather_seconds <= 0
+    key_used = press_key is None
     deadline = clock() + max(0.0, appear_seconds)
     previous = None
     while True:
         sighting = observe()
         if previous is not None and same_place(previous, sighting):
-            click(*sighting.center)
-            clicks += 1
+            if not gathered:
+                gathered = True
+                sleep(gather_seconds)
+                previous = None
+                deadline = clock() + max(0.0, appear_seconds)
+                continue
+            if presses and not key_used:
+                key_used = True
+                press_key()
+            else:
+                click(*sighting.center)
+            presses += 1
             sleep(settle_seconds)
             if _gone_on_two_frames(observe, sleep, interval):
                 return FOLLOWERS_DISMISSED
-            if clicks >= max_clicks:
+            if presses >= max_presses:
                 return FOLLOWERS_STILL_VISIBLE
             previous = None
             deadline = clock() + max(0.0, appear_seconds)
@@ -160,7 +179,7 @@ def dismiss_field_followers(
         previous = sighting if sighting.passed else None
         if clock() >= deadline:
             # After a press, an icon that stays away counts as gone.
-            return FOLLOWERS_DISMISSED if clicks else FOLLOWERS_ABSENT
+            return FOLLOWERS_DISMISSED if presses else FOLLOWERS_ABSENT
         sleep(interval)
 
 

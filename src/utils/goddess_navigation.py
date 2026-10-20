@@ -56,14 +56,6 @@ def is_goddess_destination(text):
     )
 
 
-def is_goddess_completion(text):
-    for segment in str(text).split("|"):
-        normalized = re.sub(r"[\s，,。.!！·…]", "", segment).replace("／", "/")
-        if re.search(r"(?:向)?女神像许愿.*完成", normalized):
-            return True
-    return False
-
-
 def choose_navigation(icon_candidates, text_candidates, text):
     """Icon rows win; text-only rows are the fallback; more than one is ambiguous."""
     candidates = icon_candidates or text_candidates

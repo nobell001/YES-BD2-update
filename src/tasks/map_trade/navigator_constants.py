@@ -539,9 +539,11 @@ TRADE_MERCHANT_TALENTS_REGION = reference_rect_to_relative_roi(
 # The merchant is found by the name on his interaction prompt ("F 无聊收集狂
 # 大叔"), which only shows while the character stands next to him; its
 # position moves with the camera (live: (1153,321), (1008,397) at 1080p).
-MERCHANT_PROMPT_PATTERN = r"收集狂大叔"
+# In 梦幻广场 the same 对话/商店 + 砍价 merchant is 「F 洛兹」 (live 4K
+# 2026-10-20: with only 收集狂大叔, 17 of 21 square moves failed).
+MERCHANT_PROMPT_PATTERN = r"收集狂大叔|洛[兹茲]"
 MERCHANT_PROMPT_OCR_ROI = (380, 120, 640, 260)
-MERCHANT_PROMPT_FAILURE_MESSAGE = "未识别到商人无聊收集狂大叔的互动按钮"
+MERCHANT_PROMPT_FAILURE_MESSAGE = "未识别到商人（洛兹／无聊收集狂大叔）的互动按钮"
 # Navigation toast when the destination is the area the character is in,
 # e.g. choosing 商店 while already inside the shop room.
 MERCHANT_NAV_UNREACHABLE_KEYWORD = "无法移动"
@@ -581,6 +583,30 @@ MAP_MERCHANT_ICON_TEMPLATE = TemplateSpec(
     min_zncc_score=0.80,
 )
 MAP_MERCHANT_ICON_TIMEOUT = 5.0
+# The same money bag on 梦幻广场's map sits on a dimmer backdrop: the 卢戈商店
+# crop scored 0.81 there (Leo's 2K frame 2026-10-20), so the square has its own.
+SQUARE_MAP_MERCHANT_ICON_TEMPLATE = TemplateSpec(
+    "广场地图商人图标",
+    "SquareMapMerchantIcon.png",
+    0.85,
+    green_mask=False,
+    scale_ratios=(0.90, 0.95, 1.0, 1.05, 1.10),
+    min_pixel_score=0.85,
+    minimum_safe_threshold=0.85,
+    min_zncc_score=0.80,
+)
+# Last resort on the square's map when neither icon reads (1080p client).
+SQUARE_MAP_MERCHANT_POINT = (456, 410)
+# The area map's title (top left, 「安全 奇幻广场」) and footer (世界地图),
+# 1920x1080 LTRB fractions; either one read proves the map is open.
+AREA_MAP_TITLE_RELATIVE_ROI = (230 / 1920, 20 / 1080, 700 / 1920, 85 / 1080)
+AREA_MAP_FOOTER_RELATIVE_ROI = (1350 / 1920, 970 / 1080, 1820 / 1920, 1040 / 1080)
+AREA_MAP_FOOTER_KEYWORDS = ("世界地图", "探索")
+AREA_MAP_OPEN_SECONDS = 3.0
+# The game's own key for the area map (shown under the minimap).
+AREA_MAP_KEY = "M"
+# The game's interaction key: talks to the merchant when his prompt is unread.
+MERCHANT_TALK_KEY = "F"
 # 箱庭内角色位置保持在上次离开处；不在商人旁时经小地图导航菜单的"商店"
 # 目的地传送到商人面前（已在商店区域内则改点区域地图上的商人图标）。
 MERCHANT_NAV_GUIDE_TEMPLATE = TemplateSpec(
@@ -831,8 +857,10 @@ SANDBOX_CONFIRM_ACTION_TEMPLATES = (
 # (施塔因之塔, others <= 0.62) and 0.955 on 科库托斯研究设施, where the inn and NPC
 # icons share its round frame and scored 0.856 / 0.838 (2026-09-30): a high
 # floor and a smaller lead keep those out without missing the real one.
+# Live 1080p 2026-10-20 (ch14 from the town): the circle 0.929 against 0.863,
+# a lead of 0.066, and the map change failed twice at 0.07.
 SANDBOX_MAP_TELEPORT_MIN_PIXEL = 0.90
-SANDBOX_MAP_TELEPORT_PIXEL_MARGIN = 0.07
+SANDBOX_MAP_TELEPORT_PIXEL_MARGIN = 0.06
 SANDBOX_MAP_TELEPORT_TEMPLATE = TemplateSpec(
     "箱庭地图传送阵模板",
     "image/green/SandboxNviTpCircleMapGE.png",

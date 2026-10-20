@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from time import monotonic
 
+from src.tasks.BaseBD2Task import CARTRIDGE_RECENT_ENTRY_POINT
 from src.tasks.map_trade.models import (
     MERCHANT_CARD_ID,
     MapPageMode,
@@ -10,6 +11,12 @@ from src.tasks.map_trade.models import (
     ScreenState,
 )
 from src.tasks.map_trade.navigator_constants import (
+    AREA_MAP_BACK_TEMPLATE,
+    AREA_MAP_FOOTER_KEYWORDS,
+    AREA_MAP_FOOTER_RELATIVE_ROI,
+    AREA_MAP_KEY,
+    AREA_MAP_OPEN_SECONDS,
+    AREA_MAP_TITLE_RELATIVE_ROI,
     BARGAIN_CONFIRM_POINT,
     BARGAIN_POINT,
     BARGAIN_SHOP_CONFIRM_POPUP_KEYWORD,
@@ -39,6 +46,7 @@ from src.tasks.map_trade.navigator_constants import (
     MERCHANT_PROMPT_OCR_ROI,
     MERCHANT_PROMPT_PATTERN,
     MERCHANT_QUICK_ARRIVAL_TIMEOUT,
+    MERCHANT_TALK_KEY,
     MERCHANT_TRAVEL_DIALOG_KEYWORDS,
     MERCHANT_TRAVEL_DIALOG_OCR_ROI,
     MINIMAP_CENTER_REFERENCE,
@@ -50,6 +58,7 @@ from src.tasks.map_trade.navigator_constants import (
     Q_SP6_SHOP_PAGE_OCR_INTERVAL,
     Q_SP6_SHOP_PRIORITY_TIMEOUT,
     QUICK_SWITCH_BACK_RELATIVE_POINT,
+    QUICK_SWITCH_PAGE_KEYWORDS,
     RETURN_HOME_PASSES,
     RETURN_HOME_STEP_TIMEOUT,
     RETURN_HOME_TIMEOUT,
@@ -57,6 +66,8 @@ from src.tasks.map_trade.navigator_constants import (
     SHOP_CLOSE_CLICK_RETRIES,
     SHOP_ENTRY_RECLICK_AFTER,
     SHOP_ENTRY_RECLICK_HITS,
+    SQUARE_MAP_MERCHANT_ICON_TEMPLATE,
+    SQUARE_MAP_MERCHANT_POINT,
     TRADE_CARD_SANDBOX_HITS,
     TRADE_MERCHANT_OPTIONS_REGION,
     TRADE_MERCHANT_TALENTS_REGION,
@@ -73,6 +84,8 @@ from src.tasks.map_trade.trader_constants import (
     SALE_OWNED_PATTERN,
 )
 from src.tasks.map_trade.vision import normalize_text
+from src.utils.cartridge_quick_switch import FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS
+from src.utils.fantasia_square import SQUARE_CARTRIDGE_SLOT_POINT, square_shown
 from src.utils.field_followers import dismiss_once_per_run
 from src.utils.wait_limits import STUCK_SECONDS, ProgressWait, StillTimer, scene_at_press
 
@@ -92,6 +105,15 @@ BARGAIN_LEGEND_READS = 2
 
 
 MERCHANT_STAGE = "找商人无聊收集狂大叔"
+# The merchant in 梦幻广场, where 跑商 now runs first (Leo 2026-10-20).
+SQUARE_MERCHANT_STAGE = "找商人洛兹"
+SQUARE_ARRIVED = "square"
+SQUARE_OTHER_FIELD = "other_field"
+# A field without the square's icon for this long is another cartridge.
+SQUARE_ICON_GRACE_SECONDS = 3.0
+# A dropped 广场 card press: the unchanged page after this long is pressed again.
+SQUARE_CARD_REPRESS_SECONDS = 2.5
+SQUARE_CARD_REPRESSES = 2
 SHOP_ENTRY_STAGE = "进入商店"
 
 
@@ -116,7 +138,7 @@ class TradeNavigationMixin:
         # The 问题摘要 shows 当前阶段; the story-card entry leaves its own
         # (寻找快速切换按钮) behind, which read as the failing step (Leo's 2K
         # and a player's report, 2026-10-16/17).
-        self._status("当前阶段", MERCHANT_STAGE)
+        self._status("当前阶段", self._merchant_stage())
         self._status("导航状态", "识别商人互动按钮")
         shop_opened = self._enter_q_sp6_shop(
             Q_SP6_SHOP_PRIORITY_TIMEOUT,
@@ -126,7 +148,7 @@ class TradeNavigationMixin:
             arrived = self.go_to_trade_merchant()
             if not arrived.success:
                 return arrived
-            self._status("当前阶段", MERCHANT_STAGE)
+            self._status("当前阶段", self._merchant_stage())
             shop_opened = self._enter_q_sp6_shop(
                 MERCHANT_NAV_LANDMARK_TIMEOUT,
                 log_timeout=True,
@@ -235,6 +257,12 @@ class TradeNavigationMixin:
             after_sleep=0.0,
             interval=interval,
         ):
+            if getattr(self, "_merchant_prompt_unread", False) and self.task.tap_key(
+                MERCHANT_TALK_KEY, after_sleep=0.0
+            ):
+                # 砍价 read next (_confirm_merchant_menu) proves the menu opened.
+                self._status("商店进入", f"商人互动按钮读不到，已按 {MERCHANT_TALK_KEY} 键")
+                return True
             if log_timeout:
                 self.task.log_warning(f"跑商：{MERCHANT_PROMPT_FAILURE_MESSAGE}。")
             return False
@@ -367,29 +395,130 @@ class TradeNavigationMixin:
             self.task.sleep(interval)
 
     def go_to_trade_merchant(self) -> NavigationResult:
-        """Stand next to the merchant in story cartridge 1.
+        """Stand next to the merchant in the square.
 
-        Already next to him: done.  Otherwise enter the cartridge (it keeps
-        the last position unless another cartridge was in use), then teleport
-        with the minimap navigation menu's 商店 destination, or, when that
-        answers "现在无法移动的区域" because the character is already in the
-        shop area, walk there from the area map's merchant icon.
+        Already next to him: done.  Otherwise enter 梦幻广场 from 主页 (Leo
+        2026-10-20: trade there, no cartridge switch after 广场女神像) and send
+        away the "!" followers.  Then teleport with the minimap navigation
+        menu's 商店 destination, or walk there from the area map's merchant
+        icon.  When the square cannot be entered or he cannot be reached in
+        it, story cartridge 1 is the other way (Leo 「總有替代方案」).
         """
 
+        self._merchant_prompt_unread = False
         if self._merchant_prompt_box(self.vision.capture()) is not None:
             return NavigationResult(True, ScreenState.SANDBOX, "已在商人旁")
+        self._status("导航状态", "进入梦幻广场")
+        self._merchant_stage_text = SQUARE_MERCHANT_STAGE
+        entered = self._enter_square()
+        if entered.success:
+            clear = getattr(self.task, "clear_field_followers", None)
+            if callable(clear):
+                clear()
+            if self._reach_merchant_in_field():
+                return NavigationResult(True, ScreenState.SANDBOX, "已到达商人旁")
+            reason = "广场里没走到商人旁"
+            returned = self.return_home()
+            if not returned.success:
+                return NavigationResult(False, self.classify(), MERCHANT_PROMPT_FAILURE_MESSAGE)
+        else:
+            reason = f"没能进入梦幻广场（{entered.message}）"
+        self.task.log_info(f"跑商：{reason}，改去剧情游戏卡1找商人。")
         self._status("导航状态", "进入剧情游戏卡1")
+        self._merchant_stage_text = MERCHANT_STAGE
         entered = self._enter_trade_card()
         if not entered.success:
             return entered
-        self._status("当前阶段", MERCHANT_STAGE)
+        if not self._reach_merchant_in_field():
+            return NavigationResult(False, self.classify(), MERCHANT_PROMPT_FAILURE_MESSAGE)
+        return NavigationResult(True, ScreenState.SANDBOX, "已到达商人旁")
+
+    def _merchant_stage(self) -> str:
+        return self.__dict__.get("_merchant_stage_text", SQUARE_MERCHANT_STAGE)
+
+    def _reach_merchant_in_field(self) -> bool:
+        self._status("当前阶段", self._merchant_stage())
         # The merchant route uses the minimap's ≡ menu (user 2026-09-28).
         self.ensure_small_minimap()
         if self._wait_for_merchant_prompt(2.0):
-            return NavigationResult(True, ScreenState.SANDBOX, "进入后已在商人旁")
-        if not self._walk_to_merchant():
-            return NavigationResult(False, self.classify(), MERCHANT_PROMPT_FAILURE_MESSAGE)
-        return NavigationResult(True, ScreenState.SANDBOX, "已到达商人旁")
+            return True
+        return self._walk_to_merchant()
+
+    def _enter_square(self) -> NavigationResult:
+        """From 主页 into 梦幻广场.
+
+        Right after 广场女神像 the recent cartridge is the square, so the
+        recent-cartridge press lands there with no quick switch.  Any other
+        field: back home, then the 生活玩法 tab's slot 2, as 广场女神像 does.
+        """
+
+        returned = self.return_home()
+        if not returned.success:
+            return returned
+        try:
+            recent_is_pvp = self.task._recent_cartridge_is_pvp()
+        except (AttributeError, RuntimeError):
+            recent_is_pvp = True
+        if not recent_is_pvp:
+            self._status("导航状态", "点最近卡带进梦幻广场")
+            recent = CARTRIDGE_RECENT_ENTRY_POINT
+            self.task.operate_click(*recent, after_sleep=1.0)  # 不用确认：下面等进场
+            landed = self._wait_for_field_or_square()
+            if landed == SQUARE_ARRIVED:
+                return NavigationResult(True, ScreenState.SANDBOX, "梦幻广场（最近卡带）")
+            returned = self.return_home()
+            if not returned.success:
+                return returned
+        menu = self._open_story_quick_switcher("life")
+        if not menu.success:
+            return menu
+        self._status("导航状态", "选择广场卡带2号位")
+        self.task.sleep(FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS)
+        slot = SQUARE_CARTRIDGE_SLOT_POINT
+        self.task.operate_click(*slot, after_sleep=0.0)  # 不用确认：页还在就重点
+        for _repress in range(SQUARE_CARD_REPRESSES):
+            # A dropped press leaves the selection page as it was.
+            self.task.sleep(SQUARE_CARD_REPRESS_SECONDS)
+            if not self._wait_for_ocr_keywords(
+                QUICK_SWITCH_PAGE_KEYWORDS, 0.5, "卡带选择页", quiet=True
+            ):
+                break
+            self._status("导航状态", "广场卡带点击没反应，再点一次")
+            self.task.operate_click(*slot, after_sleep=0.0)  # 不用确认：下面等广场
+        if self._wait_for_field_or_square() == SQUARE_ARRIVED:
+            return NavigationResult(True, ScreenState.SANDBOX, "梦幻广场")
+        return NavigationResult(False, self.classify(), "点广场卡带后没认出梦幻广场")
+
+    def _wait_for_field_or_square(self) -> str | None:
+        """SQUARE_ARRIVED on two square frames, SQUARE_OTHER_FIELD once a field
+        that is not the square has shown for a while, None when the screen
+        stopped getting anywhere (loading does not count, Leo 2026-10-15)."""
+
+        cache = self.__dict__.setdefault("_square_templates", {})
+        config = getattr(self.task, "config", None)
+        wait = ProgressWait(monotonic(), before=scene_at_press(self.task))
+        square_hits = 0
+        field_since = None
+        while True:
+            frame = self.vision.capture()
+            if square_shown(frame, config, cache):
+                square_hits += 1
+                if square_hits >= TRADE_CARD_SANDBOX_HITS:
+                    return SQUARE_ARRIVED
+                continue
+            square_hits = 0
+            loading = self._black_frame(frame)
+            state = ScreenState.LOADING if loading else self.classify(frame)
+            now = monotonic()
+            if state == ScreenState.SANDBOX:
+                field_since = now if field_since is None else field_since
+                if now - field_since >= SQUARE_ICON_GRACE_SECONDS:
+                    return SQUARE_OTHER_FIELD
+            else:
+                field_since = None
+            if wait.over(frame, now, loading=loading):
+                return None
+            self.task.sleep(0.5)
 
     def _enter_trade_card(self) -> NavigationResult:
         """Click story card 1 and wait for its field.
@@ -458,7 +587,11 @@ class TradeNavigationMixin:
                 return False
             outcome = "walked"
         elif not self._click_merchant_nav_destination():
-            return False
+            # 商店 unread in the ≡ list (Leo 2026-10-20 「讀不到也要有備案」).
+            self._status("导航状态", "导航菜单读不到商店，改点地图商人图标")
+            if not self._walk_via_area_map():
+                return False
+            outcome = "walked"
         else:
             outcome = self._confirm_travel()
         if outcome == "stuck":
@@ -475,13 +608,37 @@ class TradeNavigationMixin:
             # Inside the shop but away from the merchant, 立即前往 moves
             # nothing and no toast says so (live 2026-09-27): walk there via
             # the area map's merchant icon, as the user does.
+            if self._in_square_now():
+                # 梦幻广场: 立即前往 always ends next to 洛兹, but another
+                # player's name can sit over his prompt (live 1080p
+                # 2026-10-20), and the square's map has no merchant icon.
+                # The talk key F reaches him; the menu read decides.
+                self._merchant_prompt_unread = True
+                self.task.log_info("跑商：广场前往商店后读不到商人名字，改用 F 键和他说话。")
+                return True
             self._status("导航状态", "前往后未到商人旁，改点地图商人图标")
             if not self._walk_via_area_map():
                 return False
         if self._wait_for_merchant_prompt(MERCHANT_ARRIVAL_TIMEOUT):
             return True
+        if self.classify() == ScreenState.SANDBOX:
+            # The trip ended in the field but his name over the prompt never
+            # read (Leo 2026-10-20 「點不到商人怎麼辦」): the game's own talk
+            # key F reaches him; the menu read that follows decides.
+            self._merchant_prompt_unread = True
+            self.task.log_info(
+                f"跑商：前往商店后{MERCHANT_PROMPT_FAILURE_MESSAGE}，改用 F 键和他说话。"
+            )
+            return True
         self.task.log_warning(f"跑商：前往商店后{MERCHANT_PROMPT_FAILURE_MESSAGE}。")
         return False
+
+    def _in_square_now(self) -> bool:
+        return square_shown(
+            self.vision.capture(),
+            getattr(self.task, "config", None),
+            self.__dict__.setdefault("_square_templates", {}),
+        )
 
     def _click_merchant_nav_destination(self) -> bool:
         """在导航菜单中 OCR 点击"商店"目的地。"""
@@ -537,19 +694,61 @@ class TradeNavigationMixin:
         return "moving"
 
     def _walk_via_area_map(self) -> bool:
+        """Area map → the merchant's money-bag icon → the trip there.
+
+        Every read has a second way (Leo 2026-10-20): the map opens from the
+        minimap, else its key M; the icon is the 卢戈商店 or the square crop,
+        else, on the square's map, its remembered place."""
         self.task.operate_click(
             MINIMAP_CENTER_REFERENCE[0] / 1920,
             MINIMAP_CENTER_REFERENCE[1] / 1080,
             after_sleep=1.5,
         )
-        if not self.vision.click_template(
-            MAP_MERCHANT_ICON_TEMPLATE,
-            timeout=MAP_MERCHANT_ICON_TIMEOUT,
-            after_sleep=0.8,
-        ):
-            self.task.log_warning("跑商：区域地图上未识别到商人图标。")
-            return False
-        return self._confirm_travel() != "stuck"
+        map_open = self._area_map_open(AREA_MAP_OPEN_SECONDS)
+        if not map_open:
+            self._status("导航状态", f"点小地图没打开地图，改按 {AREA_MAP_KEY} 键")
+            tap_key = getattr(self.task, "tap_key", None)
+            if callable(tap_key) and tap_key(AREA_MAP_KEY, after_sleep=1.5):
+                map_open = self._area_map_open(AREA_MAP_OPEN_SECONDS)
+        icon_timeout = MAP_MERCHANT_ICON_TIMEOUT
+        for spec in (MAP_MERCHANT_ICON_TEMPLATE, SQUARE_MAP_MERCHANT_ICON_TEMPLATE):
+            if self.vision.click_template(spec, timeout=icon_timeout, after_sleep=0.8):
+                return self._confirm_travel() != "stuck"
+            icon_timeout = 1.0  # the first look already waited for the map
+        if map_open == "square":
+            self._status("导航状态", "地图上读不到商人图标，点它在广场地图上的固定位置")
+            self.task.log_info("跑商：广场地图上读不到商人图标，点它平常的位置。")
+            x, y = SQUARE_MAP_MERCHANT_POINT
+            self.task.operate_click(x / 1920, y / 1080, after_sleep=0.8)  # 不用确认：等前往
+            return self._confirm_travel() != "stuck"
+        self.task.log_warning("跑商：区域地图上未识别到商人图标。")
+        if map_open:
+            self._close_area_map_quietly()
+        return False
+
+    def _area_map_open(self, seconds: float) -> str | None:
+        """"square" for the square's map, "map" for another, None when
+        neither the map's title nor its footer read within ``seconds``."""
+        end_at = monotonic() + seconds
+        while True:
+            frame = self.vision.capture()
+            title = normalize_text(
+                self.vision.ocr_text(frame, "地图标题", relative_roi=AREA_MAP_TITLE_RELATIVE_ROI)
+            )
+            footer = normalize_text(
+                self.vision.ocr_text(frame, "地图底栏", relative_roi=AREA_MAP_FOOTER_RELATIVE_ROI)
+            )
+            if "广场" in title:
+                return "square"
+            if any(word in footer for word in AREA_MAP_FOOTER_KEYWORDS):
+                return "map"
+            if monotonic() >= end_at:
+                return None
+            self.task.sleep(0.5)
+
+    def _close_area_map_quietly(self) -> None:
+        # Its back arrow; anything left open is closed by the trip home.
+        self.vision.click_template(AREA_MAP_BACK_TEMPLATE, timeout=1.0, after_sleep=0.8)
 
     def wait_for_q_sp6_sandbox(
         self,
@@ -570,7 +769,11 @@ class TradeNavigationMixin:
                 "商人旁确认",
                 f"state={last_state.value}; merchant={'pass' if at_merchant else 'miss'}",
             )
-            if last_state == ScreenState.SANDBOX and at_merchant:
+            if last_state == ScreenState.SANDBOX and (
+                at_merchant or getattr(self, "_merchant_prompt_unread", False)
+            ):
+                # Cooking needs only the field; an unread prompt after the
+                # trip there is not a reason to skip it.
                 return True
             if monotonic() >= end_at:
                 break

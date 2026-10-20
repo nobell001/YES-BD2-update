@@ -115,7 +115,12 @@ from src.tasks.BaseBD2Task import (
 )
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.calibration import FHD_1080
-from src.utils.cartridge_quick_switch import QUICK_SWITCH_STABLE_FRAMES
+from src.utils.cartridge_quick_switch import (
+    LIFE_GAMEPLAY_CATEGORY_HIGHLIGHT_REGION,
+    LIFE_GAMEPLAY_CATEGORY_LABEL,
+    LIFE_GAMEPLAY_CATEGORY_POINT,
+    QUICK_SWITCH_STABLE_FRAMES,
+)
 
 # 从箱庭点击快速切换按钮的统一识别窗口与点击后停顿。
 QUICK_SWITCH_CLICK_TIMEOUT = 10.0
@@ -227,6 +232,13 @@ class StoryCardNavigationMixin:
             return "角色游戏卡", CHARACTER_CATEGORY_POINT, CHARACTER_CATEGORY_HIGHLIGHT_REGION
         if category == "event":
             return "活动游戏卡", EVENT_CATEGORY_POINT, EVENT_CATEGORY_HIGHLIGHT_REGION
+        if category == "life":
+            # 梦幻广场 sits in this tab (跑商 at the square, Leo 2026-10-20).
+            return (
+                LIFE_GAMEPLAY_CATEGORY_LABEL,
+                LIFE_GAMEPLAY_CATEGORY_POINT,
+                LIFE_GAMEPLAY_CATEGORY_HIGHLIGHT_REGION,
+            )
         return "剧情游戏卡", STORY_CATEGORY_POINT, STORY_CATEGORY_HIGHLIGHT_REGION
 
     def _click_quick_switch(

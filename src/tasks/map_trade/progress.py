@@ -90,6 +90,10 @@ class ProgressState:
     # It differs between players and grows with game updates (Leo
     # 2026-10-09: his 21/21/80, a player's 召集 19), so the HUD decides.
     observed_limits: dict[str, int] = field(default_factory=dict)
+    # The game's latest stable count read per action today (used, limit),
+    # kept as read: only it says the day is used up (Leo 2026-10-20
+    # 「以遊戲為準」).  ``observed_counts`` above stays the settling origin.
+    game_counts: dict[str, tuple[int, int]] = field(default_factory=dict)
 
     def completed_targets(self, card_id: str) -> set[str]:
         allowed = VALID_TARGET_KEYS.get(card_id, frozenset())
@@ -222,6 +226,7 @@ class ProgressStore:
             archived_action_records=archived_records,
             observed_counts=self._sanitize_observed_counts(raw.get("observed_counts", {})),
             observed_limits=self._sanitize_observed_limits(raw.get("observed_limits", {})),
+            game_counts=self._sanitize_observed_counts(raw.get("game_counts", {})),
         )
         if self.state.daily_key != day:
             self._archive_daily_actions()
@@ -232,6 +237,7 @@ class ProgressStore:
             self.state.depleted_today = False
             self.state.observed_counts = {}
             self.state.observed_limits = {}
+            self.state.game_counts = {}
             self.save()
         elif schema_version != STATE_SCHEMA_VERSION:
             # Persist the current shape immediately after an older compatible load.
@@ -488,6 +494,9 @@ class ProgressStore:
                 for action, value in self.state.observed_counts.items()
             },
             "observed_limits": dict(self.state.observed_limits),
+            "game_counts": {
+                action: list(value) for action, value in self.state.game_counts.items()
+            },
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -680,10 +689,30 @@ class ProgressStore:
         # so only it decides.
         # Counted from the HUD and the presses proven here, not from unsettled
         # reservations (Leo 2026-10-07: judge by the game's result).
+        # Only the game's own count read today: while it shows an 吸收 left,
+        # the card is started and its maps run until the game's count is
+        # used up; the rest waits for the next day (Leo 2026-10-20 「以遊戲
+        # 為準」: this PC's tally counted grey maps passed through and old
+        # presses, and a player at 18/21 was told the day was used up).
+        # Maps another PC already did read grey and cost nothing.
+        return not self.game_used_up("吸收")
+
+    def game_used_up(self, action: str = "吸收") -> bool:
+        """The game's count read today shows the action used up."""
         state = self._require_state()
-        observed = state.observed_counts.get("吸收", (0, 0))[0]
-        used = max(state.daily_absorbs, observed)
-        return used + len(remaining_targets) <= self.limit_of("吸收")
+        seen = state.game_counts.get(self._action_name(action))
+        return seen is not None and seen[0] >= seen[1]
+
+    def forget_unproven_depletion(self) -> None:
+        """A 'used up for today' the game's count does not show is let go:
+        the run goes in and reads the game (older versions set it from this
+        PC's own tally)."""
+        state = self._require_state()
+        if state.depleted_today and not any(
+            self.game_used_up(action) for action in ("吸收", "召集", "压制")
+        ):
+            state.depleted_today = False
+            self.save()
 
     def arm_action(
         self,
@@ -972,6 +1001,11 @@ class ProgressStore:
             or used > observed_limit
         ):
             return 0
+        # Kept as the game shows it, before any of the settling rules below
+        # (they refuse reads under this PC's tally or an older read).
+        state.game_counts[action_name] = (used, observed_limit)
+        if used >= observed_limit:
+            state.depleted_today = True
         previous = state.observed_counts.get(action_name)
         if previous is not None and (
             previous[1] != observed_limit or used < previous[0]
@@ -1219,37 +1253,16 @@ class ProgressStore:
             CollectionMapRole.BATTLE_AREA_1.value,
             CollectionMapRole.BATTLE_AREA_2.value,
         }
-        absorb_reservation = self._target_reservations(card_id, target_key, "吸收")
-        if self._effective_used("吸收") - absorb_reservation + 1 > self.limit_of("吸收"):
-            state.depleted_today = True
-            self.save()
-            return False
-        summon_reservation = self._target_reservations(card_id, target_key, "召集")
-        if is_battle and (
-            self._effective_used("召集") - summon_reservation + 1 > self.limit_of("召集")
-        ):
-            state.depleted_today = True
-            self.save()
-            return False
-        suppress_reservation = self._target_reservations(card_id, target_key, "压制")
-        if is_battle and (
-            self._effective_used("压制") - suppress_reservation + 1 > self.limit_of("压制")
-        ):
-            state.depleted_today = True
-            self.save()
-            return False
+        # The map is done in the game; recording it is never refused by this
+        # PC's own tally (a 2560x1440 player 2026-10-20: 「提交失败：今日技能
+        # 额度已用尽」 at 18/21 absorbs, the tally plus old reservations over
+        # 21).  Only the game's count ends the day (``reconcile_pending``).
         completed.add(target_key)
         state.cards[card_id] = sorted(completed)
         state.daily_submaps += 1
         if is_battle:
             state.daily_summons += 1
             state.daily_suppressions += 1
-        if (
-            state.daily_submaps >= self.limit_of("吸收")
-            or state.daily_summons >= self.limit_of("召集")
-            or state.daily_suppressions >= self.limit_of("压制")
-        ):
-            state.depleted_today = True
         self._cover_action_records(card_id, target_key)
         self.save()
         return True
@@ -1418,6 +1431,7 @@ class ProgressStore:
         state.daily_suppressions = 0
         state.depleted_today = False
         state.observed_counts = {}
+        state.game_counts = {}
         state.observed_limits = {}
         self.save()
         return backup

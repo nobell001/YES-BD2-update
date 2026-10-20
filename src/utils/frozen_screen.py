@@ -19,6 +19,7 @@ up to LOADING_MAX_SECONDS instead.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from time import monotonic
 
@@ -51,7 +52,8 @@ INEFFECTIVE_PRESSES = 3
 # without moving).  Such a still screen is waited for up to
 # LOADING_WORDS_SECONDS (Leo 2026-10-18 「黑畫面一樣30秒 第二個20秒」).
 # Not "BROWNDUST": the home announcement banner carries the logo too.
-LOADING_WORDS_SECONDS = 20.0
+# Leo 2026-10-20 「改成45秒」: the same cap as the black loading screen.
+LOADING_WORDS_SECONDS = LOADING_MAX_SECONDS
 LOADING_WORDS = ("nowloading", "loading", "加载", "载入", "读取中", "连接中", "连线中", "通信中", "请稍候")
 
 
@@ -59,6 +61,39 @@ def loading_words(text: object) -> str:
     """The loading word the text shows ("" when none)."""
     flat = "".join(str(text or "").split()).lower()
     return next((word for word in LOADING_WORDS if word in flat), "")
+
+
+# The game's loading ring sits in the bottom-right corner with its percent
+# inside (1080p player 2026-10-20: 「MIRROR WARS 镜中之战」 at 94% was given up
+# on after the 30 s cap; Leo 「10秒限制 不該在這種時候」).  A percent read
+# there is a loading screen, whatever the picture above it (held like a
+# loading word, up to LOADING_WORDS_SECONDS).
+LOADING_PERCENT_CORNER = 0.75
+_PERCENT = re.compile(r"^(\d{1,3})\s*[%％]$")
+
+
+def loading_percent(boxes, width: int, height: int) -> str:
+    """The loading ring's percent ("94%") among OCR ``boxes``, "" when none."""
+    for box in boxes or ():
+        match = _PERCENT.match("".join(str(getattr(box, "name", "") or "").split()))
+        if not match or int(match.group(1)) > 100:
+            continue
+        try:
+            cx = float(box.x) + float(box.width) / 2
+            cy = float(box.y) + float(box.height) / 2
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if cx >= width * LOADING_PERCENT_CORNER and cy >= height * LOADING_PERCENT_CORNER:
+            return f"{int(match.group(1))}%"
+    return ""
+
+
+def loading_sign(boxes, width: int, height: int) -> str:
+    """What marks the OCR'd frame as a loading screen: its ring's percent or
+    a loading word ("" when neither)."""
+    return loading_percent(boxes, width, height) or loading_words(
+        " ".join(str(getattr(box, "name", "")) for box in boxes or ())
+    )
 
 
 class FrozenScreen(Exception):

@@ -42,8 +42,17 @@ QUICK_HUNT_TARGET_DEFAULTS = {
 # The settings these four replace (still read once from an old config file).
 QUICK_HUNT_LEGACY_TARGET_KEYS = ("快速狩猎双倍策略", "快速狩猎资源倾向")
 
+# Which cave the torches go to (Leo 2026-10-20: 「要開放可以讓用戶選擇自己想要
+# 刷的屬性，且更新後先預設一樣刷最少的」).  最少 = the element held least, read
+# from the counts beside the cave list, as before.
+QUICK_HUNT_STONE_KEY = "圣石属性"
+QUICK_HUNT_STONE_LEAST = "最少"
+QUICK_HUNT_STONE_ELEMENTS = ("火", "水", "风", "光", "暗")
+QUICK_HUNT_STONE_CHOICES = (QUICK_HUNT_STONE_LEAST, *QUICK_HUNT_STONE_ELEMENTS)
+
 QUICK_HUNT_CHILD_CONFIG_KEYS = (
     *QUICK_HUNT_TARGET_DEFAULTS,
+    QUICK_HUNT_STONE_KEY,
     "快速狩猎模板阈值",
     "快速狩猎像素相似度阈值",
     "快速狩猎界面等待秒数",
@@ -279,8 +288,6 @@ QUICK_HUNT_NOT_HUNTING_GROUND = ("哥布林遗迹", "史莱姆王国", "属性�
 
 QUICK_HUNT_RETURN_POINT = (101, 55)
 
-QUICK_HUNT_STONE_ELEMENTS = ("火", "水", "风", "光", "暗")
-
 QUICK_HUNT_RETURN_MAP_PATTERNS = (
     ("野猪洞穴", re.compile(r"野猪洞穴")),
     ("蜥蜴人祭坛", re.compile(r"蜥.?蜴.?人.?祭坛")),
@@ -316,6 +323,7 @@ class QuickHuntConfigMixin:
     quick_hunt_default_config = {
         '执行快速狩猎': True,
         **QUICK_HUNT_TARGET_DEFAULTS,
+        QUICK_HUNT_STONE_KEY: QUICK_HUNT_STONE_LEAST,
         '快速狩猎模板阈值': 0.78,
         '快速狩猎像素相似度阈值': 0.72,
         '快速狩猎界面等待秒数': 8.0,
@@ -331,6 +339,7 @@ class QuickHuntConfigMixin:
         '金币双倍时': "只有金币航线双倍时，免费米饭全部打这里。",
         '史莱姆双倍时': "只有史莱姆航线双倍时，免费米饭全部打这里。",
         '都双倍时': "金币和史莱姆航线都双倍时，免费米饭全部打这里。",
+        QUICK_HUNT_STONE_KEY: "火把全部打这个属性的圣石洞穴；「最少」是每次自动挑目前最少的属性。",
         '快速狩猎模板阈值': "快速狩猎模板匹配最低分数。",
         '快速狩猎像素相似度阈值': "快速狩猎模板还必须达到的像素相似度。",
         '快速狩猎界面等待秒数': "等待狩猎菜单、地图和按钮出现的最长时间。",
@@ -350,6 +359,7 @@ class QuickHuntConfigMixin:
                 "sub_configs": {
                     True: [
                         *QUICK_HUNT_TARGET_DEFAULTS,
+                        QUICK_HUNT_STONE_KEY,
                         "快速狩猎模板阈值",
                         "快速狩猎像素相似度阈值",
                         "快速狩猎界面等待秒数",
@@ -371,6 +381,12 @@ class QuickHuntConfigMixin:
                     "widget": "toggle_choice",
                 }
                 for key in QUICK_HUNT_TARGET_DEFAULTS
+            },
+            # Six short options in one row; "type" stays drop_down for ok-script.
+            QUICK_HUNT_STONE_KEY: {
+                "type": "drop_down",
+                "options": list(QUICK_HUNT_STONE_CHOICES),
+                "widget": "segmented",
             },
             '快速狩猎模板阈值': {"min": 0.5, "max": 0.95, "step": 0.01},
             '快速狩猎像素相似度阈值': {
@@ -868,15 +884,9 @@ class QuickHuntFeatureMixin:
             self._status_set("快速狩猎火把", "0，跳过")
             return True
 
-        stone_counts = self._quick_hunt_stone_counts()
-        if stone_counts is None:
+        element = self._quick_hunt_stone_element()
+        if element is None:
             return False
-        element = min(QUICK_HUNT_STONE_ELEMENTS, key=stone_counts.__getitem__)
-        self._status_set(
-            "快速狩猎圣石数量",
-            "、".join(f"{name}={stone_counts[name]}" for name in QUICK_HUNT_STONE_ELEMENTS)
-            + f"；选择={element}",
-        )
         clicked = self._quick_hunt_click_ocr(
             [rf"{re.escape(element)}.?之?.?洞穴"],
             QUICK_HUNT_STONE_LIST_ROI,
@@ -890,6 +900,27 @@ class QuickHuntFeatureMixin:
             return False
         self._status_set("快速狩猎火把", "已耗尽" if result == "depleted" else "完成")
         return True
+
+    def _quick_hunt_stone_element(self) -> str | None:
+        """The element the torches go to: the player's pick, or the least held."""
+        chosen = str(self.config.get(QUICK_HUNT_STONE_KEY, QUICK_HUNT_STONE_LEAST) or "")
+        if chosen in QUICK_HUNT_STONE_ELEMENTS:
+            # A picked element needs no count read.
+            self.log_info(f"快速狩猎：圣石属性设定为{chosen}，火把全部打{chosen}属性洞穴。")
+            self._status_set("快速狩猎圣石数量", f"设定={chosen}")
+            return chosen
+        if chosen != QUICK_HUNT_STONE_LEAST:
+            self.log_info(f"快速狩猎：圣石属性的设定「{chosen}」看不懂，按最少的打。")
+        stone_counts = self._quick_hunt_stone_counts()
+        if stone_counts is None:
+            return None
+        element = min(QUICK_HUNT_STONE_ELEMENTS, key=stone_counts.__getitem__)
+        self._status_set(
+            "快速狩猎圣石数量",
+            "、".join(f"{name}={stone_counts[name]}" for name in QUICK_HUNT_STONE_ELEMENTS)
+            + f"；选择={element}",
+        )
+        return element
 
     def _quick_hunt_enter_crystal_cave(self, attempts: int = 3) -> bool:
         """Open the crystal cave panel and confirm the attribute cave list.

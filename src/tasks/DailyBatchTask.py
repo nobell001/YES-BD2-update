@@ -119,8 +119,11 @@ DAILY_BATCH_CHILDREN = (
     DailyBatchChild(GACHA_CHILD_KEY, FreeGachaTask),
     DailyBatchChild("爛装强化分解", JunkGearTask),
     DailyBatchChild("每日精炼一次", DailyRefineTask),
-    DailyBatchChild("广场女神像", SquareGoddessTask),
+    # 镜中之战 first, where the "!" followers usually get sent away; then the
+    # square, and 跑商 at the square's merchant right after, so the recent
+    # cartridge is already the square (Leo 2026-10-20).
     DailyBatchChild("自动PVP", PVPTask),
+    DailyBatchChild("广场女神像", SquareGoddessTask),
     DailyBatchChild("跑商", MapTradeTask),
     DailyBatchChild("活动每日战斗", EventBattleTask),
     # 周常 run with the daily ones and are skipped once done this week (Leo
@@ -171,7 +174,7 @@ class ChildBatchTask(BaseTask):
         self.name = self.batch_label
         self.description = (
             "按顺序执行已开启的公会、小屋、酒馆、常客圣石、快速狩猎、抽抽乐、爛装分解、精炼、"
-            "广场、PVP、跑商、活动战斗、本周还没做的周常，最后领取任务奖励、通行证和邮件。"
+            "PVP、广场、跑商、活动战斗、本周还没做的周常，最后领取任务奖励、通行证和邮件。"
         )
         self.icon = FluentIcon.COMPLETED
         self.group_name = "日常/周常"

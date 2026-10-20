@@ -398,12 +398,15 @@ QPushButton[kind="icon"] {{ background: transparent; border: 1px solid {t["line2
 QPushButton[kind="icon"]:hover {{ background: {rgba("ink", 0.06)}; }}
 QPushButton[kind="flat"] {{ background: transparent; border: none; color: {t["ink2"]}; padding: 0px 6px; }}
 QPushButton[kind="flat"]:hover {{ color: {t["ink"]}; }}
+QPushButton[kind="chip"] {{ background: transparent; color: {t["ink2"]}; border: 1px solid transparent; padding: 0px 8px; }}
+QPushButton[kind="chip"]:hover {{ background: {t["accent_soft"]}; color: {t["accent"]}; border: 1px solid {t["accent"]}; }}
 QPushButton[size="lg"] {{ min-height: 38px; max-height: 38px; font-size: 14px; padding: 0px 18px;
     border-radius: {button_lg}px; }}
 QPushButton[size="sm"] {{ min-height: 28px; max-height: 28px; font-size: 12px; padding: 0px 10px;
     border-radius: {button_sm}px; }}
 
-QFrame[segmented="true"] {{ background: {t["inset"]}; border: none; border-radius: {seg}px; }}
+QFrame[segmented="true"] {{ background: {t["inset"]}; border: 1px solid {rgba("ink3", 0.38)};
+    border-radius: {seg}px; }}
 QPushButton[seg="true"] {{ background: transparent; color: {t["ink2"]}; border: none; border-radius: {seg_item}px;
     min-height: 26px; max-height: 26px; padding: 0px 12px; font-size: 12px; }}
 QPushButton[seg="true"]:hover {{ color: {t["ink"]}; }}

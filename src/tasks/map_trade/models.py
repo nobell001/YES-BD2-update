@@ -239,6 +239,10 @@ SUPPRESS_ONLY_VERIFIED_CARD_IDS = frozenset({"Q_sp6", "Q_sp18"})
 # no 压制 badge at all, before or after the run (live 4K 2026-10-09: only ✦,
 # ticked after its three maps; Leo 2026-10-11: nothing left under it = done).
 ABSORB_ONLY_VERIFIED_CARD_IDS = frozenset({"Q_ep2"})
+# Cards whose badges are never read: they don't finish in the game even
+# after all three maps (Leo 2026-10-20 「第六章我記得本來就會沒辦法完成 所以
+# 第六章 不需要看勾勾」).  The card is done when its three maps are done.
+NO_BADGE_CARD_IDS = frozenset({"Q_sp6"})
 
 
 # (card, from map, to map) walked through the area map instead of teleporting:
@@ -272,6 +276,19 @@ WALK_LABEL_EDGES = {
     # the label centre + 18 px.
     ("Q_sp18", "main_area", "battle_area_1"): (525, 278),
 }
+# Maps the teleport map cannot take you to (no circle there): reached only by
+# walking from the neighbour named in WALK_EDGES / WALK_LABEL_EDGES.  When
+# that neighbour is already done (e.g. the day's skills ran out after it),
+# the route still passes through it (Leo 2026-10-20: ch14 went town ->
+# 中央回廊 by the teleport map, 「未识别到传送阵地图传送阵」, card skipped;
+# players reported ch6/ch14 map changes failing).
+WALK_ONLY_TARGETS = frozenset(
+    {
+        ("Q_sp6", "battle_area_2"),
+        ("Q_sp14", "battle_area_2"),
+        ("Q_cp3", "battle_area_2"),
+    }
+)
 # Areas without a teleport circle, left through an area-map exit for a
 # neighbour that has one: card -> (that area, the neighbour).  Chapter 18
 # (live 4K 2026-10-10): the quick switch and 艾琳 both put the character in

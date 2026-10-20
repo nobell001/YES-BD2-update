@@ -103,6 +103,8 @@ ACTION_FAILURE_FEEDBACK = {
     "召集": ("无可召集的战场怪物",),
     "压制": ("没有可制伏的怪物",),
 }
+# The words that make a failure toast one: 无 / 没有.
+ACTION_FAILURE_MARKERS = ("无", "没")
 
 
 @dataclass(frozen=True)

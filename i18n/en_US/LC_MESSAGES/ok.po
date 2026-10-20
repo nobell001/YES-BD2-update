@@ -3085,3 +3085,35 @@ msgstr "No \"Run on Clone Desktop\" on Home"
 
 msgid "进不去？看教学"
 msgstr "Can't get in? See guide"
+
+msgid "圣石属性"
+msgstr "Crystal element"
+
+msgid "最少"
+msgstr "Lowest"
+
+msgid "火把全部打这个属性的圣石洞穴；「最少」是每次自动挑目前最少的属性。"
+msgstr "All torches go to this element's Magic Crystal Cave. \"Lowest\" picks whichever element you have the fewest of each time."
+
+msgid "火把打哪个属性的圣石，现在可以自己选。设定在「任务设定」里。"
+msgstr "You can now choose which Magic Crystal element torches go to. It's under \"Task Setup\"."
+
+msgid "默认还是「最少」，自动打目前最少的属性。想固定刷某个属性就点它。"
+msgstr "Still \"Lowest\" by default: the element you have the fewest of. Tap an element to always farm that one."
+msgid "技能间隔"
+msgstr "Skill interval"
+
+msgid "吸收、召集、压制之间隔几秒再按下一个。电脑或网络较慢、技能常常没按上时调大。"
+msgstr "Seconds to wait between Absorb, Summon and Subdue. Raise it if your PC or network is slow and skills often don't register."
+
+msgid "默认 {s}"
+msgstr "Default {s}"
+
+msgid "跑图技能间隔换位置了"
+msgstr "Farming skill interval has moved"
+
+msgid "吸收、召集、压制之间隔几秒，现在在「跑图」页就能改。"
+msgstr "The seconds between Absorb, Summon and Subdue can now be changed on the Farming page."
+
+msgid "点这里调整，0.5 到 2 秒。电脑或网络较慢、技能常常没按上时调大。"
+msgstr "Click here to change it, 0.5 to 2 s. Raise it if your PC or network is slow and skills often don't register."

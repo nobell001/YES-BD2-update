@@ -285,6 +285,7 @@ _ICON_COLOUR = {
     "danger": "bad",
     "icon": "ink2",
     "flat": "ink2",
+    "chip": "ink2",
 }
 
 

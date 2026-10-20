@@ -240,6 +240,59 @@ def event_battle_steps(shell) -> list[Step]:
     ]
 
 
+def stone_steps(shell) -> list[Step]:
+    """Leo 2026-10-20: the 圣石 element can be picked; the tool still picks the
+    least held one until the player changes it, and says so once."""
+    from src.tasks.quick_hunt import QUICK_HUNT_STONE_KEY
+
+    def daily_item():
+        return shell.sidebar.items.get("daily")
+
+    def stone_row():
+        form = getattr(shell.pages.get("daily"), "form", None)
+        row = (getattr(form, "_rows", None) or {}).get(QUICK_HUNT_STONE_KEY)
+        return row[1] if row else form
+
+    return [
+        Step(
+            daily_item,
+            "快速狩猎有新设定",
+            "火把打哪个属性的圣石，现在可以自己选。设定在「任务设定」里。",
+        ),
+        Step(
+            stone_row,
+            "圣石属性",
+            "默认还是「最少」，自动打目前最少的属性。想固定刷某个属性就点它。",
+            before=lambda: shell.open_task("daily", "快速狩猎"),
+        ),
+    ]
+
+
+def skill_interval_steps(shell) -> list[Step]:
+    """Leo 2026-10-20 「更新好後也要提示用戶這邊有更新」."""
+
+    def map_item():
+        return shell.sidebar.items.get("map")
+
+    def interval():
+        page = shell.pages.get("map")
+        return getattr(page, "interval_button", None)
+
+    return [
+        Step(
+            map_item,
+            "跑图技能间隔换位置了",
+            "吸收、召集、压制之间隔几秒，现在在「跑图」页就能改。",
+        ),
+        Step(
+            interval,
+            "技能间隔",
+            "点这里调整，0.5 到 2 秒。电脑或网络较慢、技能常常没按上时调大。",
+            before=lambda: shell.navigate("map"),
+        ),
+    ]
+
+
 def _show_once(shell, class_name: str, key: str, steps, on_done: Callable[[], None]) -> bool:
     task = data.task_by_class_name(class_name)
     config = getattr(task, "config", None)
@@ -267,15 +320,31 @@ def show_event_battle_notice(shell, on_done: Callable[[], None] = lambda: None) 
     return _show_once(shell, "EventBattleTask", EVENT_NOTICE_KEY, event_battle_steps, on_done)
 
 
-def show_pending(shell) -> bool:
+def show_stone_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Walk the player to the 快速狩猎 圣石属性 row once after this update."""
+    from src.tasks.QuickHuntTask import STONE_NOTICE_KEY
+
+    return _show_once(shell, "QuickHuntTask", STONE_NOTICE_KEY, stone_steps, on_done)
+
+
+def show_skill_interval_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Show 跑图's 技能间隔 in its new place once after this update."""
+    from src.tasks.MapCollectionTask import MAP_NOTICE_KEY
+
+    return _show_once(shell, "MapCollectionTask", MAP_NOTICE_KEY, skill_interval_steps, on_done)
+
+
+NOTICES = (show_quick_hunt_notice, show_event_battle_notice, show_stone_notice, show_skill_interval_notice)
+
+
+def show_pending(shell, notices=None) -> bool:
     """Each pending walk-through, one after the other."""
-
-    def next_one() -> None:
-        show_event_battle_notice(shell)
-
-    if show_quick_hunt_notice(shell, on_done=next_one):
-        return True
-    return show_event_battle_notice(shell)
+    notices = list(NOTICES if notices is None else notices)
+    while notices:
+        show = notices.pop(0)
+        if show(shell, on_done=lambda rest=list(notices): show_pending(shell, rest)):
+            return True
+    return False
 
 
 def _ready() -> bool:
