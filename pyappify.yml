@@ -14,4 +14,6 @@ profiles:
     requirements: "requirements.txt"
     pip_args: "--no-deps"
     use_pythonw: true
-    show_add_defender: true
+    # No 「Add Defender Exclusion」 button: players are never asked to touch
+    # their security software (Leo 2026-10-20).
+    show_add_defender: false

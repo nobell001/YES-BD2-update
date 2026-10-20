@@ -781,25 +781,28 @@ class FiendPage(Page):
                     tile.load()
 
     def _key_picker(self, row):
-        """录制按键, F6-F12 (Leo 2026-10-06/09), chosen here or in 设置."""
+        """录制按键, F6-F12 or 「无」 (Leo 2026-10-06/09/20), chosen here or in 设置."""
         from qfluentwidgets import ComboBox
+
+        from src.ui.shell import hotkeys
 
         fiend = _fiend()
         column = vbox(None, (0, 0, 0, 0), 4)
         column.addWidget(Text("录制按键", "muted"))
         box = ComboBox()
-        box.addItems(list(fiend.KEY_CHOICES))
+        box.addItems([hotkeys.display(key) for key in hotkeys.OPTIONS])
         key = str((self.record_task() or _NoTask).config.get("录制按键", fiend.DEFAULT_KEY))
-        box.setCurrentText(key if key in fiend.KEY_CHOICES else fiend.DEFAULT_KEY)
+        box.setCurrentText(hotkeys.display(key if key in hotkeys.OPTIONS else fiend.DEFAULT_KEY))
         box.setFixedWidth(96)
         box.currentTextChanged.connect(self._key_changed)
         column.addWidget(box)
         row.addLayout(column, 1)
         return box
 
-    def _key_changed(self, key: str) -> None:
+    def _key_changed(self, text: str) -> None:
         from src.ui.shell import hotkeys
 
+        key = hotkeys.from_display(text)
         task = self.record_task()
         if task is None:
             self._set(task, "录制按键", key)
@@ -885,7 +888,10 @@ class FiendPage(Page):
         return box
 
     def _refresh_state(self, save: SaveInfo | None) -> None:
+        from src.ui.shell import hotkeys
+
         replay, record = self.replay_task(), self.record_task()
+        key = str((record or _NoTask).config.get("录制按键", "F8") or "F8")
         recording = bool(getattr(record, "enabled", False))
         replaying = bool(getattr(replay, "enabled", False))
         # Leo 2026-10-10: 停止录制 shows at once; the recording ends its step.
@@ -897,17 +903,20 @@ class FiendPage(Page):
             self.record_button.set_label("停止录制" if recording else "开始录制")
             self.record_button.set_icon_name("square" if recording else "circle-dot")
         self.record_button.set_kind("danger" if recording or stopping else "secondary")
-        self.record_button.setEnabled(not stopping and (recording or actions.can_start()))
+        self.record_button.setEnabled(
+            not stopping and (recording or (actions.can_start() and key != hotkeys.NONE))
+        )
         self.start_button.setEnabled(
             save is not None and save.kind != "empty" and actions.can_start()
         )
-        key = str((record or _NoTask).config.get("录制按键", "F8") or "F8")
         info = getattr(record if recording else replay, "info", None) or {}
         if recording:
             note = str(info.get("当前回合", "") or info.get("状态", "") or "")
             note = note or tf("录制中：每回合排好后按 {key}，工具照右下角的回合数存", key=key)
         elif replaying:
             note = str(info.get("状态", "") or "")
+        elif key == hotkeys.NONE:
+            note = t("录制按键是「无」：先选一个键才能录制")
         else:
             note = tf(
                 "录制：每回合排好后按 {key}，照右下角的回合数自动新增（录过的回合会覆盖）",
@@ -920,9 +929,9 @@ class FiendPage(Page):
         last = data.last_run(getattr(replay, "name", "")) or {}
         self.stat_last.set_text(fmt_duration(last["duration"]) if last.get("duration") else "-")
         self.key_box.setEnabled(not recording)  # read when recording starts
-        if self.key_box.currentText() != key:
+        if self.key_box.currentText() != hotkeys.display(key):
             self.key_box.blockSignals(True)
-            self.key_box.setCurrentText(key)
+            self.key_box.setCurrentText(hotkeys.display(key))
             self.key_box.blockSignals(False)
         if recording:
             set_pill(self.state_pill, "录制中", "run")

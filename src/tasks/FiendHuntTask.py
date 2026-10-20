@@ -71,6 +71,7 @@ CARD_CHOICES = (CARDS_SUMMONS, CARDS_ALL)
 # Leo 2026-10-06: F6-F10 (the game takes none of them); 2026-10-09 F6-F12, set
 # in 设置 with the pause and stop keys (src/ui/shell/hotkeys.py); else F8.
 KEY_CHOICES = tuple(f"F{number}" for number in range(6, 13))
+NO_KEY = "无"  # Leo 2026-10-20: the record key can be off (src/ui/shell/hotkeys.NONE)
 DEFAULT_KEY = "F8"
 SAVE_KEY_NAME = DEFAULT_KEY
 DAMAGE_FILE = "伤害记录.csv"
@@ -516,7 +517,9 @@ class FiendHuntRecordTask(FiendHuntTask):
                 ),
             }
         )
-        self.config_type.update({"录制按键": {"type": "drop_down", "options": list(KEY_CHOICES)}})
+        self.config_type.update(
+            {"录制按键": {"type": "drop_down", "options": [NO_KEY, *KEY_CHOICES]}}
+        )
 
     def run(self):
         value = str(self.config.get("存档", "") or "").strip()
@@ -529,6 +532,8 @@ class FiendHuntRecordTask(FiendHuntTask):
 
     def _record(self, folder: Path, name: str) -> bool:
         key = str(self.config.get("录制按键", DEFAULT_KEY))
+        if key == NO_KEY:
+            return self._stop("录制按键是「无」：先在设置或「魔兽追踪者」页选一个键才能录制")
         key = key if key in KEY_CHOICES else DEFAULT_KEY
         had = len(saved_turns(folder))
         # The character list helps snap names but may lack new costumes and

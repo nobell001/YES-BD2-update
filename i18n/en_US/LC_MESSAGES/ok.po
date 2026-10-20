@@ -3117,3 +3117,24 @@ msgstr "The seconds between Absorb, Summon and Subdue can now be changed on the 
 
 msgid "点这里调整，0.5 到 2 秒。电脑或网络较慢、技能常常没按上时调大。"
 msgstr "Click here to change it, 0.5 to 2 s. Raise it if your PC or network is slow and skills often don't register."
+
+msgid "无"
+msgstr "None"
+
+msgid "按 {pause} 暂停，可在设置里改"
+msgstr "Press {pause} to pause (change it in Settings)"
+
+msgid "按 {stop} 停止，可在设置里改"
+msgstr "Press {stop} to stop (change it in Settings)"
+
+msgid "快捷键已关闭，可在设置里改"
+msgstr "Hotkeys are off (change them in Settings)"
+
+msgid "停止键已关闭，可在首页按「停止」"
+msgstr "The stop key is off; press \"Stop\" on Home"
+
+msgid "录制按键是「无」：先选一个键才能录制"
+msgstr "Record key is set to \"None\": pick a key to record"
+
+msgid "录制按键是「无」：先在设置或「魔兽追踪者」页选一个键才能录制"
+msgstr "Record key is set to \"None\": pick a key in Settings or on the Fiend Hunter page to record"

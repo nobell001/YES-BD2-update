@@ -9,6 +9,9 @@ Leo 2026-10-09（玩家建议 YES-BD2 issue #1）：暂停和停止是两个不�
 热键：录制时工具自己轮询这个键（FiendHuntTask.HotKey），注册了游戏和
 工具就收不到了。三个键不能重复，选了别人正在用的键就跟它对调。
 
+Leo 2026-10-20：三个都可以选「无」，选了就完全不听这个键（不注册、不轮询），
+「无」可以好几个一起选。
+
 ok-script 原本的 F9（暂停整个执行器）会被关掉，免得一个键做两件事。
 """
 
@@ -28,6 +31,8 @@ ROOT = Path(__file__).resolve().parents[3]
 KEYS_FILE = ROOT / "configs" / "hotkeys.json"
 
 KEY_CHOICES = tuple(f"F{number}" for number in range(6, 13))
+NONE = "无"  # the key is off; shown translated, saved as is
+OPTIONS = (NONE, *KEY_CHOICES)
 PAUSE = "pause"
 STOP = "stop"
 RECORD = "record"
@@ -42,6 +47,19 @@ OK_START_STOP = "Start/Stop"
 
 def key_code(name: str) -> int:
     return 0x70 + int(name[1:]) - 1
+
+
+def display(key: str) -> str:
+    """The picker's text for a saved key (「无」 in the app's language)."""
+    if key == NONE:
+        from src.ui.shell.widgets import t
+
+        return t(NONE)
+    return key
+
+
+def from_display(text: str) -> str:
+    return text if text in KEY_CHOICES else NONE
 
 
 def _record_task():
@@ -63,7 +81,8 @@ def _read_file() -> dict:
 
 def keys(record_task=None) -> dict[str, str]:
     """The three keys now; anything missing or broken falls back to the defaults
-    (and a duplicate falls back too, so two actions never share a key)."""
+    (and a duplicate falls back too, so two actions never share a key).
+    Any of them can be 「无」 (off), several at once."""
     saved = _read_file()
     task = record_task if record_task is not None else _record_task()
     if task is not None:
@@ -71,10 +90,13 @@ def keys(record_task=None) -> dict[str, str]:
     chosen: dict[str, str] = {}
     for action in ACTIONS:
         key = saved.get(action)
-        chosen[action] = key if key in KEY_CHOICES else DEFAULTS[action]
-    if len(set(chosen.values())) < len(ACTIONS):
+        chosen[action] = key if key in OPTIONS else DEFAULTS[action]
+    on = [chosen[action] for action in ACTIONS if chosen[action] != NONE]
+    if len(set(on)) < len(on):
         used: set[str] = set()
         for action in (RECORD, PAUSE, STOP):  # the recorded fights' key wins
+            if chosen[action] == NONE:
+                continue
             if chosen[action] in used:
                 chosen[action] = next(k for k in (DEFAULTS[action], *KEY_CHOICES) if k not in used)
             used.add(chosen[action])
@@ -82,13 +104,18 @@ def keys(record_task=None) -> dict[str, str]:
 
 
 def set_key(action: str, key: str, record_task=None) -> dict[str, str]:
-    """Give ``action`` this key; whoever had it takes ``action``'s old key."""
-    if action not in ACTIONS or key not in KEY_CHOICES:
+    """Give ``action`` this key; whoever had it takes ``action``'s old key.
+    「无」 turns the key off and swaps with nobody."""
+    if action not in ACTIONS or key not in OPTIONS:
         return keys(record_task)
     current = keys(record_task)
     for other, other_key in current.items():
-        if other != action and other_key == key:
-            current[other] = current[action]
+        if key != NONE and other != action and other_key == key:
+            old = current[action]
+            if old == NONE:  # don't switch the other key off: give it a free one
+                taken = {key, *current.values()}
+                old = next(k for k in (DEFAULTS[other], *KEY_CHOICES) if k not in taken)
+            current[other] = old
     current[action] = key
     task = record_task if record_task is not None else _record_task()
     if task is not None:
@@ -114,13 +141,18 @@ def set_key(action: str, key: str, record_task=None) -> dict[str, str]:
 
 
 def hint(current: dict[str, str] | None = None) -> str:
-    """The line on 首页 while a run is on."""
+    """The line on 首页 while a run is on (only the keys that are on)."""
     from src.ui.shell.widgets import tf
 
     current = current or keys()
-    return tf(
-        "按 {pause} 暂停、{stop} 停止，可在设置里改", pause=current[PAUSE], stop=current[STOP]
-    )
+    pause, stop = current[PAUSE], current[STOP]
+    if pause != NONE and stop != NONE:
+        return tf("按 {pause} 暂停、{stop} 停止，可在设置里改", pause=pause, stop=stop)
+    if pause != NONE:
+        return tf("按 {pause} 暂停，可在设置里改", pause=pause)
+    if stop != NONE:
+        return tf("按 {stop} 停止，可在设置里改", stop=stop)
+    return tf("快捷键已关闭，可在设置里改")
 
 
 _changed: list[Callable[[], None]] = []
@@ -229,6 +261,9 @@ class HotkeyListener:
         current = keys()
         for action, hotkey_id in _IDS.items():
             user32.UnregisterHotKey(None, hotkey_id)
+            if current[action] == NONE:  # off: neither registered nor read
+                self.watch.drop(action)
+                continue
             code = key_code(current[action])
             if user32.RegisterHotKey(None, hotkey_id, MOD_NOREPEAT, code):
                 self.watch.drop(action)

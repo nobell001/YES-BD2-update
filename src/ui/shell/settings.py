@@ -261,7 +261,8 @@ class SettingsPage(Page):
         self.body.addStretch(1)
 
     def _build_hotkeys(self) -> None:
-        """暂停、停止、魔兽录制三个键（Leo 2026-10-09，F6~F12，不能重复）。"""
+        """暂停、停止、魔兽录制三个键（Leo 2026-10-09，F6~F12，不能重复；
+        2026-10-20 可选「无」关掉）。"""
         from src.ui.shell import hotkeys
 
         column = self._section("快捷键")
@@ -277,11 +278,11 @@ class SettingsPage(Page):
             if index:
                 column.addWidget(Separator())
             box = ComboBox()
-            box.addItems(list(hotkeys.KEY_CHOICES))
-            box.setCurrentText(current[action])
+            box.addItems([hotkeys.display(key) for key in hotkeys.OPTIONS])
+            box.setCurrentText(hotkeys.display(current[action]))
             box.setFixedWidth(96)
             box.currentTextChanged.connect(
-                lambda key, action=action: self._hotkey_picked(action, key)
+                lambda text, action=action: self._hotkey_picked(action, hotkeys.from_display(text))
             )
             self.hotkey_boxes[action] = box
             row = HubRow(icons[action], hotkeys.LABELS[action], subs[action], control=box)
@@ -299,9 +300,10 @@ class SettingsPage(Page):
 
         current = hotkeys.keys()
         for action, box in getattr(self, "hotkey_boxes", {}).items():
-            if box.currentText() != current[action]:
+            shown = hotkeys.display(current[action])
+            if box.currentText() != shown:
                 box.blockSignals(True)
-                box.setCurrentText(current[action])
+                box.setCurrentText(shown)
                 box.blockSignals(False)
 
     def _build_clone(self) -> None:

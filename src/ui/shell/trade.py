@@ -557,7 +557,10 @@ class TradePage(Page):
     def _stop_key_hint() -> str:
         from src.ui.shell import hotkeys
 
-        return tf("按 {stop} 可随时停止，按键在设置里改", stop=hotkeys.keys()[hotkeys.STOP])
+        stop = hotkeys.keys()[hotkeys.STOP]
+        if stop == hotkeys.NONE:  # Leo 2026-10-20: the stop key can be off
+            return t("停止键已关闭，可在首页按「停止」")
+        return tf("按 {stop} 可随时停止，按键在设置里改", stop=stop)
 
     def keep_page_on_start(self) -> bool:
         """A start from here that stays on this page (循环砍价)."""
