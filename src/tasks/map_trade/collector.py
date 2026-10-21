@@ -25,12 +25,9 @@ from src.tasks.map_trade.collector_skills import SkillExecutionMixin
 from src.tasks.map_trade.models import (
     COLLECTABLE_CARDS,
     LAST_MAP_THEN_TOWN_CARD_IDS,
-    NO_BADGE_CARD_IDS,
     CollectionActionState,
     CollectionMapRole,
     CollectionResult,
-    NavigationResult,
-    ScreenState,
 )
 from src.tasks.map_trade.navigator import Navigator
 from src.tasks.map_trade.progress import ProgressStore
@@ -203,8 +200,7 @@ class Collector(SkillExecutionMixin):
             for _attempt in range(card_retries):
                 selected = self.navigator.select_collection_card(
                     card.card_id,
-                    # Badges never decide a no-badge card: always go in.
-                    enter_visually_complete=card.card_id in NO_BADGE_CARD_IDS,
+                    enter_visually_complete=False,
                 )
                 if selected.success:
                     break
@@ -417,21 +413,15 @@ class Collector(SkillExecutionMixin):
                 # Leo 2026-10-06: maps that were done stay recorded; only the
                 # ones collected before this card's 探查 started are redone.
                 redo = [key for key in before_search if key in completed]
-                if card.card_id in NO_BADGE_CARD_IDS:
-                    self.task.log_warning(
-                        f"地图采集：{card.label}还有地图没确认做完，再跑一次。"
+                self.task.log_warning(
+                    f"地图采集：{card.card_id}三张地图都做了，但卡带图标仍未完成"
+                    f"（{verified.message or '-'}），"
+                    + (
+                        f"探查前就吸收的{'、'.join(redo)}之后重做，先跑下一张。"
+                        if redo
+                        else "其余地图保留记录，先跑下一张。"
                     )
-                    redo = []
-                else:
-                    self.task.log_warning(
-                        f"地图采集：{card.card_id}三张地图都做了，但卡带图标仍未完成"
-                        f"（{verified.message or '-'}），"
-                        + (
-                            f"探查前就吸收的{'、'.join(redo)}之后重做，先跑下一张。"
-                            if redo
-                            else "其余地图保留记录，先跑下一张。"
-                        )
-                    )
+                )
                 if redo:
                     self.progress.reset_card(card.card_id, redo)
                 else:
@@ -499,23 +489,8 @@ class Collector(SkillExecutionMixin):
         )
 
     def _card_done_check(self, card, completed) -> CollectionCardSelectionResult:
-        """The game's badges for the card, or for a no-badge card (第6章)
-        whether its three maps are done."""
-        if card.card_id not in NO_BADGE_CARD_IDS:
-            return self.navigator.inspect_collection_card_completion(card.card_id)
-        done = len(completed) >= len(card.targets)
-        return CollectionCardSelectionResult(
-            (
-                CollectionCardSelectionOutcome.VISUALLY_COMPLETE
-                if done
-                else CollectionCardSelectionOutcome.FAILED
-            ),
-            NavigationResult(
-                done,
-                ScreenState.CARD_MENU,
-                f"{card.label}不看卡带图标，三张地图{'都做完了' if done else '还没都做完'}",
-            ),
-        )
+        """The game's badges for the card (第6章 by its own badge rule)."""
+        return self.navigator.inspect_collection_card_completion(card.card_id)
 
     def _badges_cut_off(self, verified) -> bool:
         """The card's badge row is cut off at the quick bar's edge.

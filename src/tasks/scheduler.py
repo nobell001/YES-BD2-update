@@ -99,6 +99,8 @@ TASK_POLICIES: dict[str, SchedulePolicy] = {
     "镜中之战": SchedulePolicy("daily"),
     "每日跑商": SchedulePolicy("daily"),
     "活动每日战斗": SchedulePolicy("daily"),
+    "救赎之塔": SchedulePolicy("daily"),
+    "亲密度谈心": SchedulePolicy("daily"),
     "领取常客圣石": SchedulePolicy("daily"),
     "每日精炼一次": SchedulePolicy("daily"),
     "爛装强化分解": SchedulePolicy("daily"),

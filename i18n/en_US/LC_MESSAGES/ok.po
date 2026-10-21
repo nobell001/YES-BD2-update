@@ -3100,6 +3100,7 @@ msgstr "You can now choose which Magic Crystal element torches go to. It's under
 
 msgid "默认还是「最少」，自动打目前最少的属性。想固定刷某个属性就点它。"
 msgstr "Still \"Lowest\" by default: the element you have the fewest of. Tap an element to always farm that one."
+
 msgid "技能间隔"
 msgstr "Skill interval"
 
@@ -3138,3 +3139,71 @@ msgstr "Record key is set to \"None\": pick a key to record"
 
 msgid "录制按键是「无」：先在设置或「魔兽追踪者」页选一个键才能录制"
 msgstr "Record key is set to \"None\": pick a key in Settings or on the Fiend Hunter page to record"
+
+msgid "完成日常后关闭游戏"
+msgstr "Close the game after Dailies"
+
+msgid "全部做完且没有失败后关闭游戏"
+msgstr "Close the game when everything is done with no failure"
+
+msgid "一键完成日常没有任何一项失败、且全部已启用子任务今日均已完成（含运行前就已完成的项目）后，关闭游戏。"
+msgstr ""
+"Closes the game after Run All Dailies when no item failed and every enabled "
+"item is done today (including ones done before the run)."
+
+msgid "做完后可以关闭游戏"
+msgstr "The game can now close when done"
+
+msgid "按「一键完成日常」后，确认视窗左下角可以勾「全部做完且没有失败后关闭游戏」。默认不勾。"
+msgstr ""
+"After pressing \"Run All Dailies\", tick \"Close the game when everything is"
+" done with no failure\" at the bottom left of the confirm window. Off by "
+"default."
+
+msgid "全部做完了，照设定关闭了游戏"
+msgstr "All done; the game was closed as set"
+
+msgid "全部做完了，但游戏没能关掉，请自己关闭"
+msgstr "All done, but the game could not be closed; please close it yourself"
+
+msgid "移到最前面，一键日常先跑它"
+msgstr "Move to the front: Run All Dailies runs it first"
+
+msgid "移回最后面，一键日常最后跑它"
+msgstr "Move back to the end: Run All Dailies runs it last"
+
+msgid "跑图顺序：最先跑"
+msgstr "Farming: first"
+
+msgid "跑图顺序：最后跑"
+msgstr "Farming: last"
+
+msgid "每周跑图改成最先跑"
+msgstr "Weekly Farming now runs first"
+
+msgid "每周跑图改成最后跑"
+msgstr "Weekly Farming now runs last"
+
+msgid "救赎之塔"
+msgstr "Tower of Redemption"
+
+msgid "主页卡带 → 恶魔城 → 往上走到祭坛 → 救赎之塔 → 快速战斗（不选关）→ MAX → 战斗 → 回主页。走法跟镜中之战的「舞台移动方式」一样。"
+msgstr "Home cartridge → Evil Castle → walk up to the altar → Tower of Redemption → Quick Battle (no level picked) → MAX → Battle → back home. Moves the way Mirror Wars' \"Stage move\" setting says."
+
+msgid "亲密度谈心"
+msgstr "Affinity Counseling"
+
+msgid "主页 → 亲密度。LV20 的服装谈到 15/15，谈满后不再打开；未满 LV20 的每天谈 3 次，按题库选答案。"
+msgstr "Home → Affinity. LV20 costumes are counseled up to 15/15 and never opened again once full; costumes below LV20 get the 3 daily counselings, answered from the answer list."
+
+msgid "新增两个每日项目"
+msgstr "Two new daily items"
+
+msgid "「救赎之塔」和「亲密度谈心」加进一键完成日常了，会跟其他日常一起跑。"
+msgstr "\"Tower of Redemption\" and \"Affinity Counseling\" are now part of Run All Dailies and run with the other dailies."
+
+msgid "每天到恶魔城的救赎之塔按快速战斗，次数选 MAX。不想跑就点它，关掉右边的「加入一键完成日常」。"
+msgstr "Every day it goes to the Tower of Redemption in Evil Castle and uses Quick Battle at MAX. To skip it, click it and turn off \"Add to Run All Dailies\" on the right."
+
+msgid "每天在主页的亲密度和服装谈心，按题库选答案。不想跑就点它，关掉右边的「加入一键完成日常」。"
+msgstr "Every day it counsels costumes under Affinity on the home screen, picking answers from the answer list. To skip it, click it and turn off \"Add to Run All Dailies\" on the right."

@@ -32,6 +32,7 @@ from src.utils.known_popups import (  # noqa: F401 - re-exported for the tasks
     OVERLAY_DISMISS_KEYWORDS,
     REWARD_DIALOG_TITLES,
 )
+from src.utils.home_confirmation import HOME_ANNOUNCEMENT_CLEAR_REFERENCE_POINT
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
 from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait, scene_at_press
@@ -392,7 +393,18 @@ class ClaimPageMixin(TaskVisionMixin):
             ):
                 break
             self.log_info(f"{label}：入口点击后仍在主页，重试点击。")
+            self._clear_home_popup(label)
         return self._wait_for_title(label, title_keywords)
+
+    def _clear_home_popup(self, label: str) -> None:
+        """A click on 主页 that did nothing: a login popup may lie over it while
+        the home check still passes (4K clone 10-21: a pass promo, then the
+        Bilibili banner, three entry clicks lost).  Leo 「彈窗不是點掉就好了嗎」:
+        its own close button, else the blank spot left of every popup."""
+        if self.close_known_popup(label):
+            return
+        blank = HOME_ANNOUNCEMENT_CLEAR_REFERENCE_POINT
+        self._click_reference(*blank, after_sleep=1.0)  # 不用确认：主页空白处，接着重点入口
 
     def _switch_tab(
         self,

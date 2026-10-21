@@ -52,6 +52,7 @@ from src.tasks.map_trade.models import (
     DAILY_ABSORB_LIMIT,
     DAILY_SUMMON_LIMIT,
     DAILY_SUPPRESS_LIMIT,
+    SNOW_CARD_IDS,
     CollectionMapRole,
     MatchResult,
 )
@@ -925,6 +926,7 @@ class SkillExecutionMixin:
         results: list[SkillExecutionResult] = []
         armed: list[tuple[SkillAction, object, ActionIconDetection, tuple[int, int]]] = []
         map_done = False
+        self._snow_card = card_id in SNOW_CARD_IDS
         for action in actions:
             if map_done and action.name == SUPPRESS_ACTION.name:
                 # Leo 2026-10-15 「活動卡帶記憶邊緣 戰鬥區 就算沒資源能吸收 也要按
@@ -983,7 +985,9 @@ class SkillExecutionMixin:
             # 2026-09-29: a lone 吸收 read "absent" right after the click);
             # no longer than it takes to read grey.
             last = clicked[-1][0]
-            if last.name == SUPPRESS_ACTION.name:
+            if self._toast_is_enough(clicked[-1][3]):
+                pass  # snow card: the success toast is the proof
+            elif last.name == SUPPRESS_ACTION.name:
                 self.task.sleep(ACTION_FEEDBACK_SUCCESS_DELAY_SECONDS)
             else:
                 self._icon_state_within(
@@ -991,7 +995,9 @@ class SkillExecutionMixin:
                 )
         verified = []
         for action, detection, before, feedback in clicked:
-            _post_frame, post_detection = self._post_press_icon(action.icon)
+            _post_frame, post_detection = self._post_press_icon(
+                action.icon, rechecks=0 if self._toast_is_enough(feedback) else None
+            )
             self._report_icon_detection(action, post_detection)
             result = self._finish_after_click(
                 action,
@@ -1039,9 +1045,11 @@ class SkillExecutionMixin:
     def _settle_before_next_press(self, clicked, next_action, last_click_at):
         """Wait until the game took the last press and the next skill is
         ready (YES-BD2 #23).  Returns the time the interval counts from."""
-        action, detection, before, _feedback = clicked[-1]
+        action, detection, before, feedback = clicked[-1]
         if action.name == SUPPRESS_ACTION.name:
             # 压制 can stay bright after a press (monsters come back).
+            return last_click_at
+        if self._toast_is_enough(feedback):
             return last_click_at
         pressed_again = getattr(self, "_pressed_again", None)
         if pressed_again is None:
@@ -1360,11 +1368,20 @@ class SkillExecutionMixin:
         self._status(f"{action.name}状态", "上次点击没确认，照游戏画面重新判断")
         return None
 
-    def _post_press_icon(self, icon: ActionIconSpec) -> tuple[object, ActionIconDetection]:
+    def _toast_is_enough(self, feedback) -> bool:
+        """On a snow card the game's success toast proves the press; its
+        icon is not waited on (``SNOW_CARD_IDS``)."""
+        return bool(getattr(self, "_snow_card", False)) and (
+            getattr(feedback, "outcome", None) == "success"
+        )
+
+    def _post_press_icon(
+        self, icon: ActionIconSpec, rechecks: int | None = None
+    ) -> tuple[object, ActionIconDetection]:
         """The pressed icon's state, looked at again while it does not read
         at all (the press's effect covering the bar for a moment)."""
         frame, detection = self._detect_action_icon(icon, require_stable=True)
-        for _ in range(POST_PRESS_ICON_RECHECKS):
+        for _ in range(POST_PRESS_ICON_RECHECKS if rechecks is None else rechecks):
             if detection.state not in {ActionIconState.ABSENT, ActionIconState.UNKNOWN}:
                 break
             self.task.sleep(PIPELINE_RECHECK_SECONDS)
@@ -1586,7 +1603,11 @@ class SkillExecutionMixin:
         toast_took = (
             feedback.outcome == "success"
             and detection.state is ActionIconState.AVAILABLE
-            and post_detection.state in {ActionIconState.ABSENT, ActionIconState.UNKNOWN}
+            and (
+                post_detection.state in {ActionIconState.ABSENT, ActionIconState.UNKNOWN}
+                # On snow a used icon can still read bright.
+                or self._toast_is_enough(feedback)
+            )
         )
         if toast_took:
             self._status(

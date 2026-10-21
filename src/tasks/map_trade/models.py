@@ -239,10 +239,17 @@ SUPPRESS_ONLY_VERIFIED_CARD_IDS = frozenset({"Q_sp6", "Q_sp18"})
 # no 压制 badge at all, before or after the run (live 4K 2026-10-09: only ✦,
 # ticked after its three maps; Leo 2026-10-11: nothing left under it = done).
 ABSORB_ONLY_VERIFIED_CARD_IDS = frozenset({"Q_ep2"})
-# Cards whose badges are never read: they don't finish in the game even
-# after all three maps (Leo 2026-10-20 「第六章我記得本來就會沒辦法完成 所以
-# 第六章 不需要看勾勾」).  The card is done when its three maps are done.
-NO_BADGE_CARD_IDS = frozenset({"Q_sp6"})
+# What a suppress-only card's 吸取 badge still shows when the card is done
+# (Leo 2026-10-20, his card bar: 第6章 压制 ticked and 吸取 「2」 = done for
+# the week, 「第六章跑過就是我現在這個狀態 所以不要再跑」; both ticked is done
+# too).  Another number there means a map is still left.
+ABSORB_LEFT_WHEN_DONE = {"Q_sp6": 2}
+# Snow cards: a used skill icon still reads bright on the white ground
+# (2K 2026-10-20, 第13章 记忆裂缝/华特波尔雪山/华特波尔镇: grey icons 0.81-0.83
+# against 0.58-0.61 elsewhere), so waiting for grey cost ~12 s a skill.
+# There the game's success toast is the proof and the count is checked
+# later (Leo 2026-10-21 「只有雪山這樣 其他不用改」).
+SNOW_CARD_IDS = frozenset({"Q_sp13"})
 
 
 # (card, from map, to map) walked through the area map instead of teleporting:

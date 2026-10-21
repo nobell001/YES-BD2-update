@@ -228,6 +228,7 @@ class RunConfirm(QDialog):
         clone: bool = False,
         parent: QWidget | None = None,
         open_guide: Callable[[], None] | None = None,
+        close_game: bool | None = None,
     ):
         super().__init__(parent)
         self._open_guide = open_guide
@@ -276,7 +277,7 @@ class RunConfirm(QDialog):
         )
         self.switch.changed.connect(self._set_mode)
         self.switch.setStyleSheet(
-            "QPushButton { min-height: 32px; padding: 0 18px; font-size: 14px; }"
+            "QPushButton { min-height: 32px; max-height: 32px; padding: 0 18px; font-size: 14px; }"
         )
         modes.addWidget(self.switch)
         modes.addStretch(1)
@@ -340,6 +341,11 @@ class RunConfirm(QDialog):
         column.addWidget(hint)
 
         buttons = hbox(None, (0, 2, 0, 0), 10)
+        # Leo 2026-10-21 「藏在...誰看的到 改放這裡」: 关闭游戏 next to 开始.
+        self.close_game = None
+        if close_game is not None:
+            self.close_game = CheckBox("全部做完且没有失败后关闭游戏", close_game)
+            buttons.addWidget(self.close_game, 0, Qt.AlignVCenter)
         buttons.addStretch(1)
         buttons.addWidget(Button("取消", "secondary", on_click=self.reject))
         self.start = Button("", "primary", "play", "lg", on_click=self.accept)
@@ -461,7 +467,14 @@ def ask(
             if child.weekly and data.day_text(finished) != "今天":
                 when = data.day_text(finished) or when
             done_text[child.key] = when
-    dialog = RunConfirm(children, done, done_text, clone, window, open_guide)
+    from src.tasks.DailyBatchTask import CLOSE_GAME_KEY
+
+    config = getattr(batch, "config", None) or {}
+    close_game = bool(config[CLOSE_GAME_KEY]) if CLOSE_GAME_KEY in config else None
+    dialog = RunConfirm(children, done, done_text, clone, window, open_guide, close_game)
+    if dialog.close_game is not None:
+        # Kept as soon as it is clicked, like 打开就自动跑日常 on 首页.
+        dialog.close_game.toggled.connect(lambda on: config.__setitem__(CLOSE_GAME_KEY, on))
     if not dialog.exec():
         return None
     return dialog.mode, dict(dialog.ticks)

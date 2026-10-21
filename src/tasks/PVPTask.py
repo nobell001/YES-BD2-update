@@ -903,6 +903,13 @@ class PVPTask(BaseBD2Task):
         self.tap_key(FIELD_FOLLOWERS_KEY, after_sleep=PVP_FOLLOWERS_KEY_SETTLE_SECONDS)
 
     def _click_pvp_stage_once(self, timeout: float) -> bool:
+        # Standing on the stage hides it under the line-up, so the template
+        # cannot match there (player v0.2.3 1080p 2026-10-20: BATTLE and
+        # 阵形设置 already on screen, then 「未找到 PVP 舞台物件」).  Being at
+        # the pre-battle screen is the goal of the click, so it counts.
+        if self._pre_battle_visible():
+            self.info_set("PVP 舞台", "已在战前画面")
+            return True
         return self._click_template_until(
             PVP_STAGE_TEMPLATE,
             timeout=timeout,

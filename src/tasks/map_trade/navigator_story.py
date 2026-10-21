@@ -20,6 +20,7 @@ from src.tasks.map_trade.models import (
     CARD_BY_ID,
     SUPPRESS_ONLY_VERIFIED_CARD_IDS,
     ABSORB_ONLY_VERIFIED_CARD_IDS,
+    ABSORB_LEFT_WHEN_DONE,
     MatchResult,
     NavigationResult,
     ScreenState,
@@ -2592,17 +2593,18 @@ class StoryCardNavigationMixin:
                 f"{completion.suppress.state.value}: {completion.suppress.reason}",
             )
             self._status("卡带完成度", completion.state.value)
-            # Before entering, a card with no 压制 badge counts as done once
-            # its 吸取 is ticked, as in inspect_collection_card_completion
-            # (live clone 2026-10-11: Q_ep2 missing from the records was
-            # entered again, and its 吸收 was already grey).
+            # Before entering, the same badge rules as after the run (live
+            # clone 2026-10-11: Q_ep2 missing from the records was entered
+            # again; Leo 2026-10-20: 第6章 with 压制 ticked and 吸取 「2」 was
+            # patrolled again).
             absorb_only_done = (
                 card_id in ABSORB_ONLY_VERIFIED_CARD_IDS
                 and completion.absorb.state == CardActionState.COMPLETED
             )
             if (
-                completion.state == CardActionState.COMPLETED or absorb_only_done
-            ) and not enter_visually_complete:
+                self._badges_say_done(card_id, completion, located.frame)
+                and not enter_visually_complete
+            ):
                 navigation = NavigationResult(
                     True,
                     ScreenState.CARD_MENU,
@@ -2629,6 +2631,50 @@ class StoryCardNavigationMixin:
             navigation,
             completion,
         )
+
+    def _badges_say_done(self, card_id: str, completion, frame) -> bool:
+        """The card's badges show it done for the week."""
+        absorb, suppress = completion.absorb.state, completion.suppress.state
+        if completion.state == CardActionState.COMPLETED:
+            return True
+        if card_id in ABSORB_ONLY_VERIFIED_CARD_IDS:
+            return absorb == CardActionState.COMPLETED
+        if card_id not in SUPPRESS_ONLY_VERIFIED_CARD_IDS:
+            return False
+        if suppress != CardActionState.COMPLETED:
+            return False
+        left_when_done = ABSORB_LEFT_WHEN_DONE.get(card_id)
+        if left_when_done is None or absorb != CardActionState.PENDING:
+            return True
+        left = self._absorb_left_on_badge(completion, frame)
+        self._status("卡带吸取剩余", "-" if left is None else str(left))
+        # Unread: the 压制 tick decides, as before 2026-10-20.
+        return left is None or left == left_when_done
+
+    def _absorb_left_on_badge(self, completion, frame) -> int | None:
+        """The small number on a pending 吸取 badge (第6章 「2」)."""
+        if not completion.absorb.pending:
+            return None
+        (x, y), (w, h) = (
+            completion.absorb.pending[0].result.position,
+            completion.absorb.pending[0].result.size,
+        )
+        height, width = frame.shape[:2]
+        # The number sits at the badge's lower right, partly outside it.
+        box = (
+            max(0.0, (x - w / 4) / width),
+            max(0.0, y / height),
+            min(1.0, (x + w * 1.5) / width),
+            min(1.0, (y + h * 1.5) / height),
+        )
+        try:
+            text = self.vision.ocr_text(
+                frame, "卡带吸取剩余", relative_roi=box, target_height=1080, ocr_scale=2.0
+            )
+        except (RuntimeError, ValueError, cv2.error, AttributeError):
+            return None
+        digits = re.sub(r"\D", "", str(text))
+        return int(digits) if digits and len(digits) <= 2 else None
 
     def inspect_collection_card_completion(
         self,
@@ -2687,17 +2733,7 @@ class StoryCardNavigationMixin:
             f"{completion.suppress.state.value}: {completion.suppress.reason}",
         )
         self._status("卡带完成度", completion.state.value)
-        completed = (
-            completion.state == CardActionState.COMPLETED
-            or (
-                card_id in SUPPRESS_ONLY_VERIFIED_CARD_IDS
-                and completion.suppress.state == CardActionState.COMPLETED
-            )
-            or (
-                card_id in ABSORB_ONLY_VERIFIED_CARD_IDS
-                and completion.absorb.state == CardActionState.COMPLETED
-            )
-        )
+        completed = self._badges_say_done(card_id, completion, located.frame)
         return CollectionCardSelectionResult(
             (
                 CollectionCardSelectionOutcome.VISUALLY_COMPLETE

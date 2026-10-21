@@ -1191,6 +1191,18 @@ class TileGrid(QLayout):
     def takeAt(self, index: int):
         return self._items.pop(index) if 0 <= index < len(self._items) else None
 
+    def move_widget(self, widget: QWidget, index: int) -> bool:
+        """Put ``widget`` at ``index`` (negative counts from the end) and lay out again."""
+        for position, item in enumerate(self._items):
+            if item.widget() is widget:
+                self._items.pop(position)
+                if index < 0:
+                    index = len(self._items) + 1 + index
+                self._items.insert(max(0, min(index, len(self._items))), item)
+                self.invalidate()
+                return True
+        return False
+
     def expandingDirections(self):
         return Qt.Orientation(0)
 

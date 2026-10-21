@@ -207,8 +207,7 @@ def quick_hunt_steps(shell) -> list[Step]:
         Step(
             rows,
             "双倍时米饭打哪里",
-            "每行选一个：金币、史莱姆或狩猎场，都用 MAX。"
-            "已照你原本的设定开好，确认一下就好。",
+            "每行选一个：金币、史莱姆或狩猎场，都用 MAX。已照你原本的设定开好，确认一下就好。",
             before=lambda: shell.open_task("daily", "快速狩猎"),
         ),
     ]
@@ -293,6 +292,60 @@ def skill_interval_steps(shell) -> list[Step]:
     ]
 
 
+def close_game_steps(shell) -> list[Step]:
+    """Leo 2026-10-20 「更新後提醒用戶有改動」: 关闭游戏 sits in the window that
+    opens on 一键完成日常 (Leo 2026-10-21 「改放這裡」), off by default."""
+
+    def start_button():
+        return getattr(shell.pages.get("home"), "start_all", None)
+
+    return [
+        Step(
+            start_button,
+            "做完后可以关闭游戏",
+            "按「一键完成日常」后，确认视窗左下角可以勾「全部做完且没有失败后关闭游戏」。默认不勾。",
+            before=lambda: shell.navigate("home"),
+        ),
+    ]
+
+
+def new_dailies_steps(shell) -> list[Step]:
+    """Leo 2026-10-21 「這次新增兩個功能 更新上去和以前一樣 要跳窗告訴用戶」:
+    救赎之塔 and 亲密度谈心 joined 一键完成日常 (on unless switched off)."""
+
+    def daily_item():
+        return shell.sidebar.items.get("daily")
+
+    def row(key):
+        def target():
+            page = shell.pages.get("daily")
+            return (getattr(page, "_rows", None) or {}).get(key) or getattr(page, "list_card", None)
+
+        return target
+
+    return [
+        Step(
+            daily_item,
+            "新增两个每日项目",
+            "「救赎之塔」和「亲密度谈心」加进一键完成日常了，会跟其他日常一起跑。",
+        ),
+        Step(
+            row("救赎之塔"),
+            "救赎之塔",
+            "每天到恶魔城的救赎之塔按快速战斗，次数选 MAX。"
+            "不想跑就点它，关掉右边的「加入一键完成日常」。",
+            before=lambda: shell.open_task("daily", "救赎之塔"),
+        ),
+        Step(
+            row("亲密度谈心"),
+            "亲密度谈心",
+            "每天在主页的亲密度和服装谈心，按题库选答案。"
+            "不想跑就点它，关掉右边的「加入一键完成日常」。",
+            before=lambda: shell.open_task("daily", "亲密度谈心"),
+        ),
+    ]
+
+
 def _show_once(shell, class_name: str, key: str, steps, on_done: Callable[[], None]) -> bool:
     task = data.task_by_class_name(class_name)
     config = getattr(task, "config", None)
@@ -334,7 +387,28 @@ def show_skill_interval_notice(shell, on_done: Callable[[], None] = lambda: None
     return _show_once(shell, "MapCollectionTask", MAP_NOTICE_KEY, skill_interval_steps, on_done)
 
 
-NOTICES = (show_quick_hunt_notice, show_event_battle_notice, show_stone_notice, show_skill_interval_notice)
+def show_close_game_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Show 一键日常's new 关闭游戏 option once after this update."""
+    from src.tasks.DailyBatchTask import CLOSE_GAME_NOTICE_KEY
+
+    return _show_once(shell, "DailyBatchTask", CLOSE_GAME_NOTICE_KEY, close_game_steps, on_done)
+
+
+def show_new_dailies_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Show the two new 每日 items once after this update."""
+    from src.tasks.DailyBatchTask import NEW_DAILIES_NOTICE_KEY
+
+    return _show_once(shell, "DailyBatchTask", NEW_DAILIES_NOTICE_KEY, new_dailies_steps, on_done)
+
+
+NOTICES = (
+    show_new_dailies_notice,
+    show_quick_hunt_notice,
+    show_event_battle_notice,
+    show_stone_notice,
+    show_skill_interval_notice,
+    show_close_game_notice,
+)
 
 
 def show_pending(shell, notices=None) -> bool:
@@ -362,4 +436,3 @@ def schedule(shell, delay_ms: int = 2500) -> None:
         show_pending(shell)
 
     QTimer.singleShot(delay_ms, guarded("new setting notice", check))
-

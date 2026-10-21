@@ -103,6 +103,18 @@ QUICK_SLOTS_ROI = (60, 920, 1800, 110)
 QUICK_SLOT_XS = (150, 330, 510, 690, 870, 1050)
 QUICK_SLOT_Y = 970
 PLAYING_TEXT = "游戏中"
+# The cartridge in use also carries a yellow ▶ on its art; on the battle
+# cards a SEASON badge hides 「游戏中」, so only the ▶ shows (Evil Castle, 2K
+# clone 10-21).  Mask cut from that slot: 0.73-1.00 on the card in use
+# (battle and event bars), at most 0.36 on any other card.
+PLAYING_MARK_TEMPLATE = (
+    Path(__file__).resolve().parents[2]
+    / "recognition-assets" / "template-assets" / "quick_switch_cartridges" / "playing_mark.png"
+)
+PLAYING_MARK_CENTRE_Y = 968
+PLAYING_MARK_SEARCH = 30
+PLAYING_MARK_MIN_SCORE = 0.6
+PLAYING_MARK_MIN_LEAD = 0.2
 WALK_MAX_STEPS = 25
 # Steps walked on a predicted marker position before giving up on it.
 MAX_PREDICTED_STEPS = 4
@@ -163,7 +175,42 @@ def neighbour_slot(slot_x: int) -> int:
     return QUICK_SLOT_XS[index - 1] if index > 1 else QUICK_SLOT_XS[index + 1]
 
 
-def card_cover_match(grey, template) -> tuple[float, tuple[int, int]]:
+_playing_mark_cache: list = []
+
+
+def yellow_mask(patch: np.ndarray) -> np.ndarray:
+    hsv = cv2.cvtColor(patch[:, :, :3], cv2.COLOR_BGR2HSV)
+    hue, sat, val = cv2.split(hsv)
+    return ((hue >= 18) & (hue <= 38) & (sat >= 120) & (val >= 170)).astype(np.float32)
+
+
+def playing_mark_slot(frame_1080: np.ndarray) -> int | None:
+    """The quick-switch slot whose card carries the yellow ▶ (in use)."""
+    if not _playing_mark_cache:
+        mark = cv2.imread(str(PLAYING_MARK_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+        if mark is None:
+            return None
+        _playing_mark_cache.append((mark > 127).astype(np.float32))
+    mark = _playing_mark_cache[0]
+    height, width = mark.shape[0] + 2 * PLAYING_MARK_SEARCH, mark.shape[1] + 2 * PLAYING_MARK_SEARCH
+    top = PLAYING_MARK_CENTRE_Y - height // 2
+    scores = []
+    for slot_x in QUICK_SLOT_XS:
+        left = slot_x - width // 2
+        patch = frame_1080[top : top + height, left : left + width]
+        if patch.shape[0] < mark.shape[0] or patch.shape[1] < mark.shape[1]:
+            scores.append(0.0)
+            continue
+        scores.append(float(template_match_response(yellow_mask(patch), mark).max()))
+    ranked = sorted(scores, reverse=True)
+    if ranked[0] < PLAYING_MARK_MIN_SCORE or ranked[0] - ranked[1] < PLAYING_MARK_MIN_LEAD:
+        return None
+    return QUICK_SLOT_XS[scores.index(ranked[0])]
+
+
+def card_cover_match(
+    grey, template, side_width: int = CARD_SIDE_WIDTH
+) -> tuple[float, tuple[int, int]]:
     """Match the LAST NIGHT logo by its two ends, leaving its middle out.
 
     When 末日之书 is the cartridge in use the page draws a yellow ▶ over the
@@ -172,10 +219,10 @@ def card_cover_match(grey, template) -> tuple[float, tuple[int, int]]:
     """
 
     width = template.shape[1]
-    left, right = template[:, :CARD_SIDE_WIDTH], template[:, width - CARD_SIDE_WIDTH :]
+    left, right = template[:, :side_width], template[:, width - side_width :]
     response = template_match_response(grey, left)
     _low, left_score, _where, (x, y) = cv2.minMaxLoc(response)
-    right_x = x + width - CARD_SIDE_WIDTH
+    right_x = x + width - side_width
     patch = grey[y : y + right.shape[0], right_x : right_x + right.shape[1]]
     if patch.shape != right.shape:
         return 0.0, (0, 0)
@@ -183,50 +230,20 @@ def card_cover_match(grey, template) -> tuple[float, tuple[int, int]]:
     return min(float(left_score), right_score), (x + width // 2, y + template.shape[0] // 2)
 
 
-class DoomBookTask(_ClaimTaskBase):
-    claim_log_name = "doom_book"
+class CartridgeFieldTask(_ClaimTaskBase):
+    """Walk from a cartridge's field onto its red crossed-swords marker.
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.name = "末日之书"
-        self.description = (
-            "主页卡带 → 末日之书 → 走到红色交叉剑标记 → 去战斗 → 跳过 → 离开 → 回主页"
-            "（每周任务：参与末日之书）。战斗不消耗资源。走法跟镜中之战的「舞台移动方式」一样。"
-        )
-        self.icon = FluentIcon.FLAG
+    Shared by 末日之书 and 救赎之塔 (恶魔城).  Not a task itself: the executor
+    finds tasks by class (isinstance), so neither subclasses the other.
+    """
 
-    # -- entry --------------------------------------------------------------------
-
-    def run_claim(self) -> bool:
-        if not self._open_page_from_home(
-            "游戏卡珍藏集", CARTRIDGE_SLOT_POINT, COLLECTION_TITLE_KEYWORDS
-        ):
-            return self._claim_fail("打开游戏卡珍藏集")
-        if not self._enter_cartridge():
-            return self._claim_fail("进入末日之书")
-        self.dismiss_field_followers()
-        self._keys_refused = False
-        if not self._reach_marker():
-            if self._keys_refused:
-                # Switching cartridges cannot help while another window has
-                # the keyboard; leave the field for the next run.
-                self._field_to_home()
-                return self._claim_fail("键盘走位（游戏窗口不在最前面）")
-            # The field keeps the last position when re-entered from home;
-            # switching to another cartridge and back resets it to the spawn
-            # (user, 2026-09-26).
-            self.log_info(f"{LABEL}：切换卡带后回到出生点重试。")
-            if not (self._reset_to_spawn() and self._reach_marker()):
-                self._save_flow_diagnostic("doom_book_walk_failed")
-                return self._claim_fail("走到战斗标记")
-        if not self._fight():
-            # Recovery cannot press 离开 on the result screen; do it here.
-            self._leave_result_after_failure()
-            return self._claim_fail("战斗")
-        if not self._field_to_home():
-            return self._claim_fail("返回主页")
-        self.log_info(f"{LABEL}：已完成一次战斗。")
-        return True
+    # What each cartridge sets.
+    label = LABEL
+    card_template = CARD_TEMPLATE
+    card_side_width = CARD_SIDE_WIDTH
+    # The 战斗玩法 quick-switch slot the cartridge normally sits in, clicked
+    # only when the card in use is not recognised; None = never guessed.
+    quick_slot_guess: int | None = None
 
     # -- helpers -------------------------------------------------------------------
 
@@ -271,9 +288,9 @@ class DoomBookTask(_ClaimTaskBase):
                 timeout=NEW_RECORD_GONE_SECONDS,
                 interval=0.5,
             ):
-                self.log_info(f"{LABEL}：已关闭「创造新纪录」画面。")
+                self.log_info(f"{self.label}：已关闭「创造新纪录」画面。")
                 return True
-        self.log_info(f"{LABEL}：「创造新纪录」画面点不掉。")
+        self.log_info(f"{self.label}：「创造新纪录」画面点不掉。")
         return True
 
     def _back_to_field_from_page(self) -> bool:
@@ -286,7 +303,7 @@ class DoomBookTask(_ClaimTaskBase):
                 return True
             if not self._doom_page_visible(self.capture_frame()):
                 return self._wait_for(self._field_after_result, timeout=PAGE_WAIT_SECONDS)
-        self.log_info(f"{LABEL}：末日之书页按返回后没有回到地图。")
+        self.log_info(f"{self.label}：末日之书页按返回后没有回到地图。")
         return False
 
     def _field_or_doom_page(self, frame) -> bool:
@@ -295,7 +312,7 @@ class DoomBookTask(_ClaimTaskBase):
         if self._field_after_result(frame):
             return True
         if self._doom_page_visible(frame):
-            self.log_info(f"{LABEL}：按离开后回到末日之书页。")
+            self.log_info(f"{self.label}：按离开后回到末日之书页。")
             return True
         return False
 
@@ -334,15 +351,15 @@ class DoomBookTask(_ClaimTaskBase):
         cover, the same for every player.
         """
 
-        template = cv2.imread(str(CARD_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+        template = cv2.imread(str(self.card_template), cv2.IMREAD_GRAYSCALE)
         if template is None:
             return None
         previous = None
         for _read in range(4):
             frame = cv2.resize(self.capture_frame()[:, :, :3], (REFERENCE_WIDTH, REFERENCE_HEIGHT))
             grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            score, here = card_cover_match(grey, template)
-            self.info_set("末日之书卡带", f"{score:.2f} @ {here}")
+            score, here = card_cover_match(grey, template, self.card_side_width)
+            self.info_set(f"{self.label}卡带", f"{score:.2f} @ {here}")
             if score >= CARD_MIN_SCORE:
                 # Same spot twice: the page has stopped scrolling.
                 moved = abs(previous[0] - here[0]) + abs(previous[1] - here[1]) if previous else 99
@@ -361,14 +378,14 @@ class DoomBookTask(_ClaimTaskBase):
             card = self._find_card()
             if card is None or not CARD_MIN_Y <= card[1] <= REFERENCE_HEIGHT - 60:
                 continue
-            self.info_set("当前阶段", "进入末日之书卡带")
+            self.info_set("当前阶段", f"进入{self.label}卡带")
             self._click_reference(*card, after_sleep=2.0)
             # Loading the cartridge takes a few seconds.
             if self._wait_for(self._field_visible, timeout=PAGE_WAIT_SECONDS):
                 return True
-            self.log_info(f"{LABEL}：点击卡带后未进入末日之书地图。")
+            self.log_info(f"{self.label}：点击卡带后未进入{self.label}地图。")
             return False
-        self.log_info(f"{LABEL}：游戏卡珍藏集里找不到末日之书。")
+        self.log_info(f"{self.label}：游戏卡珍藏集里找不到{self.label}卡带。")
         return False
 
     def _move_mode(self) -> str:
@@ -390,7 +407,7 @@ class DoomBookTask(_ClaimTaskBase):
         ways = [first, STAGE_MOVE_WASD if first == STAGE_MOVE_CLICK else STAGE_MOVE_CLICK]
         for index, way in enumerate(ways):
             if index:
-                self.log_info(f"{LABEL}：{ways[0]}没走到战斗标记，改用{way}再试。")
+                self.log_info(f"{self.label}：{ways[0]}没走到战斗标记，改用{way}再试。")
             arrived = self._click_to_marker() if way == STAGE_MOVE_CLICK else self._walk_to_marker()
             if arrived:
                 return True
@@ -416,7 +433,7 @@ class DoomBookTask(_ClaimTaskBase):
             if marker is None:
                 missing += 1
                 if missing >= 5:
-                    self.log_info(f"{LABEL}：点击走位时画面中找不到红色战斗标记。")
+                    self.log_info(f"{self.label}：点击走位时画面中找不到红色战斗标记。")
                     return False
                 self.sleep(0.5)
                 continue
@@ -443,7 +460,7 @@ class DoomBookTask(_ClaimTaskBase):
             if not self._field_visible(frame):
                 missing += 1
                 if missing >= 5:
-                    self.log_info(f"{LABEL}：走位途中离开了末日之书地图。")
+                    self.log_info(f"{self.label}：走位途中离开了末日之书地图。")
                     return False
                 self.sleep(0.6)
                 continue
@@ -455,7 +472,7 @@ class DoomBookTask(_ClaimTaskBase):
             else:
                 missing += 1
                 if missing >= 5:
-                    self.log_info(f"{LABEL}：画面中找不到红色战斗标记。")
+                    self.log_info(f"{self.label}：画面中找不到红色战斗标记。")
                     return False
                 self.sleep(0.5)
                 continue
@@ -490,7 +507,7 @@ class DoomBookTask(_ClaimTaskBase):
         if on_doom_field and not self.look_again(
             lambda: self._field_visible(self.capture_frame())
         ):
-            self.log_info(f"{LABEL}：不在末日之书地图上，不点卡带切换。")
+            self.log_info(f"{self.label}：不在{self.label}地图上，不点卡带切换。")
             return False
         self._click_reference(*FIELD_QUICK_SWITCH_POINT, after_sleep=1.5)
         for _attempt in range(3):
@@ -508,6 +525,26 @@ class DoomBookTask(_ClaimTaskBase):
         return False
 
     def _playing_slot_x(self) -> int | None:
+        """The slot of the cartridge in use: its ▶, else 「游戏中」, else the
+        cartridge's usual slot (``quick_slot_guess``)."""
+        slot = self.look_again(
+            lambda: playing_mark_slot(
+                cv2.resize(self.capture_frame()[:, :, :3], (REFERENCE_WIDTH, REFERENCE_HEIGHT))
+            ),
+            popups=False,
+        )
+        if slot is not None:
+            return slot
+        slot = self._playing_slot_by_text()
+        if slot is None and self.quick_slot_guess is not None:
+            slot = self.quick_slot_guess
+            self.log_info(
+                f"{self.label}：快速切换里认不出正在玩的卡带（▶ 和「游戏中」都没有），"
+                f"改点{self.label}平常的位置（第 {QUICK_SLOT_XS.index(slot) + 1} 张）。"
+            )
+        return slot
+
+    def _playing_slot_by_text(self) -> int | None:
         # The slots draw after the category bar that _open_quick_bar proved.
         boxes = self._wait_boxes(
             QUICK_SLOTS_ROI,
@@ -533,23 +570,23 @@ class DoomBookTask(_ClaimTaskBase):
 
     def _reset_to_spawn(self) -> bool:
         if not self._open_quick_bar():
-            self.log_info(f"{LABEL}：打不开卡带快速切换。")
+            self.log_info(f"{self.label}：打不开卡带快速切换。")
             return False
         doom_x = self._playing_slot_x()
         if doom_x is None:
-            self.log_info(f"{LABEL}：快速切换里找不到「游戏中」的末日之书卡带。")
+            self.log_info(f"{self.label}：快速切换里认不出正在玩的{self.label}卡带。")
             return False
         other_x = neighbour_slot(doom_x)
         self.info_set("当前阶段", "临时切换到其他卡带")
         self._click_reference(other_x, QUICK_SLOT_Y, after_sleep=3.0)
         if not self._wait_for_any_field(timeout=PAGE_WAIT_SECONDS):
-            self.log_info(f"{LABEL}：临时卡带未载入。")
+            self.log_info(f"{self.label}：临时卡带未载入。")
             return False
         self.sleep(1.5)
         if not self._open_quick_bar(on_doom_field=False):
-            self.log_info(f"{LABEL}：临时卡带上打不开卡带快速切换。")
+            self.log_info(f"{self.label}：临时卡带上打不开卡带快速切换。")
             return False
-        self.info_set("当前阶段", "切回末日之书")
+        self.info_set("当前阶段", f"切回{self.label}")
         self._click_reference(doom_x, QUICK_SLOT_Y, after_sleep=3.0)
         return self._wait_for(self._field_visible, timeout=PAGE_WAIT_SECONDS)
 
@@ -562,11 +599,11 @@ class DoomBookTask(_ClaimTaskBase):
                 break
             self.sleep(1.0)
         if button is None:
-            self.log_info(f"{LABEL}：找不到「去战斗」。")
+            self.log_info(f"{self.label}：找不到「去战斗」。")
             return False
         # 1.5 秒就重点会在战斗载入中重复点击；页面持续约 9 秒仍在才算点击被吞。
         if not self.press_and_confirm(
-            f"{LABEL}「去战斗」",
+            f"{self.label}「去战斗」",
             lambda: self._click_reference_box(button, after_sleep=2.0),
             self._left_doom_page,
             still_before=self._go_battle_still_shown,
@@ -574,7 +611,7 @@ class DoomBookTask(_ClaimTaskBase):
             poll=0.5,
             retries=2,
         ):
-            self.log_info(f"{LABEL}：点了「去战斗」没有进入战斗。")
+            self.log_info(f"{self.label}：点了「去战斗」没有进入战斗。")
             return False
 
         self.info_set("当前阶段", "战斗中")
@@ -585,14 +622,14 @@ class DoomBookTask(_ClaimTaskBase):
             frame = self.capture_frame()
             if still.still_for(frame, monotonic()) >= STUCK_SECONDS:
                 self.log_info(
-                    f"{LABEL}：战斗画面 {STUCK_SECONDS:.0f} 秒没动，也没看到「离开」，当作卡住。"
+                    f"{self.label}：战斗画面 {STUCK_SECONDS:.0f} 秒没动，没看到「离开」，当作卡住。"
                 )
                 return False
             # The battle already left this page, so seeing it again (two
             # reads) means the battle is over and the game came back here.
             doom_page_reads = doom_page_reads + 1 if self._doom_page_visible(frame) else 0
             if doom_page_reads >= 2:
-                self.log_info(f"{LABEL}：战斗结束后回到末日之书页。")
+                self.log_info(f"{self.label}：战斗结束后回到末日之书页。")
                 return self._back_to_field_from_page()
             buttons = self._reference_boxes(frame, RESULT_BUTTONS_ROI, "结算按钮")
             leave = self._box_with(buttons, (LEAVE_TEXT,))
@@ -618,7 +655,7 @@ class DoomBookTask(_ClaimTaskBase):
             if self._dismiss_new_record(frame):
                 continue
             self.sleep(0.8)
-        self.log_info(f"{LABEL}：战斗结算超时。")
+        self.log_info(f"{self.label}：战斗结算超时。")
         return False
 
     def _go_battle_button(self, frame):
@@ -667,7 +704,7 @@ class DoomBookTask(_ClaimTaskBase):
         while monotonic() <= end_at:
             frame = self.capture_frame()
             if still.still_for(frame, monotonic()) >= STUCK_SECONDS:
-                self.log_info(f"{LABEL}：画面 {STUCK_SECONDS:.0f} 秒没动，不再等结算，交给回主页。")
+                self.log_info(f"{self.label}：画面 {STUCK_SECONDS:.0f} 秒没动，不再等结算，交给回主页。")
                 return
             if self._field_visible(frame):
                 self._field_to_home()
@@ -701,13 +738,59 @@ class DoomBookTask(_ClaimTaskBase):
         for _attempt in range(3):
             self.info_set("当前阶段", "返回主页")
             self._click_reference(*FIELD_HOME_POINT, after_sleep=1.5)
-            if self._wait_for_home_confirmation("末日之书返回主页", timeout=PAGE_WAIT_SECONDS):
+            if self._wait_for_home_confirmation(f"{self.label}返回主页", timeout=PAGE_WAIT_SECONDS):
                 return True
             if not self._field_visible(self.capture_frame()):
                 break
-        if self._wait_for_home_confirmation("末日之书返回主页", timeout=10.0):
+        if self._wait_for_home_confirmation(f"{self.label}返回主页", timeout=10.0):
             return True
         return self.home_by_key(
-            lambda seconds: self._wait_for_home_confirmation("末日之书返回主页", timeout=seconds),
-            "末日之书返回主页",
+            lambda seconds: self._wait_for_home_confirmation(f"{self.label}返回主页", timeout=seconds),
+            f"{self.label}返回主页",
         )
+
+
+class DoomBookTask(CartridgeFieldTask):
+    claim_log_name = "doom_book"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = "末日之书"
+        self.description = (
+            "主页卡带 → 末日之书 → 走到红色交叉剑标记 → 去战斗 → 跳过 → 离开 → 回主页"
+            "（每周任务：参与末日之书）。战斗不消耗资源。走法跟镜中之战的「舞台移动方式」一样。"
+        )
+        self.icon = FluentIcon.FLAG
+
+    # -- entry --------------------------------------------------------------------
+
+    def run_claim(self) -> bool:
+        if not self._open_page_from_home(
+            "游戏卡珍藏集", CARTRIDGE_SLOT_POINT, COLLECTION_TITLE_KEYWORDS
+        ):
+            return self._claim_fail("打开游戏卡珍藏集")
+        if not self._enter_cartridge():
+            return self._claim_fail("进入末日之书")
+        self.dismiss_field_followers()
+        self._keys_refused = False
+        if not self._reach_marker():
+            if self._keys_refused:
+                # Switching cartridges cannot help while another window has
+                # the keyboard; leave the field for the next run.
+                self._field_to_home()
+                return self._claim_fail("键盘走位（游戏窗口不在最前面）")
+            # The field keeps the last position when re-entered from home;
+            # switching to another cartridge and back resets it to the spawn
+            # (user, 2026-09-26).
+            self.log_info(f"{self.label}：切换卡带后回到出生点重试。")
+            if not (self._reset_to_spawn() and self._reach_marker()):
+                self._save_flow_diagnostic("doom_book_walk_failed")
+                return self._claim_fail("走到战斗标记")
+        if not self._fight():
+            # Recovery cannot press 离开 on the result screen; do it here.
+            self._leave_result_after_failure()
+            return self._claim_fail("战斗")
+        if not self._field_to_home():
+            return self._claim_fail("返回主页")
+        self.log_info(f"{self.label}：已完成一次战斗。")
+        return True

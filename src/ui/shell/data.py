@@ -38,6 +38,8 @@ CHILD_META = {
     "跑商": ("每日跑商", "coins", "trade"),
     "每周跑图": ("每周跑图", "map", "map"),
     "活动每日战斗": ("活动战斗", "zap", "fight"),
+    "救赎之塔": ("救赎之塔", "castle", "fight"),
+    "亲密度谈心": ("亲密度谈心", "message-circle-heart", "grow"),
     "领取任务奖励": ("任务奖励", "list-checks", "claim"),
     "领取通行证": ("通行证", "ticket", "claim"),
     "领取邮件": ("邮件", "mail", "claim"),
@@ -191,6 +193,25 @@ def batch_children(batch) -> list[Child]:
             )
         )
     return children
+
+
+def map_first() -> bool:
+    """每周跑图 runs first in 一键日常 instead of last (button on its 首页 card)."""
+    from src.tasks.DailyBatchTask import MAP_FIRST_KEY
+
+    batch = task_by_name(DAILY_BATCH)
+    return bool((getattr(batch, "config", None) or {}).get(MAP_FIRST_KEY, False))
+
+
+def set_map_first(on: bool) -> bool:
+    """Move 每周跑图 to the front (or back to the end); False while a run goes."""
+    from src.tasks.DailyBatchTask import MAP_FIRST_KEY
+
+    batch = task_by_name(DAILY_BATCH)
+    if batch is None or busy():
+        return False
+    batch.config[MAP_FIRST_KEY] = bool(on)
+    return True
 
 
 def sync_weekly_ticks(batch) -> None:

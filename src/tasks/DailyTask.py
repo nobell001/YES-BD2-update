@@ -17,6 +17,7 @@ from src.utils.home_confirmation import (
     HOME_DIMMED_P95_THRESHOLD_DEFAULT,
 )
 from src.utils.ocr_utils import normalize_ocr_text
+from src.utils.press_confirm import wait_for
 from src.utils.wait_limits import LOADING_MAX_SECONDS, is_loading_dark, load_wait, scene_at_press
 
 GUILD_TEMPLATE = TemplateSpec(
@@ -148,6 +149,24 @@ GUILD_ENTRY_LONG_PRESS_SECONDS = 0.15
 # A sub-step that clicked nothing on a confirmed home (no guild entry) is
 # skipped, not failed.
 STEP_SKIPPED = "skipped"
+# The guild entry on home carries a red 「!」 at its top-right corner until the
+# day's sign-in is done (guild.png / MainBotmUnionAcGE.png; the *finished*
+# templates have none).  Player 2026-10-21 (v0.2.3/v0.2.4): with many popups
+# on entry the guild was never entered yet the step said done, so a 「!」 still
+# on home after the visit sends the step in once more.  Box share of the corner, and
+# the share of red pixels there that counts as the mark (6% in guild.png,
+# 25% in MainBotmUnionAcGE.png, 0 in both finished templates).
+GUILD_MARK_CORNER = (0.55, 0.0, 1.0, 0.45)
+GUILD_MARK_MIN_RED_SHARE = 0.03
+# The 「!」 can clear a moment after home shows again.
+GUILD_MARK_CLEAR_SECONDS = 3.0
+# The sign-in reward panel can show a moment after the guild page: a marked
+# entry stays on the page this long for it before going back.
+GUILD_TOAST_LINGER_SECONDS = 3.0
+# Sign-in words over a screen that is not the guild page belong to another
+# popup (event login rewards say the same): tapped away, never taken as the
+# sign-in, at most this often.
+GUILD_POPUP_TAP_SECONDS = 1.5
 
 
 class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
@@ -168,6 +187,7 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         "公会判断",
         "公会入口",
         "公会入口模板",
+        "公会入口红点",
         "公会入口阈值",
         "公会签到 loading 状态",
         "公会签到_loading_appear",
@@ -435,6 +455,61 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             self.log_info("公会签到：未检测到公会入口模板，且画面已不是主页，不点击公会按钮。")
             return self._step_failed("没认出公会入口，画面也不是主页")
 
+        marked = self._guild_entry_marked(frame)
+        self._status_set("公会入口红点", "有" if marked else "无")
+        result = self._visit_guild(linger=bool(marked))
+        if result is not True or not marked or self._home_lost_after_done:
+            return result
+        # Entering the guild page is the sign-in (Leo 2026-10-21 「進到公會就會
+        # 算簽到成功」).  The 「!」 still on home after the visit means the page
+        # was not really reached (popups): the guild is entered once more,
+        # and the step stands on that visit seeing the guild page.
+        if not self._guild_mark_stays():
+            self.log_info("公会签到：主页公会图标的红色「!」已消失，签到完成。")
+            return True
+        self.log_info("公会签到：回到主页后公会图标的红色「!」还在，再进一次公会。")
+        if not self._find_guild_entry()[0]:
+            return self._step_failed("回到主页后公会图标的红色「!」还在，也没认出公会入口")
+        return self._visit_guild(linger=True)
+
+    def _guild_entry_marked(self, frame) -> bool | None:
+        """Whether the guild entry shows its red 「!」; None when not seen."""
+        if getattr(frame, "ndim", 0) < 3:
+            return None
+        match, spec = self._match_best(frame, GUILD_ENTRY_TEMPLATES)
+        if not self._passes(match, spec):
+            return None
+        (x, y), (w, h) = match.position, match.size
+        left, top, right, bottom = GUILD_MARK_CORNER
+        height, width = frame.shape[:2]
+        x0, x1 = max(0, int(x + w * left)), min(width, int(x + w * right))
+        y0, y1 = max(0, int(y + h * top)), min(height, int(y + h * bottom))
+        if x1 - x0 < 2 or y1 - y0 < 2:
+            return False
+        hsv = cv2.cvtColor(np.ascontiguousarray(frame[y0:y1, x0:x1, :3]), cv2.COLOR_BGR2HSV)
+        red = ((hsv[..., 0] <= 8) | (hsv[..., 0] >= 172)) & (hsv[..., 1] >= 150) & (
+            hsv[..., 2] >= 150
+        )
+        return float(red.mean()) >= GUILD_MARK_MIN_RED_SHARE
+
+    def _guild_mark_stays(self) -> bool:
+        """True while home's guild entry still shows the 「!」 (or is not seen)."""
+        end_at = monotonic() + GUILD_MARK_CLEAR_SECONDS
+        while True:
+            marked = self._guild_entry_marked(self.capture_frame())
+            if marked is False:
+                return False
+            if monotonic() >= end_at:
+                if marked is None:
+                    self.log_info("公会签到：回到主页后没认出公会图标，无法确认签到。")
+                return True
+            self.sleep(0.5)
+
+    def _visit_guild(self, linger: bool) -> bool:
+        """Enter the guild page from home and come back.
+
+        ``linger``: the entry was marked, so the sign-in panel is waited for
+        briefly when the page shows first."""
         self._status_set("公会判断", "已识别入口，进入公会")
         self._sleep_after_recognition()
         seen = [None, ""]
@@ -489,6 +564,8 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             self._click_reference(
                 *GUILD_SIGN_IN_SUCCESS_ACKNOWLEDGE_REFERENCE_POINT, after_sleep=0.5
             )
+        elif linger and self._wait_guild_toast(GUILD_TOAST_LINGER_SECONDS):
+            self.log_info("公会签到：进入公会页面后出现签到成功提示。")
         else:
             self.log_info("公会签到：已进入公会页面（今日签到提示已出现过或未弹出）。")
         # Entering the guild page is the sign-in: a popup over home on the
@@ -497,8 +574,25 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
             return self._home_after_done("公会签到")
         return True
 
+    def _wait_guild_toast(self, timeout: float) -> bool:
+        """Wait on the guild page for the sign-in panel; tap it away when shown."""
+        if not wait_for(
+            lambda: self._wait_guild_page(0.0)[0] == "toast", timeout, sleep=self.sleep, poll=0.5
+        ):
+            return False
+        self._sleep_after_recognition()
+        self._click_reference(  # 不用确认：之后返回主页并看公会图标的「!」
+            *GUILD_SIGN_IN_SUCCESS_ACKNOWLEDGE_REFERENCE_POINT, after_sleep=0.5
+        )
+        return True
+
     def _wait_guild_page(self, timeout: float, load: bool = False) -> tuple[str | None, str]:
         """"toast" (签到成功 shown), "page" (guild page UI) or None.
+
+        The sign-in words count only over the guild page itself: event login
+        popups use the same words (player 2026-10-21, many popups on entry:
+        the step said done and the guild was never entered).  Such a popup
+        is tapped away on a blank spot.
 
         ``load``: the page comes after the guild loading screen (load_wait)."""
         end_at = monotonic() + timeout
@@ -507,16 +601,32 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         while True:
             frame = self.capture_frame()
             text = self._ocr_text(frame, name="公会页面")
-            if self._keyword_match_count(text, GUILD_SUCCESS_KEYWORDS) >= 1:
+            page_hits = self._keyword_match_count(text, GUILD_PAGE_KEYWORDS)
+            toast = self._keyword_match_count(text, GUILD_SUCCESS_KEYWORDS) >= 1
+            if toast and page_hits >= 1:
                 return "toast", text
-            if self._keyword_match_count(text, GUILD_PAGE_KEYWORDS) >= 2:
+            if page_hits >= 2:
                 return "page", text
+            if toast:
+                self._tap_away_popup()
             if wait is not None:
                 if wait.over(frame, monotonic(), loading=is_loading_dark(frame)):
                     return None, text
             elif monotonic() >= end_at:
                 return None, text
             self.sleep(0.5)
+
+    def _tap_away_popup(self) -> None:
+        """Tap the blank spot under a popup that is not the guild page."""
+        now = monotonic()
+        last = getattr(self, "_popup_tapped_at", None)
+        if last is not None and now - last < GUILD_POPUP_TAP_SECONDS:
+            return
+        self._popup_tapped_at = now
+        self.log_info("公会签到：看到「签到成功」类文字但不是公会页面（别的弹窗），点空白处关掉。")
+        self.operate_click(  # 不用确认：调用方接着看公会页面或主页
+            *HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT, after_sleep=0.5
+        )
 
     def _return_home_from_guild(self) -> bool:
         """Leave the guild page with bounded back-click retries.
