@@ -65,3 +65,18 @@ def adjust_step(current: int, target: int, big_step: int) -> str | None:
     if difference <= -big_step:
         return "big_minus"
     return "plus" if difference > 0 else "minus"
+
+
+def step_moves(step: str, big_step: int) -> int:
+    """How far one press of ``step`` moves the value."""
+    return {"big_plus": big_step, "big_minus": -big_step, "plus": 1, "minus": -1}[step]
+
+
+def steps_between(start: int, target: int, big_step: int) -> list[str]:
+    """The presses that take the value from ``start`` to ``target``."""
+    presses = []
+    current = start
+    while (step := adjust_step(current, target, big_step)) is not None:
+        presses.append(step)
+        current += step_moves(step, big_step)
+    return presses

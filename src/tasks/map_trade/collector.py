@@ -162,21 +162,13 @@ class Collector(SkillExecutionMixin):
             state = self.progress.state
             completed = state.completed_targets(card.card_id)
             if len(completed) >= len(card.targets):
-                if state.card_verified(card.card_id):
-                    continue
-                verified = self._card_done_check(card, completed)
-                if self._badges_cut_off(verified):
-                    continue
-                if verified.success:
+                # Three maps done this week = the card is done; its badges are
+                # not read (Leo 2026-10-21 「假設我第五章 安全區 戰鬥1 戰鬥2 都
+                # 進行過了 那麼這張就不再跑」, 「第六章確認跑過一遍就算完成」:
+                # a player's 跑图 kept walking cards it had finished).
+                if not state.card_verified(card.card_id):
                     self.progress.mark_card_verified(card.card_id)
-                    continue
-                # The game says something is left: run the card's whole
-                # route again, each map judged by its own icons (Leo
-                # 2026-10-20 「以遊戲為準 不要讓工具紀錄的狀況影響跑圖」).
-                self.task.log_warning(
-                    f"地图采集：{card.card_id}记录里三张地图都做过，但卡带图标仍未完成"
-                    f"（{verified.message or '-'}），照游戏画面再跑一遍。"
-                )
+                continue
 
             if card_limit and cards_this_run >= card_limit:
                 return CollectionResult(
@@ -395,19 +387,29 @@ class Collector(SkillExecutionMixin):
                     completed_submaps=completed_this_run,
                     message=f"{card.card_id}完成后无法打开快速切换页：{reopened.message}",
                 )
+            maps_done = len(completed) >= len(card.targets)
             verified = self._card_done_check(card, completed)
             if card.card_id in self._skill_skips:
-                if verified.success:
-                    # The game shows the card done: the unconfirmed press took.
+                if verified.success or maps_done:
+                    # The card is done: the unconfirmed press took.
                     self._skill_skips.pop(card.card_id)
                     self._unconfirmed_cards.discard(card.card_id)
                 elif card not in self._skipped_cards:
                     self._skipped_cards.append(card)
-            if self._badges_cut_off(verified):
+            if not maps_done and self._badges_cut_off(verified):
                 cards_this_run += 1
                 continue
             cards_this_run += 1
-            if not verified.success:
+            if maps_done:
+                # Every map done = the card is done, whatever its badges read
+                # (Leo 2026-10-21, see the check before the card).
+                if not verified.success:
+                    self.task.log_warning(
+                        f"地图采集：{card.label}三张地图都跑过，记为本周完成"
+                        f"（卡带图标读成未完成：{verified.message or '-'}）。"
+                    )
+                self.progress.mark_card_verified(card.card_id)
+            elif not verified.success:
                 # Leo 2026-10-05: one card left unfinished stopped the whole
                 # run.  The card is collected again on the next run; go on.
                 # Leo 2026-10-06: maps that were done stay recorded; only the

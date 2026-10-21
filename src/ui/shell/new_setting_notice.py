@@ -17,7 +17,7 @@ from PySide6.QtCore import QPoint, QRect, QRectF, Qt, QTimer
 from PySide6.QtGui import QPainter, QPainterPath, QPen, QRegion
 from PySide6.QtWidgets import QFrame, QWidget
 
-from src.ui.shell import data, theme
+from src.ui.shell import cover, data, theme
 from src.ui.shell.safe import guarded
 from src.ui.shell.widgets import Button, Text, hbox, vbox
 
@@ -61,6 +61,7 @@ class CoachMarks(QWidget):
         self._on_done = on_done
         self._index = 0
         self._hole = QRect()
+        self._area = QRect()
         self.setAttribute(Qt.WA_StyledBackground, False)
         self.setStyleSheet(theme.style_sheet())
 
@@ -83,13 +84,13 @@ class CoachMarks(QWidget):
         column.addLayout(row)
 
         self._follow = QTimer(self)
-        self._follow.timeout.connect(guarded("coach marks", self._place))
-        window.installEventFilter(self)
+        self._follow.timeout.connect(guarded("coach marks", self._tick))
+        self._cover = None
 
     # ------------------------------------------------------------ steps
 
     def start(self) -> None:
-        self.setGeometry(self._window.rect())
+        self._cover = cover.follow(self, self._window, guarded("coach marks", self._place))
         self.show()
         self.raise_()
         self._show_step()
@@ -118,18 +119,16 @@ class CoachMarks(QWidget):
 
     def finish(self) -> None:
         self._follow.stop()
-        self._window.removeEventFilter(self)
         self.hide()
         self.deleteLater()
         self._on_done()
 
     # ------------------------------------------------------------ look
 
-    def eventFilter(self, watched, event):
-        if watched is self._window and event.type() == event.Type.Resize:
-            self.setGeometry(self._window.rect())
+    def _tick(self) -> None:
+        # Besides the window's own resize events, in case one was missed.
+        if self._cover is None or not self._cover.sync():
             self._place()
-        return False
 
     def _target_rect(self) -> QRect:
         target = self._steps[self._index].target()
@@ -156,8 +155,11 @@ class CoachMarks(QWidget):
         x = min(max(GAP, x), area.width() - card.width() - GAP)
         y = min(max(GAP, y), area.height() - card.height() - GAP)
         self.card.move(x, y)
-        if hole != self._hole:
+        if hole != self._hole or area != self._area:
+            # A new window size needs a new mask too, or the dimmed part
+            # stays the old size (Leo 2026-10-21, after 最大化).
             self._hole = hole
+            self._area = QRect(area)
             # Clicks in the lit part reach the control under it.
             mask = QRegion(area)
             if not hole.isNull():

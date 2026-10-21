@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QDialog, QSlider, QWidget
 
-from src.ui.shell import motion, theme
+from src.ui.shell import cover, motion, theme
 from src.ui.shell.run_confirm import HeroIcon, Panel
 from src.ui.shell.widgets import Button, Text, hbox, tf, vbox
 
@@ -99,7 +99,7 @@ class SkillIntervalDialog(QDialog):
         self.slider.setValue(round(value * STEPS_PER_SECOND))
         self._show()
         if parent is not None:
-            self.setGeometry(parent.window().geometry())
+            cover.follow(self, parent.window())
 
     def value(self) -> float:
         return round(self.slider.value() / STEPS_PER_SECOND, 1)

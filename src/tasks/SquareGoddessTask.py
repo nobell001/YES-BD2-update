@@ -36,7 +36,13 @@ from src.utils.cartridge_quick_switch import (
     SHOPKEEPER_CATEGORY_LABEL,
     category_highlight_ratio,
 )
-from src.utils.fantasia_square import FANTASIA_SQUARE_TEMPLATE, SQUARE_CARTRIDGE_SLOT_POINT
+from src.utils.fantasia_square import (
+    FANTASIA_SQUARE_TEMPLATE,
+    LIFE_SLOT_NUMBERS,
+    LIFE_SLOT_POINTS,
+    SQUARE_CARTRIDGE_SLOT_POINT,
+    square_card_point,
+)
 from src.utils.field_followers import FOLLOWERS_ABSENT, FOLLOWERS_DONE_TODAY
 from src.utils.goddess_navigation import (
     NEW_DAILY_ICON,
@@ -141,7 +147,7 @@ class SquareGoddessTask(BaseBD2Task):
         super().__init__(*args, **kwargs)
         self.name = "广场女神像"
         self.description = (
-            "从快速切换页的生活玩法游戏卡带2号位进入梦幻广场并完成女神像许愿。"
+            "从快速切换页的生活玩法游戏卡带里找到广场卡带进入梦幻广场并完成女神像许愿。"
         )
         self.icon = FluentIcon.GAME
         self.group_name = "日常/周常"
@@ -263,6 +269,37 @@ class SquareGoddessTask(BaseBD2Task):
         )
 
     def _enter_square_from_home(self) -> bool:
+        """The square card is clicked where its picture is.  When the picture
+        can't be read, slot 2 is tried, and if that opens another field (a
+        player's row in another order: v0.1.42 summary 2026-10-15 landed in
+        格鲁菲餐厅), back to 主页 and the next slot."""
+        blind_slots = list(LIFE_SLOT_POINTS)
+        while True:
+            entered, by_picture = self._enter_square_once(blind_slots)
+            if entered:
+                return True
+            if by_picture is not False or not blind_slots:
+                return False
+            self.log_info("广场女神像：点的那格没进梦幻广场，回主页换下一格。")
+            if not self._return_home_from_square():
+                return False
+
+    def _find_square_card(self):
+        """Where the square cartridge is in the 生活玩法 row; a slow PC gets a
+        second look a second later."""
+        score = -1.0
+        for look in range(2):
+            if look:
+                self.sleep(1.0)
+            point, score = square_card_point(self.capture_frame(), self.config, self._templates)
+            self.info_set("广场卡带图", f"{score:.3f}")
+            if point is not None:
+                return point
+        return None
+
+    def _enter_square_once(self, blind_slots: list) -> tuple[bool, bool | None]:
+        """(entered, whether the card was found by its picture); None when
+        the card row never came up."""
         self.info_set("当前阶段", "打开卡带快速切换")
         if not self.open_cartridge_quick_switcher(
             ensure_home=self._wait_for_cartridge_home,
@@ -289,7 +326,7 @@ class SquareGoddessTask(BaseBD2Task):
             ),
         ):
             self.log_info("广场女神像：未能从主页打开卡带快速切换页面。")
-            return False
+            return False, None
 
         self.info_set("当前阶段", "选择生活玩法游戏卡带")
         self.sleep(0.5)
@@ -302,12 +339,18 @@ class SquareGoddessTask(BaseBD2Task):
                 highlighted=False, seconds=1.0
             ):
                 self.log_info("广场女神像：点击后未确认生活玩法游戏卡带类别高亮。")
-                return False
+                return False, None
             self.log_info(f"广场女神像：第{attempt}次点击生活玩法类别未生效，重试。")
 
-        self.info_set("当前阶段", "选择广场卡带2号位")
+        self.info_set("当前阶段", "选择广场卡带")
         self.sleep(FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS)
-        self.operate_click(*SQUARE_CARTRIDGE_SLOT_POINT, after_sleep=0.0)
+        slot = self._find_square_card()
+        by_picture = slot is not None
+        if not by_picture:
+            slot = blind_slots.pop(0)
+            number = LIFE_SLOT_NUMBERS[LIFE_SLOT_POINTS.index(slot)]
+            self.log_info(f"广场女神像：没认出广场卡带的图，改点生活玩法第{number}格。")
+        self.operate_click(*slot, after_sleep=0.0)
         # 卡带格点击被吞时选择页原样停住；连续数秒仍是同一页（类别仍高亮）才重点，
         # 页面一变就不再点，避免载入中重复操作。
         for attempt in range(1, SQUARE_CLICK_VERIFY_ATTEMPTS):
@@ -316,7 +359,7 @@ class SquareGoddessTask(BaseBD2Task):
             ):
                 break
             self.log_info(f"广场女神像：第{attempt}次点击广场卡带后选择页仍在，重试。")
-            self.operate_click(*SQUARE_CARTRIDGE_SLOT_POINT, after_sleep=0.0)
+            self.operate_click(*slot, after_sleep=0.0)
 
         if self._wait_for_template(
             FANTASIA_SQUARE_TEMPLATE,
@@ -324,19 +367,20 @@ class SquareGoddessTask(BaseBD2Task):
             name="梦幻广场",
             arrival=True,
         ):
-            return True
+            return True, by_picture
 
         if self._handle_recent_cartridge_special_pages(
             allow_pvp_pages=False,
         ) is CartridgeSpecialPageResult.HANDLED:
-            return self._wait_for_template(
+            entered = self._wait_for_template(
                 FANTASIA_SQUARE_TEMPLATE,
                 timeout=float(self.config.get("广场入场等待秒数", STUCK_SECONDS)),
                 name="梦幻广场",
                 arrival=True,
             )
+            return entered, by_picture
 
-        return False
+        return False, by_picture
 
     def _wait_for_cartridge_home(
         self,

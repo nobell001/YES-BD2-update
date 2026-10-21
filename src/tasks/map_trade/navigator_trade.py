@@ -85,7 +85,11 @@ from src.tasks.map_trade.trader_constants import (
 )
 from src.tasks.map_trade.vision import normalize_text
 from src.utils.cartridge_quick_switch import FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS
-from src.utils.fantasia_square import SQUARE_CARTRIDGE_SLOT_POINT, square_shown
+from src.utils.fantasia_square import (
+    SQUARE_CARTRIDGE_SLOT_POINT,
+    square_card_point,
+    square_shown,
+)
 from src.utils.field_followers import dismiss_once_per_run
 from src.utils.wait_limits import STUCK_SECONDS, ProgressWait, StillTimer, scene_at_press
 
@@ -472,9 +476,9 @@ class TradeNavigationMixin:
         menu = self._open_story_quick_switcher("life")
         if not menu.success:
             return menu
-        self._status("导航状态", "选择广场卡带2号位")
+        self._status("导航状态", "选择广场卡带")
         self.task.sleep(FIXED_CARTRIDGE_SLOT_PRE_CLICK_DELAY_SECONDS)
-        slot = SQUARE_CARTRIDGE_SLOT_POINT
+        slot = self._square_card_slot()
         self.task.operate_click(*slot, after_sleep=0.0)  # 不用确认：页还在就重点
         for _repress in range(SQUARE_CARD_REPRESSES):
             # A dropped press leaves the selection page as it was.
@@ -488,6 +492,21 @@ class TradeNavigationMixin:
         if self._wait_for_field_or_square() == SQUARE_ARRIVED:
             return NavigationResult(True, ScreenState.SANDBOX, "梦幻广场")
         return NavigationResult(False, self.classify(), "点广场卡带后没认出梦幻广场")
+
+    def _square_card_slot(self):
+        """The square card where its picture is in the 生活玩法 row (a
+        player's row can be in another order); slot 2 when it can't be read."""
+        cache = self.__dict__.setdefault("_square_templates", {})
+        config = getattr(self.task, "config", None)
+        score = -1.0
+        for look in range(2):
+            if look:
+                self.task.sleep(1.0)
+            point, score = square_card_point(self.vision.capture(), config, cache)
+            if point is not None:
+                return point
+        self._status("导航状态", f"没认出广场卡带的图（{score:.2f}），点第2格")
+        return SQUARE_CARTRIDGE_SLOT_POINT
 
     def _wait_for_field_or_square(self) -> str | None:
         """SQUARE_ARRIVED on two square frames, SQUARE_OTHER_FIELD once a field

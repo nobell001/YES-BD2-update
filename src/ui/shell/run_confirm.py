@@ -15,7 +15,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QDialog, QFrame, QLabel, QScrollArea, QWidget
 
-from src.ui.shell import data, icons, motion, theme
+from src.ui.shell import cover, data, icons, motion, theme
 from src.ui.shell.widgets import (
     Button,
     CheckBox,
@@ -354,7 +354,7 @@ class RunConfirm(QDialog):
 
         self._refresh()
         if parent is not None:
-            self.setGeometry(parent.window().geometry())
+            cover.follow(self, parent.window())
         self._place()
 
     def _to_guide(self) -> None:

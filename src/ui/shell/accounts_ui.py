@@ -16,7 +16,7 @@ from PySide6.QtCore import QPoint, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import QDialog, QFileDialog, QLabel, QWidget
 
-from src.ui.shell import data, icons, motion, theme
+from src.ui.shell import cover, data, icons, motion, theme
 from src.ui.shell.run_confirm import HeroIcon, Panel
 from src.ui.shell.widgets import Button, Inset, Separator, Text, hbox, mix, t, tf, vbox
 from src.utils import accounts
@@ -345,7 +345,7 @@ class _Floating(QDialog):
         pad = Panel.SHADOW
         self.column = vbox(self.panel, (pad + 28, pad - 6 + 24, pad + 28, pad + 6 + 24), 14)
         if parent is not None:
-            self.setGeometry(parent.window().geometry())
+            cover.follow(self, parent.window())
 
     def _place(self) -> None:
         area = self.rect()

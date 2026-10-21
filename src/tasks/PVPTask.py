@@ -68,6 +68,8 @@ from src.utils.ocr_utils import normalize_ocr_text
 from src.utils.pvp_dialog import (
     MULTIPLIER_RANGE,
     adjust_step,
+    step_moves,
+    steps_between,
     parse_battle_count,
     parse_free_cocktails,
     parse_multiplier,
@@ -1422,15 +1424,21 @@ class PVPTask(BaseBD2Task):
             self.info_set("PVP 倍率 OCR", "未确认")
             return False
 
-        # From MIN (1) or MAX (40) step with -5/+5 and -/+ reading the value
-        # back each time, so any multiplier 1~40 is reachable.
+        # From MIN (1) or MAX (40) the presses that reach the target are
+        # known: press them, then read.  A read that is off only steps on
+        # toward the target (a swallowed press); one that would turn back is
+        # a misread and stepping stops (a player 2026-10-21: 「镜中之战一直点
+        # 右边+1 和-5死循环了」, the value read back wrong after each press).
+        for step in steps_between(option_value, multiplier, 5):
+            self._click_reference(*PVP_MULTIPLIER_STEP_POINTS[step], after_sleep=0.4)
+        upward = multiplier > option_value
         for _ in range(24):
             if self._setting_multiplier_matches(multiplier):
-                break
+                return True
             # A dropped digit is retried instead of ending the stepping.
             current = self._read_until(self._setting_multiplier_value)
             step = adjust_step(current, multiplier, 5) if current is not None else None
-            if step is None:
+            if step is None or (step_moves(step, 5) > 0) != upward:
                 break
             self._click_reference(*PVP_MULTIPLIER_STEP_POINTS[step], after_sleep=0.4)
 
@@ -1439,8 +1447,13 @@ class PVPTask(BaseBD2Task):
                 self.sleep(0.4)
             if self._setting_multiplier_matches(multiplier):
                 return True
+        # Not read as the target here: 确认 is judged by the main popup's
+        # multiplier and the cost on 战斗开始, which must both agree.
         self.info_set("PVP 倍率 OCR", "未确认")
-        return False
+        self.log_info(
+            f"镜中之战：倍率设置里没读到 {multiplier}，按确认后看主弹窗和战斗开始的消耗。"
+        )
+        return True
 
     def _confirm_setting_multiplier(self, multiplier: int) -> bool:
         # BUG-20260906-01：确认点击被吞时设置弹窗不关、主弹窗回读不变；仅在
@@ -1562,6 +1575,10 @@ class PVPTask(BaseBD2Task):
                 return None
             step = adjust_step(current, count, 10)
             if step is None:
+                return current
+            if step_moves(step, 10) < 0:
+                # Counted up from MIN: a step back down is a misread, and
+                # stepping on would go round in a loop (see the multiplier).
                 return current
             if self.press_and_confirm(
                 "镜中之战「战斗次数」",

@@ -31,6 +31,7 @@ from src.ui.shell import (
     actions,
     autorun,
     clone_flow,
+    cover,
     data,
     hotkeys,
     icons,
@@ -377,7 +378,7 @@ class PictureDialog(QDialog):
         self._open = motion.Tween(self, self.update, 200, 0.0)
         if parent is not None:
             window = parent.window()
-            self.setGeometry(window.geometry())
+            cover.follow(self, window)
 
     def showEvent(self, event):
         super().showEvent(event)
