@@ -12,9 +12,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRectF, Qt, QTimer
+from PySide6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPixmap
-from PySide6.QtWidgets import QDialog, QFileDialog, QLabel, QWidget
+from PySide6.QtWidgets import QDialog, QFileDialog, QLabel, QLayout, QWidget
 
 from src.ui.shell import cover, data, icons, motion, theme
 from src.ui.shell.run_confirm import HeroIcon, Panel
@@ -330,9 +330,16 @@ class AccountMenu(QWidget):
 
 
 class _Floating(QDialog):
-    """A dimmed window over the tool with one :class:`Panel` in the middle."""
+    """A dimmed window over the tool with one :class:`Panel` in the middle.
+
+    The panel is as tall as its content needs, measured again whenever
+    anything inside asks for more room (a row added, text set, fonts or the
+    style applied late): Leo's v0.2.7 (2026-10-22) showed the 定时启动 rows
+    squashed and cut because the height was taken once, too early.
+    """
 
     PANEL_WIDTH = 520
+    MARGIN = 32  # free space kept around the panel inside the tool window
 
     def __init__(self, parent: QWidget | None):
         super().__init__(parent)
@@ -344,15 +351,47 @@ class _Floating(QDialog):
         self.panel = Panel(self)
         pad = Panel.SHADOW
         self.column = vbox(self.panel, (pad + 28, pad - 6 + 24, pad + 28, pad + 6 + 24), 14)
+        self._place_queued = False
+        self.panel.installEventFilter(self)
         if parent is not None:
             cover.follow(self, parent.window())
 
+    def eventFilter(self, watched, event):
+        if watched is self.panel and event.type() == QEvent.LayoutRequest:
+            self._queue_place()
+        return super().eventFilter(watched, event)
+
+    def _queue_place(self) -> None:
+        if not self._place_queued:
+            self._place_queued = True
+            QTimer.singleShot(0, self._place)
+
+    def content_height(self, width: int) -> int:
+        """What the panel needs at ``width``: never less than its least size."""
+        # Sizes just changed (a row added, the rows' view shortened) are
+        # still cached in the inner layouts until the next event loop pass.
+        for inner in self.panel.findChildren(QLayout):
+            inner.invalidate()
+        layout = self.panel.layout()
+        layout.invalidate()
+        layout.activate()
+        need = layout.totalSizeHint().height()
+        if layout.hasHeightForWidth():
+            need = max(need, layout.totalHeightForWidth(width))
+        return max(need, layout.totalMinimumSize().height())
+
+    def least_width(self) -> int:
+        """The panel's width (shadow included) below which something is cut."""
+        return self.panel.layout().totalMinimumSize().width()
+
     def _place(self) -> None:
+        self._place_queued = False
         area = self.rect()
-        width = min(self.PANEL_WIDTH + 2 * Panel.SHADOW, area.width() - 32)
+        # Wider than usual when the words need it (English day names).
+        width = max(self.PANEL_WIDTH + 2 * Panel.SHADOW, self.least_width())
+        width = min(width, area.width() - self.MARGIN)
         self.panel.setFixedWidth(width)
-        self.panel.layout().activate()
-        height = min(self.panel.sizeHint().height(), area.height() - 32)
+        height = min(self.content_height(width), area.height() - self.MARGIN)
         self.panel.setFixedHeight(height)
         shown = float(self._open.value)
         x = (area.width() - width) // 2

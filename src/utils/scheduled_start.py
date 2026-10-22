@@ -109,7 +109,8 @@ class Slot:
 class Settings:
     enabled: bool = False
     wake: bool = True
-    slots: list[Slot] = field(default_factory=lambda: [Slot(KIND_RESET)])
+    # No slot until the player adds one (Leo 2026-10-22 「預設的8:05不要」).
+    slots: list[Slot] = field(default_factory=list)
     # For a scheduled run only, on top of 一键日常's own settings: Leo
     # 2026-10-22 「設定好定時就不管他」, so the game closes after a clean run.
     close_game: bool = True

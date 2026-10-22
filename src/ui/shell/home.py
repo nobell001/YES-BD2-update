@@ -219,6 +219,8 @@ class ScheduleCard(ClickableCard):
             self.foot.set_text(why)
             return
         self.refresh()
+        if on and not schedule_ui.settings().slots:
+            self._open()  # nothing set yet: on is only useful with a time
 
     def _open(self) -> None:
         schedule_ui.ScheduleDialog(self.window()).exec()

@@ -39,14 +39,6 @@ BATCH_KEY = "跑商"
 LAST_DISH = "街头烤鸡肉串"
 
 
-def _shop_text(shop: str) -> str:
-    code, _, name = str(shop).partition(":")
-    if not name:
-        return str(shop)
-    kind = {"S": "剧情卡", "R": "角色卡", "E": "活动卡"}.get(code[:1], "")
-    return f"{t(kind)} {code[1:]} · {t(name)}" if kind else t(name)
-
-
 class DishTile(QWidget):
     """A dish picture; picked ones carry their cooking order, others are grey."""
 
@@ -716,12 +708,7 @@ class TradePage(Page):
         for entry in entries:
             row = hbox(None, (0, 2, 0, 2), 10)
             row.addWidget(ItemIcon(entry.item, 34))
-            texts = vbox(None, (0, 0, 0, 0), 1)
-            texts.addWidget(Text(entry.item, "h3"))
-            texts.addWidget(
-                Text(tf("在 {shop} 卖", shop=_shop_text(entry.shop)), "muted", elide=True)
-            )
-            row.addLayout(texts, 1)
+            row.addWidget(Text(entry.item, "h3", elide=True), 1)
             if entry.reserve:
                 row.addWidget(Text(tf("留 {n}", n=f"{entry.reserve:,}"), "pill"))
             check = CheckBox("", entry.item in selected)
@@ -729,7 +716,6 @@ class TradePage(Page):
             self._panel_checks[entry.item] = check
             row.addWidget(check)
             self.day_layout.addLayout(row)
-        self.day_layout.addWidget(Text("取消勾选的当天不卖", "muted"))
 
     def _tick_item(self, day: int, item: str, on: bool) -> None:
         from src.tasks.map_trade.sale_days import day_items, sale_day_key
