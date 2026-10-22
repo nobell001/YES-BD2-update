@@ -44,7 +44,8 @@ class SkillIntervalDialog(QDialog):
         column = vbox(self.panel, (pad + 24, pad - 6 + 20, pad + 24, pad + 6 + 20), 14)
 
         head = hbox(None, (0, 0, 0, 0), 12)
-        head.addWidget(HeroIcon("clock", 40))
+        # Next to the title, not halfway down a long explanation.
+        head.addWidget(HeroIcon("clock", 40), 0, Qt.AlignTop)
         titles = vbox(None, (0, 0, 0, 0), 2)
         titles.addWidget(Text("技能间隔", "h2"))
         titles.addWidget(

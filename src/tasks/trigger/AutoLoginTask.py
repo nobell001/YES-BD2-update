@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from pathlib import Path
 from time import monotonic
 
@@ -9,8 +10,9 @@ from qfluentwidgets import FluentIcon
 
 from src.tasks.BaseBD2Task import BaseBD2Task
 from src.tasks.map_trade.models import MatchResult, TemplateSpec
-from src.utils import task_vision
+from src.utils import game_process, maintenance_notice, scheduled_start, task_vision
 from src.utils.calibration import FHD_1080
+from src.utils.game_day import GAME_TZ
 from src.utils.game_process import game_running
 from src.utils.colour_check import (
     check_settled,
@@ -64,6 +66,9 @@ LOGIN_MAX_CLICKS = 3
 # forever with a gated batch never released: no login-screen signal this long
 # while a batch waits -> check whether the game is already in (once per span).
 PRELOGIN_QUIET_RECOVERY_SECONDS = 180.0
+# Two looks at the 公告事项 saying 维护 before the game is closed.
+MAINTENANCE_HITS_NEEDED = 2
+CONFIRM_WORDS = ("确认", "確認", "확인", "ok")
 DOWNLOAD_PROGRESS_PATTERN = re.compile(
     r"(?<!\d)(?:100(?:[.,]0+)?|\d{1,2}(?:[.,]\d+)?)\s*[%％]"
 )
@@ -181,6 +186,8 @@ class AutoLoginTask(BaseBD2Task):
         self._match_pause_until = 0.0
         self._terms_hits = 0
         self._terms_warned = False
+        self._maintenance_hits = 0
+        self._maintenance_warned = False
 
     def on_create(self):
         self._enabled = bool(self.config.get("_enabled", True))
@@ -306,6 +313,8 @@ class AutoLoginTask(BaseBD2Task):
             # A confirm / update / download step was seen: the login screen is up.
             self._no_login_signal_since = None
         boxes, login_text = self._login_page_ocr(frame)
+        if self._maintenance_blocks(boxes, login_text):
+            return False
         if self._terms_dialog_blocks(boxes):
             return False
         download_button = self._find_update_download_button(boxes)
@@ -383,6 +392,103 @@ class AutoLoginTask(BaseBD2Task):
         )
         return False
 
+    def _maintenance_blocks(self, boxes: list, text: str) -> bool:
+        """The 公告事项 says 维护: True while it is handled here.
+
+        Leo 2026-10-22 「看到這視窗 就直接關掉 送通知就好」 (重點字 維護):
+        during the maintenance time a run waiting for this login is cancelled,
+        the game closed and the player told.  The notice ahead of the day
+        (now outside its time) is only closed with 确认, and the login goes on.
+        A game the player opened with no run waiting is left open: one note.
+        Only on the login screen (Leo 「只有登入畫面喔 不要點進去看到彈窗公告也判定」):
+        a 公告 inside the game is never looked at here.
+        """
+        now = datetime.now(GAME_TZ)
+        notice = maintenance_notice.read(text, now)
+        if notice is None:
+            self._maintenance_hits = 0
+            return False
+        if not notice.now_in(now):
+            self._maintenance_hits = 0
+            return self._press_notice_confirm(boxes)
+        self._maintenance_hits = getattr(self, "_maintenance_hits", 0) + 1
+        if self._maintenance_hits < MAINTENANCE_HITS_NEEDED:
+            return True
+        self._no_login_signal_since = None
+        self._set_stage("游戏维护中")
+        if not self._gated_batch_waiting():
+            if not getattr(self, "_maintenance_warned", False):
+                self._maintenance_warned = True
+                self._set_action(maintenance_notice.waiting_message(notice))
+                self.log_warning(
+                    f"自动登录：{maintenance_notice.waiting_message(notice)}", notify=True
+                )
+            return True
+        self._close_for_maintenance(notice)
+        return True
+
+    def _press_notice_confirm(self, boxes: list) -> bool:
+        """A 公告 about a later maintenance: 确认 closes it (harmless).
+
+        True when the 确认 is there (pressed, or pressed a moment ago).
+        """
+        button = next(
+            (
+                box
+                for box in boxes
+                if self._normalize_ocr_text(getattr(box, "name", "")) in CONFIRM_WORDS
+            ),
+            None,
+        )
+        if button is None:
+            return False
+        now = monotonic()
+        if now - self._last_confirm_click_at < 2.0:
+            return True
+        self._set_stage("关闭维护预告")
+        self._set_action("公告说的是之后的维护，按确认后接着登录。")
+        self.log_info("自动登录：公告事项是之后的维护预告，按确认。")
+        if self._click_ocr_box_center(button, status_key="公告确认点击", after_sleep=1.0):
+            self._last_confirm_click_at = now
+        return True
+
+    def _close_for_maintenance(self, notice: "maintenance_notice.Notice") -> None:
+        """Cancel the waiting run, close the game, and leave a report saying why."""
+        from src.tasks import run_report
+
+        label = self._gated_batch_label()
+        scheduled = scheduled_start.take_run_pending()
+        self._cancel_login_gated_batches()
+        try:
+            closed = game_process.close_game()
+        except Exception as exc:  # pragma: no cover - never let closing hide the notice
+            self.log_error("自动登录：维护中关闭游戏失败。", exc)
+            closed = False
+        note = maintenance_notice.message(notice, closed)
+        self._set_action(note)
+        if run_report.active() is None:
+            # The 结算 page and the 跑完通知 read it like any run's result.
+            run_report.begin(label, "游戏维护", [])
+            if scheduled:
+                run_report.mark("scheduled", True)
+            run_report.mark("maintenance", True)
+            run_report.set_notice(note)
+            run_report.finish(run_report.ENDED_SETUP)
+        self.log_warning(f"自动登录：{note}", notify=True)
+        self._reset_login_state("游戏维护中，已取消这次执行。")
+        self._maintenance_hits = 0
+
+    def _gated_batch_label(self) -> str:
+        try:
+            from src.tasks.DailyBatchTask import DailyBatchTask, WeeklyBatchTask
+        except ImportError:  # pragma: no cover
+            return "一键完成日常"
+        for batch_class in (DailyBatchTask, WeeklyBatchTask):
+            batch = self.executor.get_task_by_class(batch_class)
+            if batch is not None and getattr(batch, "_start_after_login", False):
+                return str(getattr(batch, "batch_label", "") or "一键完成日常")
+        return "一键完成日常"
+
     def _terms_dialog_blocks(self, boxes: list) -> bool:
         """The terms dialog is up: press nothing, and say why on 2 frames."""
         if not self._is_terms_dialog(boxes):
@@ -449,6 +555,10 @@ class AutoLoginTask(BaseBD2Task):
             "一键日常/周常仍在等待登录完成，请检查游戏画面。",
             notify=True,
         )
+        # Nobody may be at the PC (定时启动): the 跑完通知 says so too.
+        from src.utils import run_notify
+
+        run_notify.after_problem(run_notify.LOGIN_STUCK)
         return False
 
     def _gated_batch_waiting(self) -> bool:

@@ -15,7 +15,13 @@ does it once for every task; this module is that one place (Leo 2026-10-12,
 - 「确认」 only while an info-only title (获得道具, 奖励已发放至背包...) is on
   the same frame, never a purchase or spend confirm;
 - 「取消」 only when the caller allows it (the way home), never mid-task,
-  where it could cancel a dialog the task itself opened.
+  where it could cancel a dialog the task itself opened;
+- a tap on the info line of an overlay that has no button (赛季奖励);
+- Esc for the game's 公告 list, whose ✕ has no text;
+- a tap on the dark backdrop left of a paid pass's 签到 panel (no ✕, no
+  关闭; the only button on it is 购买, never pressed);
+- 「离开」 on a field battle's result (VICTORY / DEFEAT), where Esc does
+  nothing (src/utils/field_battle).
 
 The game's quit dialog (Esc pressed on a top page) is recognised so the way
 home cancels it and stops pressing Esc (Leo 2026-10-12 「這遊戲按沒幾下就會變成
@@ -24,8 +30,10 @@ home cancels it and stops pressing Esc (Leo 2026-10-12 「這遊戲按沒幾下�
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
+from src.utils import field_battle
 from src.utils.ocr_utils import normalize_ocr_text
 
 OVERLAY_DISMISS_KEYWORDS = (
@@ -52,12 +60,48 @@ CANCEL_TEXT = "取消"
 # captured; any of them with 游戏 on a dialog that has 取消 is the quit one).
 QUIT_VERBS = ("退出", "结束", "关闭", "离开")
 QUIT_OBJECT = "游戏"
+# Overlays with no button at all: a tap anywhere closes them.  魔兽追踪者赛季
+# 奖励 shows on the first cartridge entered after the season ends, with only
+# 「奖励已发放至背包。」 under it (live 2K 2026-10-22, it stopped 一键日常).
+TAP_ANYWHERE_LINES = ("奖励已发放至背包", "奖励已通过邮件发放")
+TAP_ANYWHERE_TITLES = ("赛季奖励",)
+# The game's notice list (公告事项) that opens by itself on 主页 after a
+# maintenance: rows tagged 公告/更新/活动… each with a date, closed only by
+# its ✕ icon, which has no text; Esc closes it (live 2K 2026-10-22).
+NOTICE_LIST_TAGS = ("公告", "更新", "活动", "维护", "公告事项", "重要")
+NOTICE_LIST_DATE = re.compile(r"20\d\d年\d{1,2}月\d{1,2}日")
+NOTICE_LIST_MIN_ROWS = 2
+ESC_LABEL = "Esc"
+# A paid pass's daily 签到 panel over 主页 at the first login of the day
+# (「午夜装扮之选通行证」, live 4K 2026-10-22): three day cards, 「签到成功」,
+# 「购买后可获得额外奖励！」 and a 「购买 JP¥1,140」 button, but no ✕ or 关闭.
+# A tap outside the panel closes it (公会签到's blank tap at x 338 did, the
+# panel text starting at x 688 of 3840).  Its lines:
+PASS_SIGNIN_LINES = ("购买后可获得额外奖励", "各账号可购买")
+PASS_SIGNIN_WORD = "签到"
+# The tap: this share of the panel text's left x, on the text's row (the
+# backdrop left of the panel; the panel starts just left of its text).
+PASS_SIGNIN_TAP_X_SHARE = 0.45
+PASS_SIGNIN_LABEL = "签到弹窗外的空白处"
+
+
+@dataclass(frozen=True)
+class _Spot:
+    """A place to tap that no OCR box covers (shaped like one)."""
+
+    name: str
+    x: float
+    y: float
+    width: float = 0.0
+    height: float = 0.0
 
 
 @dataclass(frozen=True)
 class PopupPress:
     label: str
     box: object
+    # A key instead of a click (the notice list's ✕ has no text to find).
+    key: str = ""
 
 
 def _named(boxes) -> list[tuple[str, object]]:
@@ -78,6 +122,33 @@ def is_quit_dialog(boxes) -> bool:
         if QUIT_OBJECT in name and any(verb in name for verb in QUIT_VERBS):
             return True
     return False
+
+
+def is_notice_list(boxes) -> bool:
+    """The game's 公告 list: at least two tagged rows and two dated rows."""
+    named = _named(boxes)
+    tags = sum(1 for name, _box in named if name in NOTICE_LIST_TAGS)
+    dates = sum(1 for name, _box in named if NOTICE_LIST_DATE.search(name))
+    return tags >= NOTICE_LIST_MIN_ROWS and dates >= NOTICE_LIST_MIN_ROWS
+
+
+def pass_signin_spot(boxes):
+    """The backdrop left of a paid pass's 签到 panel, or None when no such
+    panel is on screen.  Never on or near its 购买 button: the tap is left of
+    the panel's text, which starts left of the button."""
+    named = _named(boxes)
+    lines = tuple(normalize_ocr_text(line) for line in PASS_SIGNIN_LINES)
+    anchor = next((box for name, box in named if any(k in name for k in lines)), None)
+    if anchor is None or not any(PASS_SIGNIN_WORD in name for name, _box in named):
+        return None
+    left = min(
+        float(getattr(box, "x", 0) or 0) for name, box in named if any(k in name for k in lines)
+    )
+    x = left * PASS_SIGNIN_TAP_X_SHARE
+    if x <= 0:
+        return None
+    y = float(getattr(anchor, "y", 0) or 0) + float(getattr(anchor, "height", 0) or 0) / 2
+    return _Spot(PASS_SIGNIN_LABEL, x, y)
 
 
 def pick(boxes, *, allow_cancel: bool = False) -> PopupPress | None:
@@ -107,4 +178,21 @@ def pick(boxes, *, allow_cancel: bool = False) -> PopupPress | None:
         box = _exact(named, CONFIRM_TEXT)
         if box is not None:
             return PopupPress(CONFIRM_TEXT, box)
+    lines = tuple(normalize_ocr_text(line) for line in TAP_ANYWHERE_LINES)
+    titles = tuple(normalize_ocr_text(title) for title in TAP_ANYWHERE_TITLES)
+    if _exact(named, CONFIRM_TEXT) is None and any(t in text for t in lines + titles):
+        # No button on it: tap its own info line (any spot closes it).
+        box = next((box for name, box in named if any(k in name for k in lines)), None)
+        if box is None:
+            box = next((box for name, box in named if any(k in name for k in titles)), None)
+        if box is not None:
+            return PopupPress("点击画面返回", box)
+    spot = pass_signin_spot(boxes)
+    if spot is not None:
+        return PopupPress(PASS_SIGNIN_LABEL, spot)
+    box = field_battle.leave_button(boxes)
+    if box is not None:
+        return PopupPress(field_battle.LEAVE_TEXTS[0], box)
+    if is_notice_list(boxes):
+        return PopupPress(ESC_LABEL, None, key=ESC_LABEL)
     return None

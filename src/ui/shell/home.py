@@ -37,6 +37,7 @@ from src.ui.shell import (
     icons,
     motion,
     run_confirm,
+    schedule_ui,
     theme,
 )
 from src.ui.shell.page import Page
@@ -58,6 +59,7 @@ from src.ui.shell.widgets import (
     Separator,
     StateIcon,
     Text,
+    Toggle,
     attach_hint,
     clear_layout,
     draw_fitted,
@@ -67,6 +69,7 @@ from src.ui.shell.widgets import (
     grid_container,
     hbox,
     mix,
+    set_prop,
     t,
     tf,
     vbox,
@@ -159,6 +162,69 @@ class StatCard(ClickableCard):
         self.foot.set_text(foot)
 
 
+class ScheduleCard(ClickableCard):
+    """定时启动 on 首页 (Leo 2026-10-22): the next start and the switch that
+    turns it all off; a click opens the window with the time slots."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent, on_click=self._open)
+        layout = vbox(self, (16, 14, 16, 14), 8)
+        head = hbox(None, (0, 0, 0, 0), 8)
+        tile = IconTile("clock", 28, 16, kind="plain")
+        tile.follow_hover(self)
+        head.addWidget(tile)
+        head.addWidget(Text("定时启动", "sub"), 1)
+        self.toggle = Toggle(False, small=True)
+        self.toggle.setToolTip(t("关掉就完全取消，Windows 里也不留"))
+        self.toggle.toggled.connect(self._switched)
+        head.addWidget(self.toggle)
+        layout.addLayout(head)
+        value_row = hbox(None, (0, 0, 0, 0), 6)
+        self.value = Text("", "big")
+        self.unit = Text("", "muted")
+        value_row.addWidget(self.value)
+        value_row.addWidget(self.unit, 1, Qt.AlignBottom)
+        layout.addLayout(value_row)
+        self.foot = Text("", "muted", elide=True)
+        layout.addWidget(self.foot)
+        self.refresh()
+
+    def refresh(self) -> None:
+        settings = schedule_ui.settings()
+        self.toggle.set_checked_quietly(settings.enabled)
+        clock, day = schedule_ui.next_text()
+        count = len(settings.active_slots())
+        if not settings.enabled:
+            self.value.set_text("关")
+            self.unit.set_text("")
+            self.foot.set_text("点这里设定几点自动跑")
+        elif not clock:
+            self.value.set_text("—")
+            self.unit.set_text("")
+            self.foot.set_text("没有开着的时段，点这里设定")
+        else:
+            self.value.set_text(clock)
+            self.unit.set_text(day)
+            self.foot.set_text(tf("{n} 个时段，点这里设定", n=count))
+        role = "warn" if schedule_ui.problem and settings.enabled else "muted"
+        if self.foot.property("role") != role:
+            set_prop(self.foot, "role", role)
+        if role == "warn":
+            self.foot.set_text(schedule_ui.problem)
+
+    def _switched(self, on: bool) -> None:
+        why = schedule_ui.set_enabled(on)
+        if why:
+            self.toggle.set_checked_quietly(not on)
+            self.foot.set_text(why)
+            return
+        self.refresh()
+
+    def _open(self) -> None:
+        schedule_ui.ScheduleDialog(self.window()).exec()
+        self.refresh()
+
+
 class OrderButton(QAbstractButton):
     """The small button on the 每周跑图 card: run it first, or last again
     (Leo 2026-10-21; his pick of the list icons, the 「back」 one mirrored)."""
@@ -212,7 +278,7 @@ class BoardTile(ClickableCard):
         self.order: OrderButton | None = None
         # A short violet glow when the card lands somewhere new.
         self._flash = motion.Tween(self, self.update, 650, 0.0)
-        layout = vbox(self, (12, 12, 12, 10), 6)
+        layout = vbox(self, (12, 12, 12, 10), 4)
         top = hbox(None, (0, 0, 0, 0), 0)
         self.tile = IconTile(child.icon, 30, 17, kind=child.kind)
         self.tile.follow_hover(self)
@@ -226,10 +292,11 @@ class BoardTile(ClickableCard):
         top.addWidget(self.include, 0, Qt.AlignTop)
         layout.addLayout(top)
         # a little air between the icon and the name (Leo, 2026-10-05)
-        layout.addSpacing(10)
+        layout.addSpacing(6)
         self.name = Text(child.short, "h3", elide=True)
         layout.addWidget(self.name)
-        state = hbox(None, (0, 0, 0, 0), 4)
+        # Room on the right for the order button, so it never covers the state.
+        state = hbox(None, (0, 0, OrderButton.SIZE + 4 if on_move is not None else 0, 0), 4)
         self.mark = StateIcon("done", 13)
         self.state = Text("", "muted", elide=True)
         state.addWidget(self.mark)
@@ -702,11 +769,13 @@ class HomePage(Page):
         self.last_card = StatCard(
             "list-checks", "今日报表", "plain", lambda: self._navigate("report")
         )
-        for card in (self.map_card, self.last_card):
+        # Leo 2026-10-22: 定时启动 in the third place of this row.
+        self.schedule_card = ScheduleCard()
+        for card in (self.map_card, self.last_card, self.schedule_card):
             grid.addWidget(card)
         layout.addWidget(stats)
 
-        head = hbox(None, (2, 6, 2, 0), 14)
+        head = hbox(None, (0, 6, 0, 0), 14)
         head.addWidget(Text("今日任务", "h2"))
         self.map_order = Text("", "muted")
         head.addWidget(self.map_order)
@@ -719,7 +788,7 @@ class HomePage(Page):
         layout.addWidget(self.tiles_box)
         # Leo 2026-10-09: the 周常 in a row of their own; 一键日常 still runs them.
         self.week_head = QWidget()
-        week_head = hbox(self.week_head, (2, 6, 2, 0), 14)
+        week_head = hbox(self.week_head, (0, 6, 0, 0), 14)
         week_head.addWidget(Text("本周任务", "h2"))
         self.week_note = Text("", "muted")
         week_head.addWidget(self.week_note)
@@ -742,6 +811,7 @@ class HomePage(Page):
             tf("{today} · 下次刷新 {next}", today=data.today_title(), next=data.next_refresh_text())
         )
         self.game_size.refresh()
+        self.schedule_card.refresh()
         batch = data.task_by_name(data.DAILY_BATCH)
         data.sync_weekly_ticks(batch)
         children = data.batch_children(batch)
@@ -1419,9 +1489,12 @@ class HomePage(Page):
     def _fill_pictures(self, grid, paths: list[str]) -> bool:
         while grid.count():
             item = grid.takeAt(0)
-            if item.widget() is not None:
-                item.widget().setParent(None)
-                item.widget().deleteLater()
+            # A spacer has no widget (live 2K 2026-10-22: the refresh after
+            # a stopped run crashed here).
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
         shown = 0
         for path in paths:
             picture = Picture(path, radius=theme.radius(), background="shot")

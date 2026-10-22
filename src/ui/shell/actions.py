@@ -176,10 +176,12 @@ def _ask_to_open_game(window) -> bool:
     from qfluentwidgets import MessageBox
 
     from src.ui.shell import clone_flow
+    from src.ui.shell.widgets import shell_buttons
 
     box = MessageBox(data.tr("游戏还没开"), data.tr("要帮你打开游戏并开始跑吗？"), window)
     box.yesButton.setText(data.tr("打开并开始"))
     box.cancelButton.setText(data.tr("取消"))
+    shell_buttons(box)
     if not box.exec():
         return False
     clone_flow.log_in_this_run()

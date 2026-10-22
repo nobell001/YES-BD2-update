@@ -35,7 +35,14 @@ from src.utils.known_popups import (  # noqa: F401 - re-exported for the tasks
 from src.utils.home_confirmation import HOME_ANNOUNCEMENT_CLEAR_REFERENCE_POINT
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
-from src.utils.wait_limits import LOADING_MAX_SECONDS, STUCK_SECONDS, is_loading_dark, load_wait, scene_at_press
+from src.utils.wait_limits import (
+    LOADING_MAX_SECONDS,
+    POPUP_LOOK_SECONDS,
+    STUCK_SECONDS,
+    is_loading_dark,
+    load_wait,
+    scene_at_press,
+)
 
 # 1920x1080 reference coordinates, calibrated on the 简体 client 2026-09-25.
 BACK_BUTTON_POINT = (150, 50)
@@ -440,6 +447,7 @@ class ClaimPageMixin(TaskVisionMixin):
             wait = load_wait(started, timeout, before=scene_at_press(self))
             timeout = max(timeout, LOADING_MAX_SECONDS)
         end_at = started + timeout
+        popup_look_at = started + POPUP_LOOK_SECONDS
         last_text, same_since = None, started
         while True:
             frame = self.capture_frame()
@@ -467,6 +475,13 @@ class ClaimPageMixin(TaskVisionMixin):
                     break
             elif now > end_at:
                 break
+            elif now >= popup_look_at and not self._passes(loading, LOADING_TEMPLATE):
+                # A fixed wait is no load wait: it closes a covering popup
+                # itself (a load wait does it in ProgressWait).
+                popup_look_at = now + POPUP_LOOK_SECONDS
+                if self.close_known_popup(label, info_only=True):
+                    end_at = max(end_at, monotonic() + POPUP_LOOK_SECONDS)
+                    continue
             self.sleep(0.5)
         if not quiet:
             self.log_info(f"{label}：等待页面标题 {'/'.join(title_keywords)} 超时。")

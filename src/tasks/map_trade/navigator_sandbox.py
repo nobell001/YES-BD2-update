@@ -1416,7 +1416,12 @@ class SandboxNavigationMixin:
                     # a field battle met on the way (Memory Edge, live 4K
                     # 2026-10-09: VICTORY, 离开, then the walk goes on).
                     idle = 0
-                    self._leave_battle_result(frame)
+                    if not self._leave_battle_result(frame):
+                        # A battle still being fought: run away (Leo
+                        # 2026-10-22, BaseBD2Task.leave_field_battle).
+                        leave = getattr(self.task, "leave_field_battle", None)
+                        if callable(leave):
+                            leave("跑图路上")
             self.task.sleep(0.5)
         self._status("导航状态", f"自动移动{timeout:.0f}秒仍未结束，继续确认地图")
 

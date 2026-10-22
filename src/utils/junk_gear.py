@@ -154,7 +154,7 @@ def grid_label_rarity(label_bgr: np.ndarray) -> str | None:
     hues = label_hues(label_bgr)
     if hues.size < 60:
         return None
-    if only_blue(hues, GRID_R_TRACE_MAX):
+    if only_blue(hues, GRID_R_TRACE_MAX) or blue_with_red_trace(hues):
         return "R"
     green = hue_share(hues, 35, 95)
     if green >= GRID_UR_GREEN_MIN:
@@ -168,6 +168,20 @@ def grid_label_rarity(label_bgr: np.ndarray) -> str | None:
     return None
 
 
+def blue_with_red_trace(hues: np.ndarray) -> bool:
+    """Cyan-blue alone apart from a little red: no green (UR, N) and no
+    purple (SR, UR) at all.  Live 2K 2026-10-22, a new R beside its 「!」 on a
+    colour-distorted screen: 「绿0.00 青蓝0.94 紫0.00」, the 6 % red was the
+    badge's orange edge, and the R was kept as 「认不出」."""
+    return (
+        hues.size >= GRID_CERTAIN_MIN_PIXELS
+        and hue_share(hues, 35, 84) <= GRID_CERTAIN_GREEN_MAX
+        and hue_share(hues, 125, 165) <= GRID_CERTAIN_GREEN_MAX
+        and hue_share(hues, 85, 124) >= GRID_BLUE_WITH_RED_MIN
+    )
+
+
+GRID_BLUE_WITH_RED_MIN = 0.9
 GRID_UR_GREEN_MIN = 0.15
 GRID_NO_GREEN_MAX = 0.03
 GRID_MAIN_HUE_MIN = 0.5
@@ -189,7 +203,7 @@ def grid_label_colour_certain(label_bgr: np.ndarray, rarity: str) -> bool:
     if hues.size < GRID_CERTAIN_MIN_PIXELS:
         return False
     if rarity == "R":
-        return only_blue(hues, GRID_CERTAIN_GREEN_MAX)
+        return only_blue(hues, GRID_CERTAIN_GREEN_MAX) or blue_with_red_trace(hues)
     if hue_share(hues, 35, 95) > GRID_CERTAIN_GREEN_MAX:
         return False
     return hue_share(hues, 125, 165) >= GRID_CERTAIN_MAIN_MIN

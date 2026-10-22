@@ -494,6 +494,10 @@ class AboutPage(Page):
 
     def _build_notice(self) -> None:
         column = self._section("使用须知")
+        # Bare lines, unlike the padded rows of the other cards: the same air
+        # as those rows around them (they sat on the card's edges, 2026-10-22 check).
+        column.setContentsMargins(20, 14, 20, 14)
+        column.setSpacing(4)
         for line in NOTICE:
             column.addWidget(Text(f"•  {t(line)}", "sub", wrap=True))
 

@@ -25,7 +25,17 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QImage, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QFontMetrics,
+    QIcon,
+    QImage,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
@@ -290,6 +300,11 @@ _ICON_COLOUR = {
 
 
 class Button(QPushButton):
+    # Space between the icon and the text.  Qt's own is 4 px, which looks
+    # glued with the line icons, whose strokes reach their box edge.
+    ICON_GAP = 7
+    QT_ICON_GAP = 4
+
     def __init__(
         self,
         text: str = "",
@@ -345,7 +360,35 @@ class Button(QPushButton):
             painter.setOpacity(hover)
             painter.drawControl(QStyle.CE_PushButtonBevel, hot)
             painter.setOpacity(1.0)
-        painter.drawControl(QStyle.CE_PushButtonLabel, hot if hover >= 0.5 else rest)
+        label = hot if hover >= 0.5 else rest
+        if label.icon.isNull() or not label.text:
+            painter.drawControl(QStyle.CE_PushButtonLabel, label)
+            return
+        # 2026-10-22 check: 「▷一键完成日常」 looked glued, so the icon and
+        # the text are placed here with ICON_GAP, centred together as Qt would.
+        icon_size = label.iconSize
+        text_width = self.fontMetrics().horizontalAdvance(label.text)
+        shift = (icon_size.width() + self.ICON_GAP) / 2
+        left = (self.width() - icon_size.width() - self.ICON_GAP - text_width) / 2
+        mode = QIcon.Normal if self.isEnabled() else QIcon.Disabled
+        pixmap = label.icon.pixmap(icon_size, self.devicePixelRatioF(), mode)
+        top = (self.height() - icon_size.height()) / 2
+        painter.drawPixmap(QPointF(left, top), pixmap)
+        label.icon = QIcon()
+        label.rect = label.rect.translated(round(shift), 0)
+        painter.drawControl(QStyle.CE_PushButtonLabel, label)
+
+    def sizeHint(self) -> QSize:
+        hint = super().sizeHint()
+        if not self.icon().isNull() and self.text():
+            hint.setWidth(hint.width() + self.ICON_GAP - self.QT_ICON_GAP)
+        return hint
+
+    def minimumSizeHint(self) -> QSize:
+        hint = super().minimumSizeHint()
+        if not self.icon().isNull() and self.text():
+            hint.setWidth(hint.width() + self.ICON_GAP - self.QT_ICON_GAP)
+        return hint
 
     def set_label(self, text: str) -> None:
         text = t(text)
@@ -377,6 +420,21 @@ class Button(QPushButton):
         super().changeEvent(event)
         if event.type() in (QEvent.EnabledChange, QEvent.StyleChange, QEvent.PaletteChange):
             self._refresh_icon()
+
+
+def shell_buttons(box) -> None:
+    """Put the tool's own buttons on a Fluent ``MessageBox``/``MessageBoxBase``
+    in place of its teal and grey ones (2026-10-22 check: they matched
+    nothing else in the tool).  Call after setting the buttons' texts; a
+    button hidden by then stays away.  A press clicks the Fluent button, so
+    the box's own checks and answers stay as they were."""
+    for fluent, kind in ((box.yesButton, "primary"), (box.cancelButton, "secondary")):
+        if fluent.isHidden():
+            continue
+        own = Button(fluent.text(), kind, on_click=fluent.click)
+        own.setStyleSheet(theme.style_sheet())
+        box.buttonLayout.addWidget(own, 1)
+        fluent.hide()
 
 
 # ---------------------------------------------------------------- icons
@@ -1247,7 +1305,9 @@ class TileGrid(QLayout):
             heights = []
             for item in row:
                 if self._row_height:
-                    heights.append(self._row_height)
+                    # Never shorter than the card needs: a fixed row cut the
+                    # names' lower edge in English (2026-10-22 check).
+                    heights.append(max(self._row_height, item.minimumSize().height()))
                 elif item.hasHeightForWidth():
                     heights.append(item.heightForWidth(int(width)))
                 else:

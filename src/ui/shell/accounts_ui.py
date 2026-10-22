@@ -560,10 +560,24 @@ class MismatchDialog(_Floating):
             label.setStyleSheet(f"color: {theme.tokens()['warn']};")
             warn_box.addWidget(label)
         self.column.addWidget(warn)
-        buttons = hbox(None, (0, 4, 0, 0), 10)
-        buttons.addStretch(1)
-        buttons.addWidget(Button("就是这个账号，重新看画面", "secondary", on_click=self._same))
-        buttons.addWidget(Button("切换账号", "primary", "users-round", on_click=self._switch))
+        same = Button("就是这个账号，重新看画面", "secondary", parent=self.panel, on_click=self._same)
+        switch = Button(
+            "切换账号", "primary", "users-round", parent=self.panel, on_click=self._switch
+        )
+        for button in (same, switch):
+            button.ensurePolished()
+        # Side by side when both fit; else one above the other (the Japanese
+        # text was cut, 2026-10-22 check).
+        room = self.PANEL_WIDTH - 2 * 28
+        if same.sizeHint().width() + switch.sizeHint().width() + 10 <= room:
+            buttons = hbox(None, (0, 4, 0, 0), 10)
+            buttons.addStretch(1)
+            buttons.addWidget(same)
+            buttons.addWidget(switch)
+        else:
+            buttons = vbox(None, (0, 4, 0, 0), 8)
+            buttons.addWidget(switch)
+            buttons.addWidget(same)
         self.column.addLayout(buttons)
 
     def _same(self) -> None:

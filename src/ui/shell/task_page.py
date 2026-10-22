@@ -298,11 +298,17 @@ class TaskPage(Page):
         self.stat_time = Text("", "h3")
         second.addWidget(self.stat_time)
         stats_row.addLayout(second, 1)
-        third = vbox(None, (0, 0, 0, 0), 6)
+        third = vbox(None, (0, 0, 0, 0), 4)
         third.addWidget(Text("最近 7 天", "muted"))
         self.stat_week = WeekDots()
-        third.addWidget(self.stat_week)
+        # The dots sit on the values' line, not lower (2026-10-22 check).
+        dots = QWidget()
+        dots.setFixedHeight(self.stat_state.sizeHint().height())
+        hbox(dots).addWidget(self.stat_week, 0, Qt.AlignLeft | Qt.AlignVCenter)
+        third.addWidget(dots)
         stats_row.addLayout(third, 1)
+        for column in (first, second, third):
+            column.addStretch(1)
         self.detail_layout.addWidget(stats)
 
         self.include_toggle = None

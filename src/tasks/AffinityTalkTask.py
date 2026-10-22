@@ -25,6 +25,7 @@ from time import monotonic
 import cv2
 from qfluentwidgets import FluentIcon
 
+from src.tasks import run_report
 from src.tasks.affinity import answers, plan, record, screen
 from src.tasks.BaseBD2Task import KEY_TAP_SECONDS, PROBE_OUTPUT_DIR
 from src.tasks.claim_page import (
@@ -94,6 +95,15 @@ PROBE_MAX_FRAMES = 1500
 DETAIL_CONFIRM_SECONDS = 0.3
 
 
+
+def locked_note(costumes: list[str]) -> str:
+    """Why LV15 costumes waiting for 潜力释放 were not talked to today."""
+    names = "、".join(dict.fromkeys(costumes))
+    return (
+        f"{names}还没释放潜力（停在 LV15，谈心不会涨亲密度），"
+        "排在会涨的服装后面，今天的谈心次数用完了没轮到。"
+    )
+
 class AffinityTalkTask(_ClaimTaskBase):
     claim_log_name = "affinity"
 
@@ -145,14 +155,27 @@ class AffinityTalkTask(_ClaimTaskBase):
             if self._probe and self._talks:
                 break
         left = talks_left
-        for card in work.daily:
+        locked_skipped: list[str] = []
+        for index, card in enumerate(work.daily):
             if left is not None and left <= 0:
+                talked = self._record.talked_today(self._today)
+                locked_skipped += [
+                    c.costume for c in work.daily[index:]
+                    if c.key in self._record.locked and c.key not in talked
+                ]
                 break
             outcome = self._daily_talk(card, allow_locked=self._only_locked_left(card, work))
             if outcome == "talked":
                 left = None if left is None else left - 1
-            elif outcome not in ("used", "locked", "maxed"):
+            elif outcome == "locked":
+                locked_skipped.append(card.costume)
+            elif outcome not in ("used", "maxed"):
                 problems.append(f"{card.costume}：{outcome}")
+        if locked_skipped:
+            # Leo 2026-10-22 「維持原做法 但報表說一下就好」.
+            note = locked_note(locked_skipped)
+            self.log_info(f"{LABEL}：{note}")
+            run_report.add_current_note(note)
         record.save(self._record)
         self._report_keys()
         if not self._go_home():

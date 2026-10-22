@@ -25,7 +25,7 @@ from PySide6.QtCore import QObject, QTimer
 
 from src.ui.shell import data
 from src.ui.shell.safe import guarded
-from src.ui.shell.widgets import t, tf
+from src.ui.shell.widgets import shell_buttons, t, tf
 from src.utils import clone_desktop
 
 logger = Logger.get_logger(__name__)
@@ -178,6 +178,7 @@ def ask_and_start(window, task, run_mode: str | None = None) -> bool:
     box.cancelButton.setText(t("取消"))
     if yes == "知道了":
         box.cancelButton.hide()
+    shell_buttons(box)
     if not box.exec():
         return False
     if not clone_desktop.ready():
@@ -253,6 +254,7 @@ def end_idle_clone(window) -> bool:
     box = MessageBox(t("桌面分身还开着"), t(text), window)
     box.yesButton.setText(t("关掉分身并开始"))
     box.cancelButton.setText(t("取消"))
+    shell_buttons(box)
     if not box.exec():
         return False
     if busy_in_clone():

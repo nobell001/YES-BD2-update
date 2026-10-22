@@ -35,7 +35,7 @@ from src.tasks.task_notifications import (
     suppress_task_completion_notifications,
 )
 from src.tasks.WeeklyTasks import ArcadeBrowseTask, HomePopularityTask
-from src.utils import game_process, game_size, keep_awake
+from src.utils import game_process, game_size, keep_awake, scheduled_start
 
 RUN_MODE_ALL = "all"
 RUN_MODE_INCOMPLETE = "incomplete"
@@ -49,6 +49,11 @@ SHUTDOWN_COUNTDOWN_SECONDS = 60
 # with no failure (off by default); the tool says so once after the update.
 CLOSE_GAME_KEY = "完成日常后关闭游戏"
 CLOSE_GAME_NOTICE_KEY = "_关闭游戏新设定提示"
+# 跑完通知 (设置 page) shown once to players from before it (Leo 2026-10-22
+# 「用戶引導甚麼的 都要做好」); new installs are not asked.
+RUN_NOTIFY_NOTICE_KEY = "_跑完通知新设定提示"
+# 定时启动 (首页) likewise (Leo 2026-10-22, release handover: 「新功能要跳窗」).
+SCHEDULE_NOTICE_KEY = "_定时启动新设定提示"
 CLOSE_GAME_NOTE = "全部做完了，照设定关闭了游戏"
 CLOSE_GAME_FAILED_NOTE = "全部做完了，但游戏没能关掉，请自己关闭"
 # Leo 2026-10-21 「這次新增兩個功能 更新上去和以前一樣 要跳窗告訴用戶」: a
@@ -222,6 +227,8 @@ class ChildBatchTask(BaseTask):
                 "完成日常后自动关机": False,
                 CLOSE_GAME_NOTICE_KEY: False,
                 NEW_DAILIES_NOTICE_KEY: False,
+                RUN_NOTIFY_NOTICE_KEY: False,
+                SCHEDULE_NOTICE_KEY: False,
                 # Ticked on 首页 (src/ui/shell/autorun.py, Leo 2026-10-09).
                 "打开工具时自动开始": False,
                 **{key: True for key in child_keys},
@@ -284,6 +291,7 @@ class ChildBatchTask(BaseTask):
         """Forget a run that was to go on after a login (闪退 or the title
         screen): Stop during the wait, or a new start by the player."""
         self._start_after_login = False
+        self._scheduled_run = False
         self._requested_run_mode_deadline = 0.0
         self._resuming_after_crash = False
         self._done_before_crash = set()
@@ -421,6 +429,13 @@ class ChildBatchTask(BaseTask):
             # The 跑完的结算 page reads this report; it is saved however the run
             # ends (Stop and errors included).
             self._begin_report(run_mode)
+            # 定时启动 started this run (Leo 2026-10-22): its own 做完关闭游戏 /
+            # 做完关机 apply too, and the report says so.
+            self._scheduled_run = self.batch_label == "一键完成日常" and (
+                scheduled_start.take_run_pending()
+            )
+            if self._scheduled_run:
+                run_report.mark("scheduled", True)
             self._report_ended = run_report.ENDED_ERROR
             try:
                 if self._setup_stops():
@@ -990,6 +1005,12 @@ class ChildBatchTask(BaseTask):
                 return False
         return True
 
+    def _scheduled_option(self, name: str) -> bool:
+        """定时启动's own 做完关闭游戏 / 做完关机, for the run it started."""
+        if not getattr(self, "_scheduled_run", False):
+            return False
+        return bool(getattr(scheduled_start.load(), name, False))
+
     def _maybe_close_game_after_daily(
         self,
         completed: list[str],
@@ -1000,7 +1021,9 @@ class ChildBatchTask(BaseTask):
         Only called after a run with no failed child, so together with
         _all_done_today this is 「全部完成無異常錯誤才關」.
         """
-        if not bool(self.config.get(CLOSE_GAME_KEY, False)):
+        if not bool(self.config.get(CLOSE_GAME_KEY, False)) and not self._scheduled_option(
+            "close_game"
+        ):
             return
         if not self._all_done_today(completed, pre_completed, "关闭游戏"):
             return
@@ -1031,7 +1054,9 @@ class ChildBatchTask(BaseTask):
         没有任何已启用子任务时不关机：全称判定对空集合为真，但一次没有
         执行任何日常的成功运行不应触发关机。
         """
-        if not bool(self.config.get("完成日常后自动关机", False)):
+        if not bool(self.config.get("完成日常后自动关机", False)) and not self._scheduled_option(
+            "shutdown"
+        ):
             return
         if not self._all_done_today(completed, pre_completed, "自动关机"):
             return
@@ -1098,6 +1123,10 @@ class DailyBatchTask(ChildBatchTask):
             self.config[CLOSE_GAME_NOTICE_KEY] = True
         if own and any(key not in own for key in NEW_DAILIES):
             self.config[NEW_DAILIES_NOTICE_KEY] = True
+        if own and RUN_NOTIFY_NOTICE_KEY not in own:
+            self.config[RUN_NOTIFY_NOTICE_KEY] = True
+        if own and SCHEDULE_NOTICE_KEY not in own:
+            self.config[SCHEDULE_NOTICE_KEY] = True
         for child in self.child_tasks:
             key = child.config_key
             if child.weekly and key not in own and isinstance(weekly.get(key), bool):
@@ -1147,6 +1176,8 @@ class WeeklyBatchTask(ChildBatchTask):
             CLOSE_GAME_KEY,
             CLOSE_GAME_NOTICE_KEY,
             NEW_DAILIES_NOTICE_KEY,
+            RUN_NOTIFY_NOTICE_KEY,
+            SCHEDULE_NOTICE_KEY,
             "完成日常后自动关机",
             "打开工具时自动开始",
         ):

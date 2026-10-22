@@ -286,6 +286,14 @@ def set_theme_mode(mode: str) -> None:
         setTheme(theme, save=True, lazy=True)
 
 
+def sync_fluent_accent() -> None:
+    """Fluent's own controls (text boxes, spin boxes, message boxes) take the
+    tool's violet instead of their default teal (2026-10-22 check)."""
+    from qfluentwidgets import setThemeColor
+
+    setThemeColor(QColor(tokens()["primary"]), lazy=True)
+
+
 def toggle_dark() -> None:
     set_theme_mode("light" if isDarkTheme() else "dark")
 

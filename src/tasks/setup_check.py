@@ -127,7 +127,7 @@ def _colour_notify(now: float) -> bool:
     return True
 
 
-def _check_colours(task, frame, now: float) -> None:
+def _check_colours(task, frame, now: float, popup_closed: bool = False) -> None:
     # 桌面分身 2026-10-18: the login notice dimmed home (left column 56/185)
     # and the dimmed colours read as HDR; a dimmed home is no colour reading.
     if home_left_column_brightness(frame) < HOME_DIMMED_P95_THRESHOLD_DEFAULT:
@@ -135,6 +135,14 @@ def _check_colours(task, frame, now: float) -> None:
     check = colour_check.check_settled(frame, task.next_frame, task.sleep)
     if check.distance is None:
         return  # the home top bar is not on screen, or the colours were off only once
+    if check.distorted and not popup_closed and _closed_popup(task):
+        # Live 2K 2026-10-22: the 公告 list dimmed the top bar but not the
+        # left column (钻石 154.6 against 1.0 once it was gone); colours are
+        # read again on the bare home.
+        second = task.next_frame()
+        if second is not None:
+            _check_colours(task, second, now, popup_closed=True)
+        return
     colour_check.remember(check)
     try:
         task.info_set(COLOUR_KEY, check.detail)
@@ -142,6 +150,11 @@ def _check_colours(task, frame, now: float) -> None:
         pass
     if check.distorted:
         _remind(task, COLOUR_MESSAGE, notify=_colour_notify(now))
+
+
+def _closed_popup(task) -> bool:
+    close = getattr(task, "close_known_popup", None)
+    return bool(callable(close) and close("开跑前检查", info_only=True))
 
 
 def accounts_stop(task) -> str:

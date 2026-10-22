@@ -22,7 +22,7 @@ from src.tasks.map_trade.models import ScreenState
 from src.tasks.map_trade.navigator import Navigator
 from src.tasks.map_trade.vision import Vision
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
-from src.utils import known_popups
+from src.utils import field_battle, known_popups
 from src.utils.home_confirmation import HOME_LEFT_COLUMN_REQUIRED_HITS
 from src.utils.ocr_utils import fuzzy_substring_match, normalize_ocr_text
 from src.utils.wait_limits import LOADING_MAX_SECONDS
@@ -76,7 +76,8 @@ TITLE_SCREEN_FUZZY_RATIO = 0.8
 
 def _handle_dialog(task, vision: Vision) -> str:
     """Close one known dialog: "dismissed", "quit" (the game's quit dialog,
-    cancelled), "title" (title screen) or "none"."""
+    cancelled), "title" (title screen), "battle" (a field battle being
+    fought) or "none"."""
 
     frame = task.capture_frame()
     height, width = frame.shape[:2]
@@ -88,9 +89,19 @@ def _handle_dialog(task, vision: Vision) -> str:
         for title in TITLE_SCREEN_TEXTS
     ):
         return "title"
+    if field_battle.in_battle(boxes):
+        # Back, H and Esc do nothing in a battle; Esc even ends the auto
+        # battle (live 2K 2026-10-22, 跑图 第14章).
+        return "battle"
     press = known_popups.pick(boxes, allow_cancel=True)
     if press is None:
         return "none"
+    if press.key == known_popups.ESC_LABEL:
+        tap_escape = getattr(task, "tap_escape", None)
+        if not callable(tap_escape):
+            return "none"
+        task.log_info("恢复主页：公告列表挡住了主页，按 Esc 关闭。")
+        return "dismissed" if tap_escape(after_sleep=1.0) else "none"
     center = task._ocr_box_center(press.box)
     if center is None:
         return "none"
@@ -294,6 +305,14 @@ def _recover_to_home(task, attempts: int) -> bool:
             continue
         if outcome == "dismissed":
             continue
+        if outcome == "battle":
+            leave = getattr(task, "leave_field_battle", None)
+            left = leave("恢复主页") if callable(leave) else "none"
+            if left not in ("left", "none"):
+                task.log_warning(f"恢复主页：撞到怪进了战斗，{left}，回不到主页。", notify=True)
+                _keep_failure_picture(task, navigator)
+                return False
+            continue
         frame = navigator.vision.capture()
         if navigator.clear_home_announcement(frame):
             _wait_home_briefly(task, navigator, BACK_HOME_POLL_SECONDS)
@@ -408,3 +427,21 @@ class ReturnHomeTask(BaseBD2Task):
             return True
         self.info_set("状态", "回到主页失败。")
         return False
+
+
+class FieldBattleEscapeTestTask(BaseBD2Task):
+    """Developer check of the field-battle escape (Leo 2026-10-22): walk into
+    a monster by hand, then run this; it runs away (or presses 离开 on the
+    result) once and says how it went.  Hidden from the tool's task list."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = "野外战斗逃跑测试"
+        self.description = "在战斗画面执行一次：按 Esc 找「逃跑」并逃跑（开发用）。"
+        self.visible = False
+
+    def run(self):
+        left = self.leave_field_battle("逃跑测试")
+        self.log_info(f"逃跑测试结果：{left}")
+        self.info_set("状态", left)
+        return left == "left"

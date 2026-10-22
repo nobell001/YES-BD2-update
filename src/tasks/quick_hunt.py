@@ -1284,7 +1284,8 @@ class QuickHuntFeatureMixin:
             seconds = float(self.config.get("快速狩猎结算等待秒数", LOADING_MAX_SECONDS))
         except (TypeError, ValueError):
             seconds = LOADING_MAX_SECONDS
-        wait = load_wait(monotonic(), seconds, before=scene_at_press(self))
+        # The result is itself an overlay this step reads: no popup closing.
+        wait = load_wait(monotonic(), seconds, before=scene_at_press(self), popups=False)
         while True:
             frame = self.capture_frame()
             reward_text = self._quick_hunt_ocr_text(

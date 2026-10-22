@@ -549,9 +549,9 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         cells = wait_for(items, SLOW_PC_GRACE_SECONDS, sleep=self.sleep, poll=0.8) or []
         return looked["frame"], cells
 
-    def _dismantle_judged(self, cells, stars, frame, grade, colours_distorted):
+    def _dismantle_judged(self, cells, stars, frame, grade, colours_distorted, fresh=False):
         """Judge ``cells`` and dismantle the junk: (ok, failed stage, dismantled)."""
-        junk = self._classify_cells(cells, stars, frame, grade=grade)
+        junk = self._classify_cells(cells, stars, frame, grade=grade, fresh=fresh)
         if junk is None:
             return False, "识别装备", False
         self._junk_left = ""
@@ -595,7 +595,7 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         self.info_set("新装备（黄色!）", len(cells))
         if not cells:
             return True, "", False
-        result = self._dismantle_judged(cells, stars, frame, None, colours_distorted)
+        result = self._dismantle_judged(cells, stars, frame, None, colours_distorted, fresh=True)
         if result[2]:
             # Kept items only looked at do not count: ten new UR / exclusive
             # items used up the whole count, so the R / SR pass never ran and
@@ -819,8 +819,33 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
                 return box
         return options[0] if options else JunkGearTask._box_with(boxes, (keyword,))
 
-    def _close_sort_menu(self) -> None:
-        self._click_reference(*SORT_MENU_CLOSE_POINT, after_sleep=1.0)
+    def _sort_menu_open(self) -> bool:
+        return any("排序" in str(getattr(b, "name", "")) for b in self._sort_menu_boxes())
+
+    def _close_sort_menu(self) -> bool:
+        """Close the menu and see it gone.  Left open it covers the 筛选
+        button (a player's v0.2.4 run, 1920x1080 window 2026-10-21: every
+        later 筛选 tap landed on the menu, R was never filtered and the
+        player's filter could not be put back).  The sort button toggles the
+        menu, so it is pressed only after a full wait shows the menu still
+        there."""
+        for point in (SORT_MENU_CLOSE_POINT, SORT_MENU_CLOSE_POINT, SORT_BUTTON_POINT):
+            self._click_reference(*point, after_sleep=1.0)
+            if wait_for(
+                lambda: not self._sort_menu_open(),
+                SORT_MENU_WAIT_SECONDS,
+                sleep=self.sleep,
+                poll=0.4,
+            ):
+                return True
+        self.log_info(f"{LABEL}：排序菜单关不掉。")
+        return False
+
+    def _close_covering_menu(self) -> None:
+        """The 筛选 button did not open its menu: a sort menu left open may
+        lie over it."""
+        if self._sort_menu_open():
+            self._close_sort_menu()
 
     @staticmethod
     def _sort_state() -> dict:
@@ -1153,6 +1178,7 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         stars: dict[str, int],
         frame=None,
         grade: str | None = "R",
+        fresh: bool = False,
     ) -> list[tuple[int, int]] | None:
         """The junk cells of a bag filtered to ``grade``, or None when a
         detail popup did not open or close.
@@ -1161,6 +1187,9 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         and any label that is not ``grade``.  R is junk from there; SR is
         opened, because it comes as 5★ exclusives too (classify_low_grade).
         ``grade=None`` (no filter): each cell's own R / SR label, others kept.
+        ``fresh``: the cells carry the new-item 「!」 (just drawn, never
+        enhanced): the enhance-badge spot is not read (live 2K 2026-10-22,
+        a new R next to its 「!」 was kept as 已强化).
         """
         junk: list[tuple[int, int]] = []
         report = []
@@ -1174,7 +1203,7 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
                 report.append(f"{where}:保留[已上锁，不点开]")
                 self._kept_reasons.append("上锁")
                 continue
-            kept = self._older_cell_kept(frame, (row, column), badged)
+            kept = self._older_cell_kept(frame, (row, column), badged, fresh=fresh)
             if kept:
                 report.append(f"{where}:保留[{kept}]")
                 self._kept_reasons.append(kept)
@@ -1299,13 +1328,16 @@ class JunkGearTask(BagFilterMixin, NGearCraftMixin, EnhanceDialogMixin, DailyRef
         return badge_text_cells(boxes)
 
     @staticmethod
-    def _older_cell_kept(frame, cell: tuple[int, int], badged) -> str:
-        """Why a cell without "!" is kept, or "" when it may be judged."""
+    def _older_cell_kept(frame, cell: tuple[int, int], badged, fresh: bool = False) -> str:
+        """Why a cell without "!" is kept, or "" when it may be judged
+        (``fresh``: a new item, which cannot be enhanced yet)."""
         if frame is None:
             return "没有画面"
         row, column = cell
         if not slot_icon_shown(frame, (GRID_COLUMNS[column], GRID_ROWS[row])):
             return "穿戴中或认不出"
+        if fresh:
+            return ""
         if badged is None:
             return "格子读不到字"
         if cell in badged or badge_shown(frame, (GRID_COLUMNS[column], GRID_ROWS[row])):

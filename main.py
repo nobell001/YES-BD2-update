@@ -167,10 +167,20 @@ if __name__ == "__main__":
 
         set_process_app_id()
 
+        import sys
+
         from src.compat import single_instance
+        from src.utils import scheduled_start
+
+        # 定时启动 opens the tool with this flag (Leo 2026-10-22).  Taken off
+        # here, after the Administrator copy got it, so a language change or
+        # the 桌面分身 does not start a run again.
+        scheduled_start.launched_by_schedule = scheduled_start.take_flag(sys.argv)
 
         if not single_instance.acquire():
-            single_instance.show_existing()
+            # From 定时启动: the open tool starts the run itself, no message.
+            if not scheduled_start.launched_by_schedule:
+                single_instance.show_existing()
             raise SystemExit(0)
 
         # 不是从启动器打开时（桌面分身等）补上启动器的版本资讯，「检查更新」

@@ -40,6 +40,9 @@ DONE = "done"
 SKIP = "skip"
 FAIL = "fail"
 
+# The batch whose reports go out as 跑完通知 (src/utils/run_notify.py).
+DAILY_LABEL = "一键完成日常"
+
 # Report end states.
 ENDED_DONE = "done"
 ENDED_FAILED = "failed"
@@ -201,6 +204,13 @@ def set_notice(text: str) -> None:
             _active["notice"] = str(text or "")
 
 
+def mark(key: str, value) -> None:
+    """An extra field on the active report (``scheduled`` for 定时启动)."""
+    with _lock:
+        if _active is not None:
+            _active[key] = value
+
+
 def finish(ended: str) -> dict | None:
     """Close the active report, save it and return a copy."""
     global _active
@@ -223,7 +233,21 @@ def finish(ended: str) -> dict | None:
                 _log_row(row, report.get("label"))
         saved = copy.deepcopy(report)
     _save(saved)
+    _notify(saved)
     return saved
+
+
+def _notify(report: dict) -> None:
+    """跑完通知 for 一键完成日常 however its report ends, also one 定时启动
+    wrote for a run that never got going (Leo 2026-10-22 「有問題也要說」)."""
+    if report.get("label") != DAILY_LABEL:
+        return
+    try:
+        from src.utils import run_notify
+
+        run_notify.after_run(report)
+    except Exception as exc:  # never let the message break a run
+        logger.error(f"run notify failed: {exc}")
 
 
 def active() -> dict | None:

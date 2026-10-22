@@ -170,7 +170,12 @@ class BagFilterMixin:
 
     def _open_filter_menu(self) -> bool:
         # The button toggles the menu: click again only after a full wait.
-        for _attempt in range(3):
+        for attempt in range(3):
+            if attempt:
+                # Another menu may lie over the button.
+                close_covering = getattr(self, "_close_covering_menu", None)
+                if callable(close_covering):
+                    close_covering()
             self._click_reference(*FILTER_BUTTON_POINT, after_sleep=0.8)  # 不用确认：等菜单开
             if self._wait_filter_menu(True):
                 self.sleep(0.4)  # the buttons fade in after the title

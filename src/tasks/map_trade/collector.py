@@ -18,6 +18,7 @@ from src.tasks.map_trade.collector_constants import (
     SKILL_FAILURE_EVIDENCE_LIMIT,
     SKILL_FAILURE_TEXT_LIMIT,
     UNSUPPORTED_COLLECTION_CARD_NUMBERS,
+    SUPPRESS_ACTION,
     SearchCountdownSession,
     SkillExecutionResult,
 )
@@ -37,6 +38,12 @@ from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, wait_for
 
 # "卡带单步重试次数"未配置时的默认值。
 CARD_RETRY_DEFAULT = 2
+# A map whose press was cut by a field battle is done again after running
+# away, this many times at most, 压制 first to clear the monsters.
+BATTLE_REDOS_MAX = 2
+AFTER_ESCAPE_ACTIONS = (SUPPRESS_ACTION,) + tuple(
+    action for action in BATTLE_ACTIONS if action is not SUPPRESS_ACTION
+)
 
 
 def chapter_filter(text) -> set[int | str] | None:
@@ -263,6 +270,7 @@ class Collector(SkillExecutionMixin):
             # Maps finished in this pass: a restart walks through them again
             # without pressing anything there.
             done_here: set[str] = set()
+            battled_here: dict[str, int] = {}
             index = 0
             while index < len(order):
                 target = order[index]
@@ -322,7 +330,23 @@ class Collector(SkillExecutionMixin):
                 actions = (
                     (ABSORB_ACTION,) if role is CollectionMapRole.MAIN_AREA else BATTLE_ACTIONS
                 )
+                if target.key in battled_here and role is not CollectionMapRole.MAIN_AREA:
+                    # Leo 2026-10-22 「逃跑完 就優先按壓制 再按其他的」「先把怪清掉」.
+                    actions = AFTER_ESCAPE_ACTIONS
                 result = self._use_actions(actions, card_id=card.card_id, map_role=role)
+                if not result.completed:
+                    # A monster touched the character (live 2K 2026-10-22,
+                    # 第14章 战斗区域2): run away and do this map again (Leo
+                    # 「逃跑完一樣繼續該圖的跑圖流程」), twice at most.
+                    left = self._leave_battle(card, role)
+                    if left == "left" and battled_here.get(target.key, 0) < BATTLE_REDOS_MAX:
+                        battled_here[target.key] = battled_here.get(target.key, 0) + 1
+                        continue
+                    if left not in ("left", "none"):
+                        stopped = self._skip_card(card, f"{role.label}撞到怪进了战斗，{left}", completed_this_run)
+                        if stopped is not None:
+                            return stopped
+                        break
                 if not result.completed:
                     if result.depleted:
                         return self._skill_failure(
@@ -683,6 +707,16 @@ class Collector(SkillExecutionMixin):
         if self._press_probably_taken(result):
             self._unconfirmed_cards.add(card.card_id)
         return self._skip_card(card, problem, completed_this_run)
+
+    def _leave_battle(self, card, role) -> str:
+        """A field battle on screen after a press: see BaseBD2Task.leave_field_battle."""
+        leave = getattr(self.task, "leave_field_battle", None)
+        if not callable(leave):
+            return "none"
+        left = leave(f"地图采集：{card.label}{role.label}")
+        if left == "left":
+            self._status("采集进度", f"{card.card_id} {role.label}：离开战斗，重做这张图")
+        return left
 
     def _note_map_problem(self, card, stage: str, result: SkillExecutionResult) -> None:
         """A map whose press could not be confirmed: kept for the report,

@@ -75,6 +75,8 @@ class Shell(QObject):
         _hide_old_navigation(window)
         _tidy_title_bar(window)
         _use_flat_background(window)
+        theme.sync_fluent_accent()
+        theme.on_theme_changed(self, theme.sync_fluent_accent)
         if window.minimumWidth() < MIN_WIDTH or window.minimumHeight() < MIN_HEIGHT:
             window.setMinimumSize(
                 max(window.minimumWidth(), MIN_WIDTH), max(window.minimumHeight(), MIN_HEIGHT)
@@ -102,8 +104,13 @@ class Shell(QObject):
         self._start_hotkeys()
         from src.ui.shell import autorun
 
-        # The player's 「打开工具就自动跑」 on 首页 (Leo 2026-10-09).
-        QTimer.singleShot(1500, autorun.schedule)
+        # The player's 「打开工具就自动跑」 on 首页 (Leo 2026-10-09), or 定时启动
+        # opened the tool (Leo 2026-10-22).
+        QTimer.singleShot(1500, autorun.schedule_on_open)
+        from src.ui.shell import schedule_ui
+
+        # 定时启动 while the tool is open: the Windows task's copy exits then.
+        self._schedule_watch = schedule_ui.start_watch(self)
         from src.ui.shell import new_setting_notice
 
         # Settings an update changed, shown once (Leo 2026-10-12).

@@ -39,6 +39,7 @@ from src.ui.shell.widgets import (
     fmt_duration,
     grid_container,
     hbox,
+    shell_buttons,
     t,
     tf,
     vbox,
@@ -484,6 +485,7 @@ class FiendPage(Page):
             ),
             self.window(),
         )
+        shell_buttons(box)
         if box.exec():
             delete_turn(folder, turn)
             self._detail_key = None
@@ -1034,6 +1036,7 @@ class _TextDialog:
         self.box.viewLayout.addWidget(self.error)
         self.box.yesButton.setText(t("确定"))
         self.box.cancelButton.setText(t("取消"))
+        shell_buttons(self.box)
         self.box.widget.setMinimumWidth(380)
 
     def exec(self) -> bool:

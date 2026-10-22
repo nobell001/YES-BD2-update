@@ -299,7 +299,7 @@ class CookingFlowMixin:
             self._restore_skill_group(stopped=_stopping())
             if unavailable:
                 self.task.log_info(
-                    "料理：材料不足或按钮不可用，保留为下次重试："
+                    "料理：材料不足（图标变灰或按钮不可用），这次跳过："
                     f"{'、'.join(unavailable)}。"
                 )
             if absent:

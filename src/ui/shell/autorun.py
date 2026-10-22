@@ -65,11 +65,14 @@ def remaining() -> list:
     ]
 
 
-def should_start(in_clone: bool) -> str | None:
-    """None when it should start now, else why not (for the log)."""
+def should_start(in_clone: bool, scheduled: bool = False) -> str | None:
+    """None when it should start now, else why not (for the log).
+
+    ``scheduled``: 定时启动 asked for it, the 首页 box does not matter.
+    """
     if in_clone:
         return "in the clone"
-    if not enabled():
+    if not scheduled and not enabled():
         return "off"
     if not data.executor() or data.busy():
         return "busy"
@@ -78,16 +81,22 @@ def should_start(in_clone: bool) -> str | None:
     return None
 
 
-def maybe_start() -> bool:
-    """Start 一键日常 (only what is left) when the player ticked it."""
-    from src.ui.shell import actions, clone_flow
+def maybe_start(scheduled: bool = False) -> bool:
+    """Start 一键日常 (only what is left) when the player ticked it.
+
+    ``scheduled``: 定时启动 asked; a start that cannot happen (lock screen,
+    not started) leaves a report that says why (schedule_ui).
+    """
+    from src.ui.shell import actions, clone_flow, schedule_ui
     from src.utils.clone_desktop import in_clone
 
-    reason = should_start(in_clone())
+    reason = should_start(in_clone(), scheduled)
     if reason is None and clone_flow.busy_in_clone():
         reason = "running in the clone"
     if reason is not None:
         logger.info(f"auto-run on open: not started ({reason})")
+        return False
+    if scheduled and not schedule_ui.before_start():
         return False
     from src.tasks.DailyBatchTask import RUN_MODE_INCOMPLETE
 
@@ -95,32 +104,44 @@ def maybe_start() -> bool:
         clone_flow.log_in_this_run()  # opens the game and logs in, without asking
     logger.info("auto-run on open: starting 一键完成日常 (only what is left)")
     # No window: nothing to ask, and the game opens on its own if it is closed.
-    return actions.start(data.task_by_name(data.DAILY_BATCH), None, RUN_MODE_INCOMPLETE)
+    started = actions.start(data.task_by_name(data.DAILY_BATCH), None, RUN_MODE_INCOMPLETE)
+    if scheduled:
+        schedule_ui.after_start(started)
+    return started
 
 
-def schedule(delay_ms: int = DELAY_MS) -> bool:
+def schedule(delay_ms: int = DELAY_MS, scheduled: bool = False) -> bool:
     """Count down on 首页, then start (unless the player cancels)."""
     global _due
     from PySide6.QtCore import QTimer
 
     from src.utils.clone_desktop import in_clone
 
-    reason = should_start(in_clone())
+    if _due is not None:
+        return False  # already counting down
+    reason = should_start(in_clone(), scheduled)
     if reason is not None:
         logger.info(f"auto-run on open: not scheduled ({reason})")
         return False
     _due = time.time() + delay_ms / 1000
     logger.info(f"auto-run on open: starting in {delay_ms // 1000} s")
-    QTimer.singleShot(delay_ms, _fire)
+    QTimer.singleShot(delay_ms, lambda: _fire(scheduled))
     return True
 
 
-def _fire() -> None:
+def schedule_on_open() -> bool:
+    """When the tool opens: 定时启动 opened it, or the 首页 box is ticked."""
+    from src.utils import scheduled_start
+
+    return schedule(scheduled=scheduled_start.launched_by_schedule)
+
+
+def _fire(scheduled: bool = False) -> None:
     global _due
     if _due is None:
         return  # cancelled
     _due = None
-    maybe_start()
+    maybe_start(scheduled)
 
 
 def seconds_left() -> int | None:

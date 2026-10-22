@@ -348,6 +348,48 @@ def new_dailies_steps(shell) -> list[Step]:
     ]
 
 
+def run_notify_steps(shell) -> list[Step]:
+    """Leo 2026-10-22 「用戶引導甚麼的 都要做好」: 跑完通知 is new on 设置, off by
+    default."""
+
+    def settings_item():
+        return shell.sidebar.items.get("settings")
+
+    def row():
+        return getattr(shell.pages.get("settings"), "wechat_row", None)
+
+    return [
+        Step(
+            settings_item,
+            "跑完可以发到微信",
+            "一键完成日常跑完，可以把结果发到你自己的微信。默认关闭，设定在「设置」里。",
+        ),
+        Step(
+            row,
+            "跑完发到微信",
+            "打开右边的开关，照着步骤用微信扫码拿到 SendKey，贴上就好。",
+            before=lambda: shell.navigate("settings"),
+        ),
+    ]
+
+
+def schedule_steps(shell) -> list[Step]:
+    """定时启动 is new on 首页, off by default (Leo 2026-10-22)."""
+
+    def card():
+        return getattr(shell.pages.get("home"), "schedule_card", None)
+
+    return [
+        Step(
+            card,
+            "可以定时自动跑日常",
+            "在首页设定几点，时间到了就自动跑一键完成日常，工具没开也会自己打开。"
+            "默认关闭，点这张卡片设定。",
+            before=lambda: shell.navigate("home"),
+        ),
+    ]
+
+
 def _show_once(shell, class_name: str, key: str, steps, on_done: Callable[[], None]) -> bool:
     task = data.task_by_class_name(class_name)
     config = getattr(task, "config", None)
@@ -403,6 +445,20 @@ def show_new_dailies_notice(shell, on_done: Callable[[], None] = lambda: None) -
     return _show_once(shell, "DailyBatchTask", NEW_DAILIES_NOTICE_KEY, new_dailies_steps, on_done)
 
 
+def show_run_notify_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Show 设置's new 跑完发到微信 once after this update."""
+    from src.tasks.DailyBatchTask import RUN_NOTIFY_NOTICE_KEY
+
+    return _show_once(shell, "DailyBatchTask", RUN_NOTIFY_NOTICE_KEY, run_notify_steps, on_done)
+
+
+def show_schedule_notice(shell, on_done: Callable[[], None] = lambda: None) -> bool:
+    """Show 首页's new 定时启动 card once after this update."""
+    from src.tasks.DailyBatchTask import SCHEDULE_NOTICE_KEY
+
+    return _show_once(shell, "DailyBatchTask", SCHEDULE_NOTICE_KEY, schedule_steps, on_done)
+
+
 NOTICES = (
     show_new_dailies_notice,
     show_quick_hunt_notice,
@@ -410,6 +466,8 @@ NOTICES = (
     show_stone_notice,
     show_skill_interval_notice,
     show_close_game_notice,
+    show_run_notify_notice,
+    show_schedule_notice,
 )
 
 

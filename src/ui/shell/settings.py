@@ -24,10 +24,12 @@ from src.ui.shell.widgets import (
     Text,
     Toggle,
     hbox,
+    shell_buttons,
     t,
+    tf,
     vbox,
 )
-from src.utils import game_sound
+from src.utils import game_sound, run_notify
 
 THEME_LABELS = {"light": "淡紫", "dark": "深色", "auto": "跟随系统"}
 # Each language in its own words.  The project's texts are written in
@@ -186,6 +188,8 @@ class SettingsPage(Page):
                 control=self.notify_toggle,
             )
         )
+        notify.addWidget(Separator())
+        self._build_wechat(notify)
 
         self._build_hotkeys()
 
@@ -259,6 +263,61 @@ class SettingsPage(Page):
             )
         )
         self.body.addStretch(1)
+
+    def _build_wechat(self, column) -> None:
+        """跑完通知 (src/utils/run_notify.py, Leo 2026-10-22): off by default; 设定
+        opens the steps to get a Server酱 SendKey."""
+        self.wechat_toggle = Toggle(self._wechat_on())
+        self.wechat_toggle.toggled.connect(self._set_wechat)
+        self.wechat_setup = Button("设定", "secondary", size="sm", on_click=self._setup_wechat)
+        controls = QWidget()
+        row = hbox(controls, (0, 0, 0, 0), 10)
+        row.addWidget(self.wechat_setup)
+        row.addWidget(self.wechat_toggle)
+        self.wechat_row = HubRow("send", "跑完发到微信", "", control=controls)
+        column.addWidget(self.wechat_row)
+        self._show_wechat()
+
+    @staticmethod
+    def _wechat_on() -> bool:
+        return run_notify.enabled() and run_notify.valid(run_notify.sendkey())
+
+    def _show_wechat(self) -> None:
+        key = run_notify.sendkey()
+        if not run_notify.valid(key):
+            self.wechat_row.set_sub("一键完成日常跑完，把结果发到你自己的微信")
+            return
+        at, error = run_notify.last_result()
+        parts = [f"SendKey {run_notify.masked(key)}"]
+        if at is not None:
+            from datetime import datetime
+
+            when = datetime.fromtimestamp(at).strftime("%m/%d %H:%M")
+            if error:
+                parts.append(tf("{when} 没送出：{why}", when=when, why=t(error)))
+            else:
+                parts.append(tf("{when} 已送达", when=when))
+        self.wechat_row.set_sub(" · ".join(parts))
+
+    def _set_wechat(self, on: bool) -> None:
+        if on and not run_notify.valid(run_notify.sendkey()):
+            if not self._setup_wechat():
+                self.wechat_toggle.set_checked_quietly(False)
+            return
+        run_notify.set_enabled(on)
+        self._show_wechat()
+
+    def _setup_wechat(self) -> bool:
+        from src.ui.shell import run_notify_dialog
+
+        key = run_notify_dialog.ask(self.window(), run_notify.sendkey())
+        if key is None:
+            return False
+        run_notify.set_sendkey(key)
+        run_notify.set_enabled(True)
+        self.wechat_toggle.set_checked_quietly(True)
+        self._show_wechat()
+        return True
 
     def _build_hotkeys(self) -> None:
         """暂停、停止、魔兽录制三个键（Leo 2026-10-09，F6~F12，不能重复；
@@ -344,6 +403,7 @@ class SettingsPage(Page):
         )
         box.yesButton.setText(t("还原"))
         box.cancelButton.setText(t("取消"))
+        shell_buttons(box)
         if box.exec():
             self._clone.run_setup(undo=True)
 
@@ -377,6 +437,7 @@ class SettingsPage(Page):
         box = MessageBox(t("换语言"), t("要现在重新打开工具吗？"), self.window())
         box.yesButton.setText(t("现在重开"))
         box.cancelButton.setText(t("等一下"))
+        shell_buttons(box)
         if box.exec():
             from src.ui.shell.relaunch import relaunch
 
@@ -400,6 +461,8 @@ class SettingsPage(Page):
         self._show_language()
         self.notify_toggle.set_checked_quietly(system_notification_on())
         self.mute_toggle.set_checked_quietly(game_sound.enabled())
+        self.wechat_toggle.set_checked_quietly(self._wechat_on())
+        self._show_wechat()
         login = data.task_by_class_name("AutoLoginTask")
         if self.login_toggle is not None and login is not None:
             self.login_toggle.set_checked_quietly(bool(getattr(login, "enabled", False)))

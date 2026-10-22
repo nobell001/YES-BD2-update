@@ -348,8 +348,10 @@ class TradePage(Page):
         head.addWidget(IconTile(icon_name, 30, 17, kind="trade"))
         head.addWidget(Text(title, "h2"))
         if hint:
-            head.addWidget(Text(hint, "muted"))
-        head.addStretch(1)
+            # Long in some languages (Korean was cut, 2026-10-22 check): «…» and a tooltip.
+            head.addWidget(Text(hint, "muted", elide=True), 1)
+        else:
+            head.addStretch(1)
         done = Text("", "pill")
         done.setProperty("tone", "ok")
         done.hide()
@@ -373,18 +375,22 @@ class TradePage(Page):
 
     def _build_buy(self) -> None:
         column = self.buy_card.column
+        # The cartridge and the merchant on one line, the words under them
+        # across the card: between the two pictures 「Chapter 1 Merchant」 was
+        # cut, then one word a line (2026-10-22 check).
         row = hbox(None, (0, 0, 0, 0), 12)
         picture = Picture(data.cartridge_picture("S1"), fixed=QSize(84, 64))
-        row.addWidget(picture)
-        texts = vbox(None, (0, 0, 0, 0), 2)
-        texts.addWidget(Text("第一章商人", "h3"))
-        texts.addWidget(Text("砍价，买下收藏的商品", "muted", wrap=True))
-        row.addLayout(texts, 1)
+        row.addWidget(picture, 0, Qt.AlignBottom)
+        row.addStretch(1)
         self.bargain_button = StickerButton(data.bargain_picture(), 96)
         self.bargain_button.clicked.connect(self._open_bargain)
         attach_hint(self.bargain_button, t("练砍价技能"), below=True)
         row.addWidget(self.bargain_button, 0, Qt.AlignTop)
         column.addLayout(row)
+        texts = vbox(None, (0, 0, 0, 0), 2)
+        texts.addWidget(Text("第一章商人", "h3", wrap=True))
+        texts.addWidget(Text("砍价，买下收藏的商品", "muted", wrap=True))
+        column.addLayout(texts)
         self.bargain_running = QWidget()
         running = hbox(self.bargain_running, (0, 0, 0, 0), 8)
         running.addWidget(IconLabel("loader-circle", 15, "primary"))

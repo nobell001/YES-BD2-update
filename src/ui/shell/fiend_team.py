@@ -31,6 +31,7 @@ from src.ui.shell.widgets import (
     clear_layout,
     grid_container,
     hbox,
+    shell_buttons,
     t,
     tf,
     vbox,
@@ -496,6 +497,7 @@ def edit_teams(
     box.viewLayout.addWidget(editor)
     box.yesButton.setText(t("确定"))
     box.cancelButton.setText(t("取消"))
+    shell_buttons(box)
     if not box.exec():
         return None
     return editor.changed_teams()

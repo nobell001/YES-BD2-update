@@ -6,7 +6,7 @@ import time
 
 from PySide6.QtCore import QRectF, Qt, Signal
 from PySide6.QtGui import QFont, QPainter, QPixmap
-from PySide6.QtWidgets import QSizePolicy, QWidget
+from PySide6.QtWidgets import QGridLayout, QSizePolicy, QWidget
 
 from src.ui.shell import actions, data, icons, motion, skill_interval_dialog, theme
 from src.ui.shell.config_form import ConfigForm
@@ -245,20 +245,25 @@ class MapPage(Page):
         head.addWidget(self.skill_foot)
         skill_column.addLayout(head)
         self.meters = {}
-        for name, icon_name in SKILLS:
-            row = hbox(None, (0, 0, 0, 0), 10)
-            row.addWidget(IconLabel(icon_name, 15, "ink2"))
-            label = Text(name, "sub")
-            label.setFixedWidth(34)
-            row.addWidget(label)
+        # One grid, so the names share a column as wide as the longest one in
+        # this language (a fixed 34 px cut 「Absorb」 to 「Absor」, 2026-10-22
+        # check) and the bars still start together.
+        rows = QGridLayout()
+        rows.setContentsMargins(0, 0, 0, 0)
+        rows.setHorizontalSpacing(10)
+        rows.setVerticalSpacing(10)
+        rows.setColumnStretch(2, 1)
+        for line, (name, icon_name) in enumerate(SKILLS):
+            rows.addWidget(IconLabel(icon_name, 15, "ink2"), line, 0)
+            rows.addWidget(Text(name, "sub"), line, 1)
             bar = Bar(height=8)
-            row.addWidget(bar, 1)
+            rows.addWidget(bar, line, 2)
             value = Text("", "sub")
             value.setMinimumWidth(56)
             value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            row.addWidget(value)
-            skill_column.addLayout(row)
+            rows.addWidget(value, line, 3)
             self.meters[name] = (bar, value)
+        skill_column.addLayout(rows)
         grid.addWidget(skills)
         self.body.addWidget(top)
 

@@ -623,6 +623,11 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
         if last is not None and now - last < GUILD_POPUP_TAP_SECONDS:
             return
         self._popup_tapped_at = now
+        # A popup the shared closer knows first (live 2K 2026-10-22: the
+        # 公告 list over 主页 carries 签到 words; the blank spot is outside it
+        # and the run stood still until stopped).
+        if self.close_known_popup("公会签到", info_only=True):
+            return
         self.log_info("公会签到：看到「签到成功」类文字但不是公会页面（别的弹窗），点空白处关掉。")
         self.operate_click(  # 不用确认：调用方接着看公会页面或主页
             *HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT, after_sleep=0.5
@@ -657,10 +662,11 @@ class DailyTask(TaskVisionMixin, QuickHuntConfigMixin, BaseBD2Task):
                 # login popup covered the left column; the sign-in itself
                 # had worked).  Tap the blank spot once, as for the login
                 # notices, and look again.
-                self.log_info("公会签到：已离开公会页面，但主页被弹窗挡住，点空白处关掉再确认。")
-                self.operate_click(  # 不用确认：下一行看主页
-                    *HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT, after_sleep=1.0
-                )
+                if not self.close_known_popup("公会签到返回主页", info_only=True):
+                    self.log_info("公会签到：已离开公会页面，但主页被弹窗挡住，点空白处关掉再确认。")
+                    self.operate_click(  # 不用确认：下一行看主页
+                        *HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT, after_sleep=1.0
+                    )
                 home_ok = self._wait_for_home_confirmation("公会签到返回主页", timeout=4.0)
                 break
             self.log_info(

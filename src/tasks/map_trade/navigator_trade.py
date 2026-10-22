@@ -91,7 +91,12 @@ from src.utils.fantasia_square import (
     square_shown,
 )
 from src.utils.field_followers import dismiss_once_per_run
+from src.utils.press_confirm import wait_for
 from src.utils.wait_limits import STUCK_SECONDS, ProgressWait, StillTimer, scene_at_press
+
+# After closing a shop with no discount-close dialog, how long the merchant
+# menu (or the field) is looked for.
+MERCHANT_BACK_LOOK_SECONDS = 2.0
 
 # The skill is full and must be starred up by the player (user choice,
 # 2026-09-28: skip buying and say so, never buy at full price).
@@ -1129,7 +1134,16 @@ class TradeNavigationMixin:
             quiet=True,
         ):
             self.task.operate_click(*DISCOUNT_SHOP_CLOSE_POINT, after_sleep=0.8)
-        elif self.classify_trade() not in (ScreenState.MERCHANT_DIALOG, ScreenState.SANDBOX):
+        elif not wait_for(
+            # The discount shop closed earlier this visit asks nothing: the
+            # merchant menu comes straight back, a moment later (live 2K
+            # 2026-10-22: read once mid-change, a whole return pass redone).
+            lambda: self.classify_trade() in (ScreenState.MERCHANT_DIALOG, ScreenState.SANDBOX),
+            MERCHANT_BACK_LOOK_SECONDS,
+            sleep=self.task.sleep,
+            poll=0.4,
+            clock=monotonic,
+        ):
             return NavigationResult(
                 False,
                 self.classify(),

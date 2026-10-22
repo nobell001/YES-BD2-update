@@ -143,6 +143,36 @@ def read_loading_sign(frame) -> str:
         return ""
 
 
+# Reads a frame's screen for a known popup (src/utils/known_popups: a season
+# reward overlay, the 公告 list...) and closes it with its harmless press;
+# True when one was closed.  The running task sets it, like the loading
+# reader, so every page wait closes a popup that covers the page it waits
+# for (live 2K 2026-10-22: 魔兽追踪者赛季奖励 over 餐厅 stopped 一键日常 for
+# 45 s; only the next run's recovery closed it).
+_popup_closer = None
+# A page wait looks for such a popup once it has waited this long without its
+# page, and again after each further stretch; at most POPUP_CLOSES_MAX closes.
+POPUP_LOOK_SECONDS = 4.0
+POPUP_CLOSES_MAX = 3
+
+
+def set_popup_closer(closer) -> None:
+    global _popup_closer
+    _popup_closer = closer
+
+
+def close_popup() -> bool:
+    closer = _popup_closer
+    if closer is None:
+        return False
+    try:
+        return bool(closer())
+    except Exception as exc:
+        if type(exc).__name__ in ("TaskDisabledException", "FinishedException"):
+            raise
+        return False
+
+
 class ProgressWait:
     """A wait that ends after STUCK_SECONDS without progress, or after
     LOADING_MAX_SECONDS in all.  A loading screen or a moving picture is
@@ -151,7 +181,10 @@ class ProgressWait:
     With ``before`` (the screen right before the press, ``scene_at_press``),
     a still screen that the press changed is loading and stops only after
     CHANGED_LOAD_SECONDS; one the press left as it was (按了没反应) after
-    ``stuck``."""
+    ``stuck``.
+
+    With ``popups``, a popup covering the page (``close_popup``) is closed
+    every POPUP_LOOK_SECONDS the page has not come, and the wait goes on."""
 
     def __init__(
         self,
@@ -159,16 +192,22 @@ class ProgressWait:
         stuck: float = STUCK_SECONDS,
         cap: float = LOADING_MAX_SECONDS,
         before=None,
+        popups: bool = False,
     ):
         self.still = StillTimer()
         self.stuck = stuck
         self.cap_at = now + cap
         self.before = before
+        self.popup_look_at = now + POPUP_LOOK_SECONDS if popups else None
+        self.popup_closes = 0
 
     def over(self, frame, now: float, loading: bool = False) -> bool:
         if now >= self.cap_at:
             return True
         if loading:
+            self.still.reset()
+            return False
+        if self._closed_popup(now):
             self.still.reset()
             return False
         limit = self.stuck
@@ -183,18 +222,31 @@ class ProgressWait:
             return False
         return True
 
+    def _closed_popup(self, now: float) -> bool:
+        if self.popup_look_at is None or now < self.popup_look_at:
+            return False
+        if self.popup_closes >= POPUP_CLOSES_MAX:
+            return False
+        closed = close_popup()
+        self.popup_look_at = now + POPUP_LOOK_SECONDS
+        if closed:
+            self.popup_closes += 1
+        return closed
 
-def load_wait(now: float, seconds, before=None) -> ProgressWait:
+
+def load_wait(now: float, seconds, before=None, popups: bool = True) -> ProgressWait:
     """A wait for a page that comes after a loading screen (Leo 2026-10-15
     「你單純等載入怎麼可以改成只等10秒」): ``seconds`` (a saved setting) or
     LOADING_MAX_SECONDS in all, whichever is longer; it gives up sooner only
     on a screen that stands still, not loading, for STUCK_SECONDS (or the
     shorter ``seconds``), or CHANGED_LOAD_SECONDS when ``before`` shows the
-    press changed the screen."""
+    press changed the screen.  A popup covering the page is closed on the
+    way (``popups``; off for a wait whose page is itself a result overlay)."""
     seconds = max(0.0, float(seconds))
     return ProgressWait(
         now,
         stuck=min(seconds, STUCK_SECONDS),
         cap=max(seconds, LOADING_MAX_SECONDS),
         before=before,
+        popups=popups,
     )

@@ -25,7 +25,7 @@ from src.ui.quest_ui import install_quest_ui
 
 # This marker is replaced with the Git tag when PyAppify creates the update
 # repository.  Source checkouts always read the project version from pyproject.
-version = "v0.2.6"
+version = "v0.2.7"
 
 
 def runtime_version(project_file: Path | None = None) -> str:
@@ -211,6 +211,7 @@ config = {
         ["src.tasks.DoomBookTask", "DoomBookTask"],
         ["src.tasks.AffinityTalkTask", "AffinityTalkTask"],
         ["src.tasks.recovery", "ReturnHomeTask"],
+        ["src.tasks.recovery", "FieldBattleEscapeTestTask"],
         ["src.tasks.BD2InputTestTask", "BD2MouseClickInputTestTask"],
         ["src.tasks.BD2InputTestTask", "BD2MouseWheelInputTestTask"],
         ["src.tasks.LauncherTask", "LauncherTask"],

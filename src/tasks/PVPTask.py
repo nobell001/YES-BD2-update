@@ -1847,7 +1847,10 @@ class PVPTask(BaseBD2Task):
     def _click_leave_button(self) -> bool:
         # The result page comes after the battle ends: a load wait (Leo
         # 2026-10-15 「你單純等載入怎麼可以改成只等10秒」).
-        wait = load_wait(monotonic(), self._load_seconds("PVP 离开等待秒数"), before=scene_at_press(self))
+        # The result is itself an overlay this step reads: no popup closing.
+        wait = load_wait(
+            monotonic(), self._load_seconds("PVP 离开等待秒数"), before=scene_at_press(self), popups=False
+        )
         last_text = ""
         while True:
             frame = self.capture_frame()

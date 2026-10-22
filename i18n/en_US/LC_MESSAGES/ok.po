@@ -3147,18 +3147,13 @@ msgid "全部做完且没有失败后关闭游戏"
 msgstr "Close the game when everything is done with no failure"
 
 msgid "一键完成日常没有任何一项失败、且全部已启用子任务今日均已完成（含运行前就已完成的项目）后，关闭游戏。"
-msgstr ""
-"Closes the game after Run All Dailies when no item failed and every enabled "
-"item is done today (including ones done before the run)."
+msgstr "Closes the game after Run All Dailies when no item failed and every enabled item is done today (including ones done before the run)."
 
 msgid "做完后可以关闭游戏"
 msgstr "The game can now close when done"
 
 msgid "按「一键完成日常」后，确认视窗左下角可以勾「全部做完且没有失败后关闭游戏」。默认不勾。"
-msgstr ""
-"After pressing \"Run All Dailies\", tick \"Close the game when everything is"
-" done with no failure\" at the bottom left of the confirm window. Off by "
-"default."
+msgstr "After pressing \"Run All Dailies\", tick \"Close the game when everything is done with no failure\" at the bottom left of the confirm window. Off by default."
 
 msgid "全部做完了，照设定关闭了游戏"
 msgstr "All done; the game was closed as set"
@@ -3207,3 +3202,194 @@ msgstr "Every day it goes to the Tower of Redemption in Evil Castle and uses Qui
 
 msgid "每天在主页的亲密度和服装谈心，按题库选答案。不想跑就点它，关掉右边的「加入一键完成日常」。"
 msgstr "Every day it counsels costumes under Affinity on the home screen, picking answers from the answer list. To skip it, click it and turn off \"Add to Run All Dailies\" on the right."
+
+msgid "定时启动"
+msgstr "Scheduled Start"
+
+msgid "关掉就完全取消，Windows 里也不留"
+msgstr "Turning it off cancels it completely, nothing is left in Windows"
+
+msgid "点这里设定几点自动跑"
+msgstr "Click to set when it runs by itself"
+
+msgid "没有开着的时段，点这里设定"
+msgstr "No time slot is on, click to set"
+
+msgid "下次 · 今天"
+msgstr "Next · today"
+
+msgid "下次 · 明天"
+msgstr "Next · tomorrow"
+
+msgid "下次 · 周{weekday}"
+msgstr "Next · {weekday}"
+
+msgid "{n} 个时段，点这里设定"
+msgstr "{n} time slots, click to set"
+
+msgid "电脑睡着时叫不醒：Windows 不让打开唤醒定时器"
+msgstr "Can't wake the PC from sleep: Windows won't turn on wake timers"
+
+msgid "Windows 没有接受这个设定：{why}"
+msgstr "Windows did not accept this setting: {why}"
+
+msgid "原因不明"
+msgstr "unknown reason"
+
+msgid "每天 {time}，游戏重置后 {m} 分钟"
+msgstr "Every day {time}, {m} min after the game reset"
+
+msgid "删除这个时段"
+msgstr "Delete this time slot"
+
+msgid "游戏每天重置后"
+msgstr "After the daily game reset"
+
+msgid "只开关这个时段"
+msgstr "Turn only this time slot on or off"
+
+msgid "时间到自动打开游戏，跑今天还没做的"
+msgstr "Opens the game at the set time and runs what is left today"
+
+msgid "新增时段"
+msgstr "Add time slot"
+
+msgid "加回「游戏每天重置后」"
+msgstr "Add back \"After the daily game reset\""
+
+msgid "电脑睡着时叫醒它"
+msgstr "Wake the PC from sleep"
+
+msgid "睡眠中会被叫醒；完全关机的电脑叫不醒"
+msgstr "A sleeping PC is woken; a PC that is shut down cannot be"
+
+msgid "做完关闭游戏"
+msgstr "Close the game when done"
+
+msgid "做完关机"
+msgstr "Shut down when done"
+
+msgid "全部做完且没有失败时才会做；手动按开始也一样"
+msgstr "Only when everything is done with no failure; also for runs you start yourself"
+
+msgid "保存"
+msgstr "Save"
+
+msgid "定时启动跑的那次，全部做完且没有失败时才会做"
+msgstr "Only for runs Scheduled Start begins, when everything is done with no failure"
+
+msgid "电脑停在锁屏画面，工具没办法操作游戏，这次没有跑。要让定时启动能跑，Windows 睡醒后不能要求输入密码。"
+msgstr "The PC was at the lock screen, so the tool could not control the game and nothing ran. For Scheduled Start to work, Windows must not ask for a password after waking."
+
+msgid "一键日常没能开始（可能有别的任务正在跑），这次没有跑。"
+msgstr "Run All Dailies could not start (another task may be running), so nothing ran."
+
+msgid "等了 {m} 分钟，游戏还是没打开或没登录进去，这次没有跑。"
+msgstr "Waited {m} min but the game did not open or log in, so nothing ran."
+msgid "网络连不上 Server酱，看看电脑有没有连网"
+msgstr "Can't reach Server酱. Check that the PC is online"
+
+msgid "SendKey 不对，请重新复制贴上"
+msgstr "The SendKey is wrong. Copy and paste it again"
+
+msgid "SendKey 格式不对：要贴 SCT 开头的那一串"
+msgstr "That's not a SendKey: paste the string that starts with SCT"
+
+msgid "今天的免费次数用完了（每天 5 则），明天会恢复"
+msgstr "Today's free messages are used up (5 a day). They come back tomorrow"
+
+msgid "Server酱 回复：{message}"
+msgstr "Server酱 replied: {message}"
+
+msgid "YES-BD2 测试"
+msgstr "YES-BD2 test"
+
+msgid "收到这则，跑完通知就设定好了。"
+msgstr "If you got this, run notifications are set up."
+
+msgid "日常 {day}：没有开始跑"
+msgstr "Dailies {day}: did not start"
+
+msgid "日常 {day}：中途停了"
+msgstr "Dailies {day}: stopped partway"
+
+msgid "日常 {day}：{n} 项失败"
+msgstr "Dailies {day}: {n} failed"
+
+msgid "日常 {day}：全部完成"
+msgstr "Dailies {day}: all done"
+
+msgid "完成 {n} 项"
+msgstr "{n} done"
+
+msgid "失败 {n} 项"
+msgstr "{n} failed"
+
+msgid "跳过 {n} 项"
+msgstr "{n} skipped"
+
+msgid "用时 {n} 分钟"
+msgstr "Took {n} min"
+
+msgid "跑完发到微信"
+msgstr "Send results to WeChat"
+
+msgid "一键完成日常跑完，把结果发到你自己的微信"
+msgstr "When Run All Dailies ends, send the results to your own WeChat"
+
+msgid "点下面的按钮，打开 Server酱 网站"
+msgstr "Click the button below to open the Server酱 site"
+
+msgid "用微信扫码登录，照网页提示关注公众号"
+msgstr "Scan the code with WeChat to log in, then follow the official account as the page says"
+
+msgid "复制 SCT 开头的那一串 SendKey"
+msgstr "Copy the SendKey that starts with SCT"
+
+msgid "贴到下面，按「发测试」，微信收到就好了"
+msgstr "Paste it below and press \"Send test\". Done once WeChat gets it"
+
+msgid "打开 Server酱 网站"
+msgstr "Open Server酱 site"
+
+msgid "贴上 SendKey"
+msgstr "Paste SendKey"
+
+msgid "只发完成几项、失败原因和用时，不发账号名称和电脑名称。免费版每天 5 则，一天跑一次只用 1 则。"
+msgstr "Only sends how many items were done, why any failed and how long it took; never account or PC names. Free plan: 5 a day; one run uses 1."
+
+msgid "测试已送达，看看微信"
+msgstr "Test sent. Check WeChat"
+
+msgid "正在发…"
+msgstr "Sending…"
+
+msgid "认出 SendKey 了"
+msgstr "SendKey recognised"
+
+msgid "发测试"
+msgstr "Send test"
+
+msgid "{when} 没送出：{why}"
+msgstr "{when} not sent: {why}"
+
+msgid "{when} 已送达"
+msgstr "{when} sent"
+
+msgid "跑完可以发到微信"
+msgstr "Results can go to WeChat"
+
+msgid "一键完成日常跑完，可以把结果发到你自己的微信。默认关闭，设定在「设置」里。"
+msgstr "When Run All Dailies ends, the results can be sent to your own WeChat. Off by default; it's in Settings."
+
+msgid "打开右边的开关，照着步骤用微信扫码拿到 SendKey，贴上就好。"
+msgstr "Turn on the switch at the right, follow the steps to get a SendKey by scanning with WeChat, and paste it."
+
+msgid "登录卡住了，游戏一直没进到主页，一键日常没有开始跑。请看一下游戏画面"
+msgstr "Login is stuck: the game never reached the home screen, so Run All Dailies did not start. Please check the game screen"
+
+msgid "可以定时自动跑日常"
+msgstr "Dailies can now run on a schedule"
+
+msgid "在首页设定几点，时间到了就自动跑一键完成日常，工具没开也会自己打开。默认关闭，点这张卡片设定。"
+msgstr "Set the times on Home and Run All Dailies starts on its own at those times, opening the tool if it is closed. Off by default; click this card to set it up."

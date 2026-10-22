@@ -35,7 +35,7 @@ from src.utils.image_utils import (
     template_match_response,
     to_gray,
 )
-from src.utils import frame_recorder, known_popups, ocr_reread
+from src.utils import field_battle, frame_recorder, known_popups, ocr_reread
 from src.utils.frozen_screen import (
     FROZEN_SCREEN_SECONDS,
     INEFFECTIVE_PRESSES,
@@ -48,7 +48,7 @@ from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS, PressOutcome
 from src.utils.press_confirm import press_and_confirm as _press_and_confirm
 from src.utils.template_resolution import offline_template_scale
-from src.utils.wait_limits import scene, set_loading_reader
+from src.utils.wait_limits import STUCK_SECONDS, scene, set_loading_reader, set_popup_closer
 
 logger = Logger.get_logger(__name__)
 PROBE_OUTPUT_DIR = Path("probe_outputs")
@@ -566,6 +566,8 @@ class BaseBD2Task(BaseTask):
         # Every wait asks the task looking at the game whether a still screen
         # shows the loading ring or a loading word before calling it stuck.
         set_loading_reader(self._loading_words_on)
+        # ...and closes a popup that covers the page it waits for.
+        set_popup_closer(self._close_popup_in_wait)
         watch = getattr(self, "_frozen_watch", None)
         if watch is not None:
             try:
@@ -801,8 +803,12 @@ class BaseBD2Task(BaseTask):
         See ``src.utils.press_confirm``: one more press after 1.5 s while the
         screen from before is still shown (``still_before``), never for
         presses that can spend something (``retries=0``).
+
+        Not confirmed: a known popup that swallowed the press (the 公告 list,
+        a season reward overlay) is closed and the press made once more,
+        only while the screen from before is still shown.
         """
-        return _press_and_confirm(
+        outcome = _press_and_confirm(
             label,
             press,
             confirmed,
@@ -810,6 +816,26 @@ class BaseBD2Task(BaseTask):
             log=self.log_info,
             **options,
         )
+        still_before = options.get("still_before")
+        if outcome or still_before is None or options.get("retries", 1) <= 0:
+            return outcome
+        if not self.close_known_popup(label, info_only=True):
+            return outcome
+        if confirmed():
+            return PressOutcome(True, outcome.presses, "late")
+        if not still_before():
+            return outcome
+        self.log_info(f"{label}：关掉挡住的弹窗后再按一次。")
+        again = _press_and_confirm(
+            label,
+            press,
+            confirmed,
+            sleep=self.sleep,
+            log=self.log_info,
+            **{**options, "retries": 0},
+        )
+        reason = "confirmed-after-retry" if again else again.reason
+        return PressOutcome(again.confirmed, outcome.presses + again.presses, reason)
 
     def look_again(
         self,
@@ -876,6 +902,9 @@ class BaseBD2Task(BaseTask):
             known_popups.CANCEL_TEXT,
         ):
             press = None
+        if press is not None and press.key == known_popups.ESC_LABEL:
+            self.log_info(f"{label}：画面被公告列表挡住，按 Esc 关闭后再看。")
+            return bool(self.tap_escape(after_sleep=1.0))
         center = self._ocr_box_center(press.box) if press is not None else None
         if center is None:
             return False
@@ -883,6 +912,96 @@ class BaseBD2Task(BaseTask):
         self.log_info(f"{label}：画面被弹窗挡住，点击「{press.label}」关闭后再看。")
         self.operate_click(center[0] / width, center[1] / height, after_sleep=1.0)  # 不用确认：调用方接着重看页面
         return True
+
+    def leave_field_battle(self, label: str, boxes=None) -> str:
+        """A field battle on screen (src/utils/field_battle): run away from
+        it, or press 「离开」 on its result.  "none" (no battle here), "left"
+        (back on the field) or why it could not be left.
+
+        Leo 2026-10-22 「判定進戰鬥 就直接按esc 1秒按一下 最多按4下 看到有逃跑就
+        不按」 (with auto battle on, the first Esc ends it, the next opens the
+        menu)."""
+        if boxes is None:
+            boxes = self._battle_boxes()
+        button = field_battle.leave_button(boxes)
+        if button is not None:
+            return self._press_battle_leave(label, button)
+        if field_battle.flee_confirm_button(boxes) is not None:
+            # The run-away dialog already open (a press before this look).
+            self.log_info(f"{label}：逃跑确认框开着，按「逃跑」。")
+            return self._confirm_flee(label, boxes)
+        if not field_battle.in_battle(boxes):
+            return "none"
+        self.log_info(f"{label}：撞到怪进了战斗，按 Esc 叫出选单逃跑。")
+        self.info_set("野外战斗", "逃跑")
+        menu = boxes
+        for _press in range(field_battle.ESC_PRESSES_MAX):
+            if field_battle.flee_button(menu) is not None or field_battle.leave_button(menu) is not None:
+                break
+            if not self.tap_escape(after_sleep=field_battle.ESC_EVERY_SECONDS):
+                return "Esc 没有送到游戏（游戏窗口不在最前面）"
+            menu = self._battle_boxes()
+        button = field_battle.leave_button(menu)
+        if button is not None:  # it ended while we pressed
+            return self._press_battle_leave(label, button)
+        flee = field_battle.flee_button(menu)
+        if flee is None:
+            seen = "、".join(str(getattr(box, "name", "")) for box in menu[:8]) or "没读到字"
+            return (
+                f"按了{field_battle.ESC_PRESSES_MAX}次 Esc 都没看到「逃跑」（读到：{seen}）"
+            )
+        self._click_battle_box(flee, after_sleep=1.5)
+        return self._confirm_flee(label, self._battle_boxes())
+
+    def _confirm_flee(self, label: str, boxes) -> str:
+        """After 「逃跑」: press the dialog's 逃跑 (once) and wait for the map."""
+        end_at = monotonic() + STUCK_SECONDS
+        confirmed = False
+        while True:
+            confirm = field_battle.flee_confirm_button(boxes)
+            if confirm is not None and not confirmed:
+                confirmed = True
+                self.log_info(f"{label}：逃跑确认框，按「{getattr(confirm, 'name', '')}」。")
+                self._click_battle_box(confirm, after_sleep=1.5)
+                boxes = self._battle_boxes()
+                continue
+            if not field_battle.in_battle(boxes) and field_battle.flee_button(boxes) is None:
+                self.log_info(f"{label}：已逃跑，回到地图继续。")
+                return "left"
+            if monotonic() >= end_at:
+                return f"按了「逃跑」{STUCK_SECONDS:.0f}秒还在战斗画面"
+            self.sleep(0.5)
+            boxes = self._battle_boxes()
+
+    def _battle_boxes(self):
+        return list(self.ocr(frame=self.capture_frame(), name="野外战斗", reread=False) or [])
+
+    def _click_battle_box(self, box, after_sleep: float) -> bool:
+        center = self._ocr_box_center(box)
+        if center is None:
+            return False
+        frame = self.capture_frame()
+        height, width = frame.shape[:2]
+        self.operate_click(center[0] / width, center[1] / height, after_sleep=after_sleep)  # 不用确认：调用方接着看画面
+        return True
+
+    def _press_battle_leave(self, label: str, button) -> str:
+        self.log_info(f"{label}：野外战斗已结束，点击「离开」回到地图。")
+        if not self._click_battle_box(button, after_sleep=2.0):
+            return "战斗结算的「离开」位置读不到"
+        return "left"
+
+    def _close_popup_in_wait(self) -> bool:
+        """A page wait (wait_limits.load_wait) that has not seen its page:
+        close a popup covering it.  Info popups only (never 关闭/取消, which
+        could belong to a dialog the step opened itself)."""
+        if getattr(self, "_closing_popup_in_wait", False):
+            return False
+        self._closing_popup_in_wait = True
+        try:
+            return self.close_known_popup(getattr(self, "name", "") or "等待页面", info_only=True)
+        finally:
+            self._closing_popup_in_wait = False
 
     @staticmethod
     def _click_log_message(x, y, width: int, height: int, action_name: str) -> str:
