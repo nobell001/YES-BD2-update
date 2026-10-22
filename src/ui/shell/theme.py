@@ -93,6 +93,10 @@ LIGHT = {
     "badge_run": _LAV_SOFT,
     "badge_run_ink": _LAV,
     "badge_ok": "#E4F1EF",
+    # 必看 on 使用说明: the dusty rose, a step deeper so the small text reads
+    # (Leo 2026-10-22 「沒那麼違和的紅字」)
+    "badge_must": "#FAEBEF",
+    "badge_must_ink": "#BF5F78",
     "box": "#FFFFFF",
     "box_line": "#FFFFFF",
     "row_on": _LAV_SOFT,
@@ -175,6 +179,8 @@ DARK = {
     "badge_run": _NIGHT_SOFT,
     "badge_run_ink": "#B4ABF6",
     "badge_ok": "#1F3534",
+    "badge_must": _mix("#D4788C", _NIGHT_CARD, 0.18),
+    "badge_must_ink": "#E597A8",
     "box": _NIGHT_CARD,
     "box_line": _NIGHT_CARD,
     "row_on": _NIGHT_SOFT,
@@ -364,6 +370,9 @@ QLabel[role="muted"] {{ color: {t["ink3"]}; font-size: 12px; }}
 QLabel[role="eyebrow"] {{ color: {t["ink3"]}; font-size: 12px; }}
 QLabel[role="guide"] {{ font-size: 16px; }}
 QLabel[role="guide_note"] {{ color: {t["ink2"]}; font-size: 15px; }}
+QLabel[role="card_title"] {{ font-size: 17px; font-weight: 700; }}
+QLabel[role="card_desc"] {{ color: {t["ink2"]}; font-size: 13px; }}
+QLabel[role="pill"][tone="must"] {{ color: {t["badge_must_ink"]}; background: {t["badge_must"]}; border-color: {t["badge_must"]}; font-weight: 700; }}
 QLabel[role="big"] {{ font-size: 26px; font-weight: 700; }}
 QLabel[role="huge"] {{ font-size: 30px; font-weight: 700; }}
 QLabel[role="big"][tone="ok"] {{ color: {t["ok"]}; }}
@@ -385,6 +394,8 @@ QLabel[role="tag"] {{ color: {t["tag_ink"]}; background: {t["tag"]}; border-radi
 QFrame[card="true"] {{ background: transparent; border: none; }}
 QFrame[box="true"] {{ background: {t["box"]}; border: 1px solid {t["box_line"]}; border-radius: {inset}px; }}
 QFrame[inset="true"] {{ background: {t["inset"]}; border: none; border-radius: {inset}px; }}
+QFrame[inset="true"][outlined="true"] {{ border: 1px solid transparent; }}
+QFrame[inset="true"][outlined="true"][bad="true"] {{ border: 1px solid {t["bad"]}; }}
 QFrame[sep="true"] {{ background: {t["line"]}; border: none; max-height: 1px; min-height: 1px; }}
 
 QPushButton {{ font-size: 13px; border-radius: {button}px; min-height: 32px; max-height: 32px;
@@ -416,7 +427,7 @@ QPushButton[size="sm"] {{ min-height: 28px; max-height: 28px; font-size: 12px; p
 QFrame[segmented="true"] {{ background: {t["inset"]}; border: 1px solid {rgba("ink3", 0.38)};
     border-radius: {seg}px; }}
 QPushButton[seg="true"] {{ background: transparent; color: {t["ink2"]}; border: none; border-radius: {seg_item}px;
-    min-height: 26px; max-height: 26px; padding: 0px 12px; font-size: 12px; }}
+    min-height: 26px; max-height: 999px; padding: 0px 12px; font-size: 12px; }}
 QPushButton[seg="true"]:hover {{ color: {t["ink"]}; }}
 QPushButton[seg="true"]:checked {{ background: transparent; color: {t["ink"]}; font-weight: 700;
     border: 1px solid transparent; }}

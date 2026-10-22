@@ -489,6 +489,11 @@ def _ready() -> bool:
 
 
 def schedule(shell, delay_ms: int = 2500) -> None:
+    from src.compat.quiet_scheduled_open import scheduled
+
+    if scheduled():
+        return  # 定时启动 opened the tool: nobody to walk; the next open shows them
+
     def check() -> None:
         if not _ready():
             QTimer.singleShot(RETRY_MS, guarded("new setting notice", check))

@@ -12,12 +12,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer
+from PySide6.QtCore import QPoint, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPixmap
-from PySide6.QtWidgets import QDialog, QFileDialog, QLabel, QLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QLabel, QWidget
 
-from src.ui.shell import cover, data, icons, motion, theme
-from src.ui.shell.run_confirm import HeroIcon, Panel
+from src.ui.shell import data, icons, motion, theme
+from src.ui.shell.floating import Floating, Panel
+from src.ui.shell.run_confirm import HeroIcon
 from src.ui.shell.widgets import Button, Inset, Separator, Text, hbox, mix, t, tf, vbox
 from src.utils import accounts
 
@@ -329,95 +330,6 @@ class AccountMenu(QWidget):
 # ---------------------------------------------------------------- dialogs
 
 
-class _Floating(QDialog):
-    """A dimmed window over the tool with one :class:`Panel` in the middle.
-
-    The panel is as tall as its content needs, measured again whenever
-    anything inside asks for more room (a row added, text set, fonts or the
-    style applied late): Leo's v0.2.7 (2026-10-22) showed the 定时启动 rows
-    squashed and cut because the height was taken once, too early.
-    """
-
-    PANEL_WIDTH = 520
-    MARGIN = 32  # free space kept around the panel inside the tool window
-
-    def __init__(self, parent: QWidget | None):
-        super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setModal(True)
-        self.setStyleSheet(theme.style_sheet())
-        self._open = motion.Tween(self, self._place, 220, 0.0)
-        self.panel = Panel(self)
-        pad = Panel.SHADOW
-        self.column = vbox(self.panel, (pad + 28, pad - 6 + 24, pad + 28, pad + 6 + 24), 14)
-        self._place_queued = False
-        self.panel.installEventFilter(self)
-        if parent is not None:
-            cover.follow(self, parent.window())
-
-    def eventFilter(self, watched, event):
-        if watched is self.panel and event.type() == QEvent.LayoutRequest:
-            self._queue_place()
-        return super().eventFilter(watched, event)
-
-    def _queue_place(self) -> None:
-        if not self._place_queued:
-            self._place_queued = True
-            QTimer.singleShot(0, self._place)
-
-    def content_height(self, width: int) -> int:
-        """What the panel needs at ``width``: never less than its least size."""
-        # Sizes just changed (a row added, the rows' view shortened) are
-        # still cached in the inner layouts until the next event loop pass.
-        for inner in self.panel.findChildren(QLayout):
-            inner.invalidate()
-        layout = self.panel.layout()
-        layout.invalidate()
-        layout.activate()
-        need = layout.totalSizeHint().height()
-        if layout.hasHeightForWidth():
-            need = max(need, layout.totalHeightForWidth(width))
-        return max(need, layout.totalMinimumSize().height())
-
-    def least_width(self) -> int:
-        """The panel's width (shadow included) below which something is cut."""
-        return self.panel.layout().totalMinimumSize().width()
-
-    def _place(self) -> None:
-        self._place_queued = False
-        area = self.rect()
-        # Wider than usual when the words need it (English day names).
-        width = max(self.PANEL_WIDTH + 2 * Panel.SHADOW, self.least_width())
-        width = min(width, area.width() - self.MARGIN)
-        self.panel.setFixedWidth(width)
-        height = min(self.content_height(width), area.height() - self.MARGIN)
-        self.panel.setFixedHeight(height)
-        shown = float(self._open.value)
-        x = (area.width() - width) // 2
-        y = (area.height() - height) // 2 + round(14 * (1 - shown))
-        self.panel.move(x, y)
-        self.update()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._place()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        self._place()
-        self._open.go(1.0)
-
-    def paintEvent(self, _event):
-        painter = QPainter(self)
-        painter.fillRect(
-            self.rect(),
-            theme.color(
-                "shot", (0.62 if theme.tokens() is theme.DARK else 0.42) * float(self._open.value)
-            ),
-        )
-
-
 class _ManageRow(QWidget):
     def __init__(self, account: accounts.Account, dialog: ManageDialog):
         super().__init__()
@@ -507,7 +419,7 @@ class _ManageRow(QWidget):
             self.delete.setFixedSize(36, 36)
 
 
-class ManageDialog(_Floating):
+class ManageDialog(Floating):
     def __init__(self, parent: QWidget | None, focus: str | None = None):
         super().__init__(parent)
         head = hbox(None, (0, 0, 0, 0), 14)
@@ -545,6 +457,9 @@ class ManageDialog(_Floating):
         while self.rows.count():
             item = self.rows.takeAt(0)
             if item.widget() is not None:
+                # Off the list at once: deleteLater waits for the event loop,
+                # and until then the old row still sat below the new ones.
+                item.widget().setParent(None)
                 item.widget().deleteLater()
         for account in accounts.accounts():
             row = _ManageRow(account, self)
@@ -572,7 +487,7 @@ class ManageDialog(_Floating):
                     row.avatar.set_account(fresh)
 
 
-class MismatchDialog(_Floating):
+class MismatchDialog(Floating):
     """跑图 stopped: its records said done, the game showed the cards untouched."""
 
     SWITCH = 1

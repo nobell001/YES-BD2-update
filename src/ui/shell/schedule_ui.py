@@ -13,30 +13,40 @@ import copy
 from datetime import datetime
 
 from ok import Logger
-from PySide6.QtCore import QEvent, QObject, QRectF, QSize, Qt, QTimer
+from PySide6.QtCore import (
+    QEasingCurve,
+    QEvent,
+    QObject,
+    QRectF,
+    QSize,
+    Qt,
+    QTimer,
+    QVariantAnimation,
+)
 from PySide6.QtGui import QFont, QFontMetrics, QPainter
-from PySide6.QtWidgets import QAbstractButton, QSizePolicy, QWidget
+from PySide6.QtWidgets import QAbstractButton, QGraphicsEffect, QSizePolicy, QWidget
 from qfluentwidgets import ComboBox, ScrollArea
 
-from src.ui.shell import theme
-from src.ui.shell.accounts_ui import _Floating
+from src.ui.shell import motion, theme
+from src.ui.shell.floating import Floating
 from src.ui.shell.run_confirm import HeroIcon
 from src.ui.shell.safe import guarded
 from src.ui.shell.widgets import (
     Button,
     CheckBox,
-    IconTile,
     Inset,
     Separator,
     Text,
     Toggle,
     hbox,
+    mix,
+    set_prop,
     t,
     tf,
     vbox,
 )
 from src.utils import scheduled_start
-from src.utils.scheduled_start import KIND_RESET, KIND_TIME, MAX_SLOTS, Settings, Slot
+from src.utils.scheduled_start import KIND_TIME, MAX_SLOTS, Settings, Slot
 
 logger = Logger.get_logger(__name__)
 
@@ -93,12 +103,6 @@ def next_text(now: datetime | None = None) -> tuple[str, str]:
     else:
         word = tf("下次 · 周{weekday}", weekday=t(WEEKDAYS[moment.weekday()]))
     return moment.strftime("%H:%M"), word
-
-
-def reset_text() -> str:
-    hour, minute = scheduled_start.reset_clock()
-    return tf("每天 {time}，游戏重置后 {m} 分钟", time=f"{hour:02d}:{minute:02d}",
-              m=scheduled_start.RESET_DELAY_MINUTES)
 
 
 # ---------------------------------------------------------------- the run
@@ -219,6 +223,13 @@ class _Watch(QObject):
 
 
 def start_watch(parent: QObject) -> _Watch:
+    current = settings()
+    if current.migrated:
+        # An older save (「游戏每天重置后」, minutes off the quarter): the
+        # Windows task still holds the old times until it is written again.
+        why = store(copy.deepcopy(current))
+        if why:
+            logger.warning(f"scheduled start: old settings not rewritten ({why})")
     return _Watch(parent)
 
 
@@ -239,6 +250,9 @@ class DayChip(QAbstractButton):
         self.setFixedSize(self.chip_width(self.font()), self.SIZE)
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.NoFocus)
+        # The colour slides between off and on (Leo 2026-10-22 「加一點小動效」).
+        self._fill = motion.Tween(self, self.update, 160, 1.0 if on else 0.0)
+        self.toggled.connect(lambda checked: self._fill.go(1.0 if checked else 0.0))
 
     @classmethod
     def _label_font(cls, base: QFont) -> QFont:
@@ -255,17 +269,65 @@ class DayChip(QAbstractButton):
     def paintEvent(self, _event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        on = self.isChecked()
+        fill = float(self._fill.value)
         painter.setPen(Qt.NoPen)
-        colour = theme.color("primary") if on else theme.color("pill")
+        colour = mix(theme.color("pill"), theme.color("primary"), fill)
         if not self.isEnabled():
             colour.setAlphaF(0.45)
         painter.setBrush(colour)
-        radius = self.SIZE / 2
-        painter.drawRoundedRect(QRectF(0, 0, self.width(), self.SIZE), radius, radius)
+        # A little pop while it turns on: from 90 % up to full size.
+        grow = 1.0 - 0.1 * (1.0 - fill) if self.isChecked() else 1.0
+        box = QRectF(0, 0, self.width(), self.SIZE)
+        inset_x, inset_y = box.width() * (1 - grow) / 2, box.height() * (1 - grow) / 2
+        box.adjust(inset_x, inset_y, -inset_x, -inset_y)
+        radius = box.height() / 2
+        painter.drawRoundedRect(box, radius, radius)
         painter.setFont(self._label_font(self.font()))
-        painter.setPen(theme.color("on_primary") if on else theme.color("ink2"))
+        painter.setPen(mix(theme.color("ink2"), theme.color("on_primary"), fill))
         painter.drawText(self.rect(), Qt.AlignCenter, self.text())
+
+
+class _Slide(QGraphicsEffect):
+    """Draws its widget faded and a few px low; ``progress`` 1 is as is."""
+
+    RISE_PX = 10
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.progress = 0.0
+
+    def draw(self, painter):
+        painter.save()
+        painter.setOpacity(self.progress)
+        painter.translate(0, self.RISE_PX * (1 - self.progress))
+        self.drawSource(painter)
+        painter.restore()
+
+
+def slide(widget: QWidget, out: bool = False, done=None, duration: int = 220) -> None:
+    """Fade ``widget`` in from a little below (or out, then call ``done``)."""
+    effect = _Slide(widget)
+    effect.progress = 1.0 if out else 0.0
+    widget.setGraphicsEffect(effect)
+    anim = QVariantAnimation(widget)
+    anim.setDuration(duration)
+    anim.setEasingCurve(QEasingCurve.OutCubic if not out else QEasingCurve.InCubic)
+    anim.setStartValue(effect.progress)
+    anim.setEndValue(0.0 if out else 1.0)
+
+    def step(value) -> None:
+        effect.progress = float(value)
+        effect.update()
+
+    def finished() -> None:
+        if not out:
+            widget.setGraphicsEffect(None)  # nothing left to draw differently
+        if done is not None:
+            done()
+
+    anim.valueChanged.connect(step)
+    anim.finished.connect(finished)
+    anim.start(QVariantAnimation.DeleteWhenStopped)
 
 
 DELETE_SIZE = 34
@@ -280,11 +342,13 @@ def _delete_button(on_click) -> Button:
 
 
 TIME_BOX_WIDTH = 76
+HOURS = range(24)
+MINUTES = range(0, 60, scheduled_start.MINUTE_STEP)
 
 
 class _RowsView(ScrollArea):
     """Asks for all its rows' height, makes do with one: when the tool window
-    is too short (6 slots at 175 % on a 1080p screen) the rows scroll
+    is too short (5 slots at 175 % on a 1080p screen) the rows scroll
     instead of being squashed."""
 
     def setWidget(self, widget: QWidget) -> None:
@@ -310,10 +374,10 @@ class _RowsView(ScrollArea):
         return QSize(0, first.sizeHint().height() if first is not None else 0)
 
 
-def _number_box(count: int, value: int, on_change) -> ComboBox:
+def _number_box(values: range, value: int, on_change) -> ComboBox:
     box = ComboBox()
-    box.addItems([f"{n:02d}" for n in range(count)])
-    box.setCurrentIndex(value)
+    box.addItems([f"{n:02d}" for n in values])
+    box.setCurrentIndex(min(range(len(values)), key=lambda i: abs(values[i] - value)))
     box.setMaxVisibleItems(8)
     box.setFixedWidth(TIME_BOX_WIDTH)
     box.currentIndexChanged.connect(on_change)
@@ -324,61 +388,74 @@ class SlotRow(Inset):
     RIGHT_PAD = 8
     GAP = 12
 
-    def __init__(self, slot: Slot, on_delete):
+    def __init__(self, slot: Slot, on_delete, on_change):
         super().__init__()
         self.slot = slot
-        row = hbox(self, (14, 10, self.RIGHT_PAD, 10), self.GAP)
+        self._on_change = on_change
+        # Always a 1 px edge (clear until something is wrong), so a marked
+        # row's contents do not move by that pixel.
+        self.setProperty("outlined", True)
+        lines = vbox(self, (14, 10, self.RIGHT_PAD, 10), 6)
+        row = hbox(None, (0, 0, 0, 0), self.GAP)
+        lines.addLayout(row)
         self.days: list[DayChip] = []
-        self.hour = self.minute = None
-        if slot.kind == KIND_RESET:
-            row.addWidget(IconTile("sun", 36))
-            titles = vbox(None, (0, 0, 0, 0), 2)
-            titles.addWidget(Text("游戏每天重置后", "h3"))
-            titles.addWidget(Text(reset_text(), "muted"))
-            row.addLayout(titles)
-        else:
-            # Two plain lists, 00-23 and 00-59: they open right under
-            # themselves.  qfluentwidgets' TimePicker opened a wheel whose
-            # highlight sat crooked and wrote 0 for 00 (Leo 2026-10-22).
-            clock = hbox(None, (0, 0, 0, 0), 4)
-            self.hour = _number_box(24, slot.hour, self._time_changed)
-            self.minute = _number_box(60, slot.minute, self._time_changed)
-            clock.addWidget(self.hour)
-            clock.addWidget(Text(":", "h3"))
-            clock.addWidget(self.minute)
-            row.addLayout(clock)
-            chips = hbox(None, (0, 0, 0, 0), 5)
-            for day in range(7):
-                chip = DayChip(day, day in slot.days)
-                chip.toggled.connect(self._days_changed)
-                chips.addWidget(chip)
-                self.days.append(chip)
-            row.addLayout(chips)
+        # Two plain lists, 00-23 and 00/15/30/45: they open right under
+        # themselves.  qfluentwidgets' TimePicker opened a wheel whose
+        # highlight sat crooked and wrote 0 for 00 (Leo 2026-10-22).
+        clock = hbox(None, (0, 0, 0, 0), 4)
+        self.hour = _number_box(HOURS, slot.hour, self._time_changed)
+        self.minute = _number_box(MINUTES, slot.minute, self._time_changed)
+        clock.addWidget(self.hour)
+        clock.addWidget(Text(":", "h3"))
+        clock.addWidget(self.minute)
+        row.addLayout(clock)
+        chips = hbox(None, (0, 0, 0, 0), 5)
+        for day in range(7):
+            chip = DayChip(day, day in slot.days)
+            chip.toggled.connect(self._days_changed)
+            chips.addWidget(chip)
+            self.days.append(chip)
+        row.addLayout(chips)
         row.addStretch(1)
         self.toggle = Toggle(slot.on, small=True)
         self.toggle.setToolTip(t("只开关这个时段"))
         self.toggle.toggled.connect(self._on_changed)
         row.addWidget(self.toggle)
         row.addWidget(_delete_button(lambda: on_delete(self)))
+        # Why this slot cannot be saved (a clash, no day ticked).
+        self.problem = Text("", "bad", wrap=True)
+        self.problem.hide()
+        lines.addWidget(self.problem)
         self._dim()
 
+    def set_problem(self, why: str) -> None:
+        shown = self.problem.isVisibleTo(self)
+        self.problem.set_text(why)
+        self.problem.setVisible(bool(why))
+        set_prop(self, "bad", bool(why))
+        if why and not shown and self.isVisible():
+            slide(self.problem, duration=180)
+
     def _time_changed(self, _index: int = 0) -> None:
-        self.slot.hour, self.slot.minute = self.hour.currentIndex(), self.minute.currentIndex()
+        self.slot.hour = HOURS[self.hour.currentIndex()]
+        self.slot.minute = MINUTES[self.minute.currentIndex()]
+        self._on_change()
 
     def _days_changed(self) -> None:
         self.slot.days = [day for day, chip in enumerate(self.days) if chip.isChecked()]
+        self._on_change()
 
     def _on_changed(self, on: bool) -> None:
         self.slot.on = on
         self._dim()
+        self._on_change()
 
     def _dim(self) -> None:
         for widget in [self.hour, self.minute, *self.days]:
-            if widget is not None:
-                widget.setEnabled(self.slot.on)
+            widget.setEnabled(self.slot.on)
 
 
-class ScheduleDialog(_Floating):
+class ScheduleDialog(Floating):
     PANEL_WIDTH = 600
 
     def __init__(self, parent: QWidget | None):
@@ -403,7 +480,7 @@ class ScheduleDialog(_Floating):
         self.body = QWidget()
         body = vbox(self.body, (0, 4, 0, 0), 12)
         # The rows scroll only when the tool window is too short for all of
-        # them (6 slots at 175 % on a 1080p screen); otherwise all show.
+        # them (5 slots at 175 % on a 1080p screen); otherwise all show.
         # Selectors by name: a bare 「background: transparent」 would reach
         # the rows too and wipe their own background.
         self.rows_holder = QWidget()
@@ -421,10 +498,8 @@ class ScheduleDialog(_Floating):
         body.addWidget(self.scroll, 1)
         adds = hbox(None, (0, 0, 0, 0), 8)
         self.add_time = Button("新增时段", "ghost", "plus", on_click=self._add_time)
-        self.add_reset = Button("游戏每天重置后", "ghost", "plus", on_click=self._add_reset)
-        for button in (self.add_time, self.add_reset):
-            button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-            adds.addWidget(button)
+        self.add_time.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        adds.addWidget(self.add_time)
         adds.addStretch(1)
         body.addLayout(adds)
         body.addWidget(Separator())
@@ -449,6 +524,8 @@ class ScheduleDialog(_Floating):
         if one_row:
             options.addStretch(1)
         body.addLayout(options)
+        # Leo 2026-10-22 「要備註關機時不能使用」.
+        body.addWidget(Text("电脑完全关机时不会启动；睡眠中可以叫醒", "muted", wrap=True))
         column.addWidget(self.body)
 
         self.message = Text("", "warn", wrap=True)
@@ -457,7 +534,8 @@ class ScheduleDialog(_Floating):
         buttons = hbox(None, (0, 6, 0, 0), 8)
         buttons.addStretch(1)
         buttons.addWidget(Button("取消", "secondary", on_click=self.reject))
-        buttons.addWidget(Button("保存", "primary", on_click=self._save))
+        self.save_button = Button("保存", "primary", on_click=self._save)
+        buttons.addWidget(self.save_button)
         column.addLayout(buttons)
 
         self._rows: list[SlotRow] = []
@@ -470,12 +548,13 @@ class ScheduleDialog(_Floating):
             row.deleteLater()
         self._rows = []
         for slot in self.working.slots:
-            row = SlotRow(slot, self._delete)
+            row = SlotRow(slot, self._delete, self._check)
             self.rows_box.addWidget(row)
             self._rows.append(row)
-        has_reset = any(slot.kind == KIND_RESET for slot in self.working.slots)
-        self.add_reset.setVisible(not has_reset)
-        self.add_time.setEnabled(len(self.working.slots) < MAX_SLOTS)
+        room = len(self.working.slots) < MAX_SLOTS
+        self.add_time.setEnabled(room)
+        self.add_time.setToolTip("" if room else tf("最多 {n} 个时段", n=MAX_SLOTS))
+        self._check()
         self.scroll.setVisible(bool(self._rows))
         self.scroll.updateGeometry()
         self._place()
@@ -487,21 +566,37 @@ class ScheduleDialog(_Floating):
         return max(super().least_width(), rows)
 
     def _delete(self, row: SlotRow) -> None:
+        if row.slot not in self.working.slots:
+            return  # already going
         self.working.slots.remove(row.slot)
-        self._fill()
-
-    def _add_time(self) -> None:
-        if len(self.working.slots) < MAX_SLOTS:
-            self.working.slots.append(Slot(KIND_TIME))
+        if row.isVisible():
+            row.setEnabled(False)
+            slide(row, out=True, done=self._fill, duration=160)
+        else:
             self._fill()
 
-    def _add_reset(self) -> None:
-        self.working.slots.insert(0, Slot(KIND_RESET))
-        self._fill()
+    def _add_time(self) -> None:
+        # A time no slot uses yet, not a copy of the last one (Leo 2026-10-22
+        # 「時間不可以衝突吧」).
+        if len(self.working.slots) < MAX_SLOTS:
+            hour, minute = scheduled_start.free_time(self.working.slots)
+            self.working.slots.append(Slot(KIND_TIME, hour, minute))
+            self._fill()
+            slide(self._rows[-1])
+            # The new row may be below the fold when the rows scroll.
+            QTimer.singleShot(0, lambda: self.scroll.ensureWidgetVisible(self._rows[-1]))
+
+    def _check(self) -> None:
+        """Mark the slots that cannot be saved; 保存 waits until none is left."""
+        problems = scheduled_start.slot_problems(self.working.slots)
+        for row, why in zip(self._rows, problems):
+            row.set_problem(why)
+        self.save_button.setEnabled(not (self.working.enabled and any(problems)))
 
     def _master_changed(self, on: bool) -> None:
         self.working.enabled = on
         self.body.setEnabled(on)
+        self._check()
 
     def _save(self) -> None:
         self.working.wake = self.wake.isChecked()

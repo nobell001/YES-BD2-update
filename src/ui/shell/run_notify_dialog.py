@@ -11,10 +11,11 @@ import threading
 
 from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QPainter
-from PySide6.QtWidgets import QDialog, QLineEdit, QWidget
+from PySide6.QtWidgets import QLineEdit, QWidget
 
-from src.ui.shell import cover, motion, theme
-from src.ui.shell.run_confirm import HeroIcon, Panel
+from src.ui.shell import theme
+from src.ui.shell.floating import Floating, Panel
+from src.ui.shell.run_confirm import HeroIcon
 from src.ui.shell.widgets import Button, Text, hbox, set_prop, t, vbox
 from src.utils import run_notify
 
@@ -56,21 +57,17 @@ class _Number(QWidget):
         painter.drawText(self.rect(), Qt.AlignCenter, self._number)
 
 
-class RunNotifyDialog(QDialog):
+class RunNotifyDialog(Floating):
+    PANEL_WIDTH = PANEL_WIDTH - 2 * Panel.SHADOW
+    MARGIN = 64
+    PAD = (24, 20)
+    SPACING = 12
     tested = Signal(str)
 
     def __init__(self, key: str = "", parent: QWidget | None = None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setModal(True)
-        self.setStyleSheet(theme.style_sheet())
-        self._open = motion.Tween(self, self._place, 220, 0.0)
         self._sending = False
-
-        self.panel = Panel(self)
-        pad = Panel.SHADOW
-        column = vbox(self.panel, (pad + 24, pad - 6 + 20, pad + 24, pad + 6 + 20), 12)
+        column = self.column
 
         head = hbox(None, (0, 0, 0, 0), 12)
         head.addWidget(HeroIcon("send", 40))
@@ -123,8 +120,6 @@ class RunNotifyDialog(QDialog):
 
         self.tested.connect(self._show_test)
         self._show_key()
-        if parent is not None:
-            cover.follow(self, parent.window())
 
     def key(self) -> str:
         return run_notify.clean(self.edit.text())
@@ -175,38 +170,6 @@ class RunNotifyDialog(QDialog):
     def _done(self) -> None:
         if run_notify.valid(self.key()):
             self.accept()
-
-    # ---------------------------------------------------------------- look
-
-    def _place(self) -> None:
-        area = self.rect()
-        width = min(PANEL_WIDTH, max(320, area.width() - 64))
-        self.panel.setFixedWidth(width)
-        self.panel.layout().activate()
-        height = self.panel.layout().heightForWidth(width)
-        self.panel.setFixedHeight(height if height > 0 else self.panel.sizeHint().height())
-        shown = float(self._open.value)
-        x = (area.width() - width) // 2
-        y = (area.height() - self.panel.height()) // 2 + round(14 * (1 - shown))
-        self.panel.move(x, y)
-        self.update()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._place()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        self._open.go(1.0)
-
-    def paintEvent(self, _event):
-        painter = QPainter(self)
-        painter.fillRect(
-            self.rect(),
-            theme.color(
-                "shot", (0.62 if theme.tokens() is theme.DARK else 0.42) * float(self._open.value)
-            ),
-        )
 
 
 def ask(window: QWidget | None, key: str = "") -> str | None:

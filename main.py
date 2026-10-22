@@ -176,10 +176,14 @@ if __name__ == "__main__":
         # here, after the Administrator copy got it, so a language change or
         # the 桌面分身 does not start a run again.
         scheduled_start.launched_by_schedule = scheduled_start.take_flag(sys.argv)
+        from src.utils import scheduled_update
+
+        # 定时启动's one-time look after handing the update to the launcher.
+        scheduled_retry = scheduled_update.take_retry_flag(sys.argv)
 
         if not single_instance.acquire():
             # From 定时启动: the open tool starts the run itself, no message.
-            if not scheduled_start.launched_by_schedule:
+            if not (scheduled_start.launched_by_schedule or scheduled_retry):
                 single_instance.show_existing()
             raise SystemExit(0)
 
@@ -195,10 +199,26 @@ if __name__ == "__main__":
         # （换语言重开时那个编号可能已经是游戏或别的程序，2026-10-09 检查）。
         drop_stale_launcher_pid(os.path.dirname(os.path.abspath(sys.argv[0])))
 
+        # 定时启动 updates first (Leo 2026-10-22 「排程也先更新」): with a newer
+        # release the launcher updates and opens the tool again, and this copy
+        # exits.  The copy the launcher opens finds the pending mark.
+        _script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        if scheduled_retry:
+            if not scheduled_update.on_retry(_script_dir):
+                raise SystemExit(0)
+            scheduled_start.launched_by_schedule = True
+        elif scheduled_start.launched_by_schedule:
+            if scheduled_update.hand_to_launcher(_script_dir):
+                raise SystemExit(0)
+        elif scheduled_update.take_pending():
+            scheduled_start.launched_by_schedule = True
+
         # 更新内容每个版本只跳一次，不是每次打开都跳到「关于」（Leo, 2026-10-09）。
         from src.compat.launcher_env import show_update_notice_once
 
-        show_update_notice_once(os.path.dirname(os.path.abspath(sys.argv[0])))
+        # 定时启动 opened it: nobody reads them now, the next open shows them.
+        if not scheduled_start.launched_by_schedule:
+            show_update_notice_once(os.path.dirname(os.path.abspath(sys.argv[0])))
 
         # 旧启动器一打开工具就在背景换成新版，关掉工具也会换完，玩家不用重装
         # （Leo, 2026-10-09）。

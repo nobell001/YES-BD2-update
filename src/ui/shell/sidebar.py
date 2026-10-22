@@ -148,7 +148,7 @@ class NavItem(QAbstractButton):
         if self._selected:
             font.setWeight(QFont.Weight.Bold)
         elif self._strong:
-            font.setWeight(QFont.Weight.DemiBold)
+            font.setWeight(QFont.Weight.Bold)
         else:
             font.setWeight(theme.body_weight())
         painter.setFont(font)
@@ -163,6 +163,8 @@ class NavItem(QAbstractButton):
             bg, ink = theme.color("badge_run"), theme.color("badge_run_ink")
         elif self._badge_kind == "ok":
             bg, ink = theme.color("badge_ok"), theme.color("ok")
+        elif self._badge_kind == "must":
+            bg, ink = theme.color("badge_must"), theme.color("badge_must_ink")
         elif self._selected:
             bg, ink = theme.color("badge_on"), theme.color("badge_on_ink")
         else:
@@ -197,10 +199,11 @@ class Sidebar(QWidget):
         ("fiend", "魔兽追踪者", "skull"),
     )
     BOTTOM = (
+        # Leo (2026-10-05): the guide sits where new players see it; 2026-10-22
+        # first of these, in bold.
+        ("guide", "使用说明", "book-open"),
         # Leo 2026-10-09: players send what went wrong from here, always in reach.
         ("problem", "回报问题", "message-circle-warning"),
-        # Leo (2026-10-05): the guide sits where new players see it.
-        ("guide", "使用说明", "book-open"),
         # Leo 2026-10-14: 桌面分身 gets its own guide (setup and fixes).
         ("clone", "桌面分身", "monitor"),
         ("settings", "设置", "settings"),
@@ -256,7 +259,7 @@ class Sidebar(QWidget):
         theme.on_theme_changed(self, self.apply_style)
 
     def _item(self, key: str, label: str, icon_name: str) -> NavItem:
-        # Leo 2026-10-09: 使用说明 a little bolder, always marked 必看.
+        # Leo 2026-10-09: 使用说明 bolder (2026-10-22 bold), always marked 必看.
         item = NavItem(key, label, icon_name, self, strong=key == "guide")
         item.clicked.connect(lambda *_a, k=key: self.navigate.emit(k))
         self.items[key] = item

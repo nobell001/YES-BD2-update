@@ -13,6 +13,7 @@ from src.compat.about_tab_layout import install_about_tab_layout
 from src.compat.launcher_update_notice import install_launcher_update_notice
 from src.compat.main_window_geometry import install_main_window_geometry_debounce
 from src.compat.ocr_memory import install_ocr_memory_cap
+from src.compat.quiet_scheduled_open import install as install_quiet_scheduled_open
 from src.compat.starter_guard import enable_starter_launch_guard
 from src.compat.starter_launch import enable_starter_launch_uri
 from src.compat.update_card_ui import install_update_card_ui
@@ -25,7 +26,7 @@ from src.ui.quest_ui import install_quest_ui
 
 # This marker is replaced with the Git tag when PyAppify creates the update
 # repository.  Source checkouts always read the project version from pyproject.
-version = "v0.2.8"
+version = "v0.2.9"
 
 
 def runtime_version(project_file: Path | None = None) -> str:
@@ -49,6 +50,7 @@ enable_starter_launch_uri()
 enable_starter_launch_guard()
 install_main_window_geometry_debounce()
 install_launcher_update_notice()
+install_quiet_scheduled_open()
 install_quest_ui()
 install_update_card_ui()
 install_about_tab_layout()

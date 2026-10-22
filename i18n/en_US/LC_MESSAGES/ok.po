@@ -3254,6 +3254,18 @@ msgstr "Opens the game at the set time and runs what is left today"
 msgid "新增时段"
 msgstr "Add time slot"
 
+msgid "没选星期，这个时段不会跑"
+msgstr "No day picked: this slot will not run"
+
+msgid "和另一个时段隔不到 1 小时，请错开"
+msgstr "Less than 1 hour from another slot; move one of them"
+
+msgid "电脑完全关机时不会启动；睡眠中可以叫醒"
+msgstr "Does not start while the PC is shut down; a sleeping PC can be woken"
+
+msgid "最多 {n} 个时段"
+msgstr "At most {n} time slots"
+
 msgid "加回「游戏每天重置后」"
 msgstr "Add back \"After the daily game reset\""
 
@@ -3286,6 +3298,10 @@ msgstr "Run All Dailies could not start (another task may be running), so nothin
 
 msgid "等了 {m} 分钟，游戏还是没打开或没登录进去，这次没有跑。"
 msgstr "Waited {m} min but the game did not open or log in, so nothing ran."
+
+msgid "等了 {m} 分钟，工具一直在忙（有别的任务在跑），一键日常没能开始，这次没有跑。"
+msgstr "Waited {m} min but the tool stayed busy (another task was running), so Run All Dailies did not start and nothing ran."
+
 msgid "网络连不上 Server酱，看看电脑有没有连网"
 msgstr "Can't reach Server酱. Check that the PC is online"
 
@@ -3393,3 +3409,45 @@ msgstr "Dailies can now run on a schedule"
 
 msgid "在首页设定几点，时间到了就自动跑一键完成日常，工具没开也会自己打开。默认关闭，点这张卡片设定。"
 msgstr "Set the times on Home and Run All Dailies starts on its own at those times, opening the tool if it is closed. Off by default; click this card to set it up."
+
+msgid "微信通知（跑完通知）"
+msgstr "WeChat notice (after a run)"
+
+msgid "一键完成日常跑完，结果自动发到你自己的微信"
+msgstr "When Run All Dailies ends, the result goes to your own WeChat"
+
+msgid "打开 Server酱 网站：sct.ftqq.com/sendkey"
+msgstr "Open the ServerChan site: sct.ftqq.com/sendkey"
+
+msgid "回到工具：左边「设置」→「通知」→「跑完发到微信」，点「设定」"
+msgstr "Back in the tool: Settings on the left → Notifications → Send results to WeChat, click Setup"
+
+msgid "贴上 SendKey，按「发测试」"
+msgstr "Paste the SendKey and press Send test"
+
+msgid "微信收到测试后按「完成」，以后每次跑完都会发"
+msgstr "Once the test reaches WeChat, press Done. Every run sends one from then on"
+
+msgid "去设置"
+msgstr "Go to Settings"
+
+msgid "免费版每天 5 则，一天跑一次只用 1 则。只发完成几项、失败原因和用时，不发账号名称。"
+msgstr "The free plan allows 5 messages a day; one run a day uses 1. Only the count done, failure reasons and time are sent, never account names."
+
+msgid "开始跑日常"
+msgstr "Run the dailies"
+
+msgid "两种跑法，两个按钮都在「首页」"
+msgstr "Two ways to run; both buttons are on Home"
+
+msgid "在游戏里设一次就好"
+msgstr "Set them once in the game"
+
+msgid "微信通知"
+msgstr "WeChat notice"
+
+msgid "跑图设定"
+msgstr "Farming setup"
+
+msgid "跑图前，游戏里先设好这三样（{n}/3）"
+msgstr "Set these three in the game before farming ({n}/3)"

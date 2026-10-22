@@ -63,6 +63,20 @@ def show_launcher_swap_hint(window) -> None:
         pass
 
 
+def schedule_notices(window) -> None:
+    from src.compat.quiet_scheduled_open import scheduled
+
+    if scheduled():
+        return  # 定时启动 opened the tool: nobody at the PC; the next open shows them
+    import pyappify
+
+    QTimer.singleShot(
+        750,
+        lambda: show_launcher_update_notice(window, pyappify, window.config),
+    )
+    QTimer.singleShot(1500, lambda: show_launcher_swap_hint(window))
+
+
 def install_launcher_update_notice() -> None:
     from ok.ui.qt.MainWindow import MainWindow
 
@@ -76,13 +90,7 @@ def install_launcher_update_notice() -> None:
         if getattr(self, NOTICE_SHOWN_MARKER, False):
             return
         setattr(self, NOTICE_SHOWN_MARKER, True)
-        import pyappify
-
-        QTimer.singleShot(
-            750,
-            lambda: show_launcher_update_notice(self, pyappify, self.config),
-        )
-        QTimer.singleShot(1500, lambda: show_launcher_swap_hint(self))
+        schedule_notices(self)
 
     MainWindow.showEvent = show_event_with_launcher_notice
     setattr(MainWindow, PATCH_MARKER, True)

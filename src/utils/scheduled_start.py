@@ -38,7 +38,19 @@ RESET_DELAY_MINUTES = 5
 # The open tool starts a slot it noticed this late at the latest; a PC that
 # slept through a slot and was woken by the player later does not start then.
 LATE_LIMIT = timedelta(minutes=5)
-MAX_SLOTS = 6
+MAX_SLOTS = 5  # Leo 2026-10-22 「最多可以設定5個時間」
+# Minutes come in quarters (Leo 2026-10-22 「分鐘改成每15分鐘間隔」).
+MINUTE_STEP = 15
+# Two slots at least this far apart (Leo 2026-10-22 picked 「擋下來」 for
+# slots under an hour apart, and 「時間不可以衝突吧」 for the same time).
+MIN_GAP_MINUTES = 60
+DAY_MINUTES = 24 * 60
+WEEK_MINUTES = 7 * DAY_MINUTES
+
+
+def _apart(a: int, b: int) -> int:
+    gap = abs(a - b) % WEEK_MINUTES
+    return min(gap, WEEK_MINUTES - gap)
 KIND_RESET = "reset"
 KIND_TIME = "time"
 DAY_TAGS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -91,7 +103,8 @@ class Slot:
             return None
         on = bool(value.get("on", True))
         if value.get("kind") == KIND_RESET:
-            return cls(KIND_RESET, on=on)
+            # 「游戏每天重置后」 is gone (Leo 2026-10-22 「預設每天重製那個要去掉」).
+            return None
         match = re.fullmatch(r"(\d{1,2}):(\d{2})", str(value.get("time", "")))
         if not match:
             return None
@@ -99,7 +112,22 @@ class Slot:
         if hour > 23 or minute > 59:
             return None
         days = sorted({d for d in value.get("days", []) if isinstance(d, int) and 0 <= d <= 6})
-        return cls(KIND_TIME, hour, minute, days, on)
+        return cls(KIND_TIME, hour, snap_minute(minute), days, on)
+
+    def week_minutes(self) -> list[int]:
+        """When it fires, as minutes from Monday 00:00."""
+        return [day * DAY_MINUTES + self.hour * 60 + self.minute for day in self.days]
+
+    def clashes_with(self, other: Slot) -> bool:
+        """Both on and less than ``MIN_GAP_MINUTES`` apart on some day (over
+        midnight too): the second start would find the first still running."""
+        if not (self.on and other.on):
+            return False
+        return any(
+            _apart(mine, theirs) < MIN_GAP_MINUTES
+            for mine in self.week_minutes()
+            for theirs in other.week_minutes()
+        )
 
     def active(self) -> bool:
         return self.on and (self.kind == KIND_RESET or bool(self.days))
@@ -115,6 +143,7 @@ class Settings:
     # 2026-10-22 「設定好定時就不管他」, so the game closes after a clean run.
     close_game: bool = True
     shutdown: bool = False
+    migrated: bool = field(default=False, compare=False, repr=False)
 
     def to_json(self) -> dict:
         return {
@@ -129,17 +158,50 @@ class Settings:
     def from_json(cls, value: dict) -> Settings:
         if not isinstance(value, dict):
             return cls()
-        slots = [s for s in (Slot.from_json(v) for v in value.get("slots", [])) if s]
-        return cls(
+        stored = value.get("slots", [])
+        slots = [s for s in (Slot.from_json(v) for v in stored) if s][:MAX_SLOTS]
+        settings = cls(
             bool(value.get("enabled", False)),
             bool(value.get("wake", True)),
             slots,
             bool(value.get("close_game", True)),
             bool(value.get("shutdown", False)),
         )
+        # A dropped 「游戏每天重置后」 or a minute moved to its quarter: the
+        # file and the Windows task are written again (schedule_ui).
+        settings.migrated = [slot.to_json() for slot in slots] != stored
+        return settings
 
     def active_slots(self) -> list[Slot]:
         return [slot for slot in self.slots if slot.active()] if self.enabled else []
+
+
+def snap_minute(minute: int) -> int:
+    """The quarter closest to ``minute`` inside its hour (07 → 00, 53 → 45)."""
+    return min(round(minute / MINUTE_STEP) * MINUTE_STEP, 60 - MINUTE_STEP)
+
+
+def free_time(slots: list[Slot]) -> tuple[int, int]:
+    """For a new slot (every day): the first whole hour from 21:00 that is an
+    hour or more from every slot."""
+    for step in range(24):
+        hour = (21 + step) % 24
+        if not any(Slot(KIND_TIME, hour, 0).clashes_with(slot) for slot in slots):
+            return hour, 0
+    return 21, 0  # not reachable with MAX_SLOTS slots
+
+
+def slot_problems(slots: list[Slot]) -> list[str]:
+    """Why each slot cannot be saved as it is ('' when fine), in the slots' order."""
+    found = []
+    for index, slot in enumerate(slots):
+        if slot.on and not slot.days:
+            found.append("没选星期，这个时段不会跑")
+        elif any(slot.clashes_with(other) for n, other in enumerate(slots) if n != index):
+            found.append("和另一个时段隔不到 1 小时，请错开")
+        else:
+            found.append("")
+    return found
 
 
 def load(path: Path = SETTINGS_FILE) -> Settings:
@@ -231,7 +293,7 @@ def task_name(folder: str | None = None) -> str:
     return f"\\{TASK_FOLDER}\\定时启动-{digest}"
 
 
-def tool_command() -> tuple[str, str, str]:
+def tool_command(*extra: str) -> tuple[str, str, str]:
     """(program, arguments, folder) that open this tool without a console window."""
     program = sys.executable
     if os.path.basename(program).lower() == "python.exe":
@@ -239,9 +301,9 @@ def tool_command() -> tuple[str, str, str]:
         if os.path.exists(windowless):
             program = windowless
     if getattr(sys, "frozen", False):
-        arguments = [FLAG]
+        arguments = [FLAG, *extra]
     else:
-        arguments = [os.path.abspath(sys.argv[0]), FLAG]
+        arguments = [os.path.abspath(sys.argv[0]), FLAG, *extra]
     return program, subprocess.list2cmdline(arguments), os.getcwd()
 
 
@@ -277,10 +339,13 @@ def task_xml(
     command: tuple[str, str, str],
     user: str,
     now: datetime | None = None,
+    triggers: str | None = None,
 ) -> str:
+    """The Windows task; ``triggers`` replaces the slots' own (a one-time retry)."""
     now = now or local_now()
     program, arguments, folder = command
-    triggers = "".join(_trigger(slot, now) for slot in settings.active_slots())
+    if triggers is None:
+        triggers = "".join(_trigger(slot, now) for slot in settings.active_slots())
     wake = "true" if settings.wake else "false"
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -353,12 +418,16 @@ def apply(settings: Settings, run=subprocess.run) -> None:
     if not settings.active_slots():
         remove(run=run)
         return
-    xml = task_xml(settings, tool_command(), _current_user())
+    register(task_name(), task_xml(settings, tool_command(), _current_user()), run=run)
+
+
+def register(name: str, xml: str, run=subprocess.run) -> None:
+    """Create (or replace) the Windows task ``name`` from ``xml``."""
     handle, path = tempfile.mkstemp(suffix=".xml")
     try:
         with os.fdopen(handle, "w", encoding="utf-16") as file:
             file.write(xml)
-        result = _schtasks("/Create", "/TN", task_name(), "/XML", path, "/F", run=run)
+        result = _schtasks("/Create", "/TN", name, "/XML", path, "/F", run=run)
     except (OSError, subprocess.SubprocessError) as exc:
         raise TaskError(str(exc)) from exc
     finally:
@@ -370,12 +439,13 @@ def apply(settings: Settings, run=subprocess.run) -> None:
         raise TaskError((result.stderr or result.stdout or "").strip())
 
 
-def remove(run=subprocess.run) -> None:
+def remove(run=subprocess.run, name: str | None = None) -> None:
     """Delete the task; nothing to delete is fine."""
+    name = task_name() if name is None else name
     try:
-        if _schtasks("/Query", "/TN", task_name(), run=run).returncode != 0:
+        if _schtasks("/Query", "/TN", name, run=run).returncode != 0:
             return
-        result = _schtasks("/Delete", "/TN", task_name(), "/F", run=run)
+        result = _schtasks("/Delete", "/TN", name, "/F", run=run)
     except (OSError, subprocess.SubprocessError) as exc:
         raise TaskError(str(exc)) from exc
     if result.returncode != 0:

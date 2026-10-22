@@ -8,11 +8,11 @@ A slider from 0.5 to 2.0 s in 0.1 s steps, the value in big type, and
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter
-from PySide6.QtWidgets import QDialog, QSlider, QWidget
+from PySide6.QtWidgets import QSlider, QWidget
 
-from src.ui.shell import cover, motion, theme
-from src.ui.shell.run_confirm import HeroIcon, Panel
+from src.ui.shell import theme
+from src.ui.shell.floating import Floating, Panel
+from src.ui.shell.run_confirm import HeroIcon
 from src.ui.shell.widgets import Button, Text, hbox, tf, vbox
 
 PANEL_WIDTH = 420
@@ -23,7 +23,11 @@ def seconds_text(value: float) -> str:
     return f"{value:.1f}s"
 
 
-class SkillIntervalDialog(QDialog):
+class SkillIntervalDialog(Floating):
+    PANEL_WIDTH = PANEL_WIDTH - 2 * Panel.SHADOW
+    MARGIN = 64
+    PAD = (24, 20)
+
     def __init__(
         self,
         value: float,
@@ -32,16 +36,8 @@ class SkillIntervalDialog(QDialog):
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setModal(True)
-        self.setStyleSheet(theme.style_sheet())
         self._default = default
-        self._open = motion.Tween(self, self._place, 220, 0.0)
-
-        self.panel = Panel(self)
-        pad = Panel.SHADOW
-        column = vbox(self.panel, (pad + 24, pad - 6 + 20, pad + 24, pad + 6 + 20), 14)
+        column = self.column
 
         head = hbox(None, (0, 0, 0, 0), 12)
         # Next to the title, not halfway down a long explanation.
@@ -99,8 +95,6 @@ class SkillIntervalDialog(QDialog):
 
         self.slider.setValue(round(value * STEPS_PER_SECOND))
         self._show()
-        if parent is not None:
-            cover.follow(self, parent.window())
 
     def value(self) -> float:
         return round(self.slider.value() / STEPS_PER_SECOND, 1)
@@ -112,36 +106,6 @@ class SkillIntervalDialog(QDialog):
         self.slider.setValue(round(self._default * STEPS_PER_SECOND))
 
     # ---------------------------------------------------------------- look
-
-    def _place(self) -> None:
-        area = self.rect()
-        width = min(PANEL_WIDTH, max(320, area.width() - 64))
-        self.panel.setFixedWidth(width)
-        self.panel.layout().activate()
-        height = self.panel.layout().heightForWidth(width)
-        self.panel.setFixedHeight(height if height > 0 else self.panel.sizeHint().height())
-        shown = float(self._open.value)
-        x = (area.width() - width) // 2
-        y = (area.height() - self.panel.height()) // 2 + round(14 * (1 - shown))
-        self.panel.move(x, y)
-        self.update()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._place()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        self._open.go(1.0)
-
-    def paintEvent(self, _event):
-        painter = QPainter(self)
-        painter.fillRect(
-            self.rect(),
-            theme.color(
-                "shot", (0.62 if theme.tokens() is theme.DARK else 0.42) * float(self._open.value)
-            ),
-        )
 
     def mouseReleaseEvent(self, event):
         # A click on the dimmed part outside the panel is 取消.
