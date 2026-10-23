@@ -19,6 +19,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from src.utils import image_io
 from src.utils.image_utils import template_match_response
 
 ART_TEMPLATE_DIR = (
@@ -79,7 +80,7 @@ def _template(number: int) -> np.ndarray | None:
     if not path.is_file():
         # A card newer than the shipped pictures goes by its badge.
         return None
-    return cv2.imread(str(path), cv2.IMREAD_COLOR)
+    return image_io.read(path, cv2.IMREAD_COLOR)
 
 
 def has_art(number: int) -> bool:

@@ -50,7 +50,7 @@ from src.tasks.GearTasks import (
     DailyRefineTask,
 )
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
-from src.utils import accounts
+from src.utils import accounts, image_io
 from src.utils.colour_check import (
     check_settled,
     distorted_colour_warning,
@@ -255,7 +255,7 @@ def grid_cell_locked(frame, cell: tuple[int, int], template=None) -> bool:
     """The cell shows the padlock (1080-reference frame)."""
 
     if template is None:
-        template = cv2.imread(str(GRID_LOCK_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+        template = image_io.read(GRID_LOCK_TEMPLATE, cv2.IMREAD_GRAYSCALE)
     if template is None:
         return True  # no template: treat every cell as locked, touch nothing
     row, column = cell

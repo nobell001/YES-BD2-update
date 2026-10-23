@@ -30,6 +30,7 @@ from pathlib import Path
 from ok import Logger
 from ok.util.file import get_relative_path
 
+from src.utils import image_io
 from src.utils.game_day import GAME_TZ
 
 logger = Logger.get_logger(__name__)
@@ -461,7 +462,7 @@ def _save_frame(frame, ts: float, suffix: str = "", quality: int = 88) -> str:
         folder = root() / _day_key(ts)
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{_stamp(ts)}{suffix}.jpg"
-        if cv2.imwrite(str(path), frame, [cv2.IMWRITE_JPEG_QUALITY, quality]):
+        if image_io.write(path, frame, [cv2.IMWRITE_JPEG_QUALITY, quality]):
             return path.name
     except Exception as exc:
         logger.error(f"problem report frame failed: {exc}")

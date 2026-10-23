@@ -23,6 +23,7 @@ from src.tasks.claim_page import BACK_BUTTON_POINT
 from src.tasks.enhance_dialog import crop_reference, yellow_ratio
 from src.tasks.RewardClaimTasks import _ClaimTaskBase
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
+from src.utils import image_io
 from src.utils.image_utils import template_match_response
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.press_confirm import SLOW_PC_GRACE_SECONDS
@@ -183,7 +184,7 @@ def refine_lightning_point(frame) -> tuple[float, float] | None:
     """Client centre of the single 精炼 pill's lightning icon, when one shows."""
     global _LIGHTNING
     if _LIGHTNING is None:
-        _LIGHTNING = cv2.imread(str(REFINE_LIGHTNING_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+        _LIGHTNING = image_io.read(REFINE_LIGHTNING_TEMPLATE, cv2.IMREAD_GRAYSCALE)
     if _LIGHTNING is None or frame is None or getattr(frame, "ndim", 0) != 3:
         return None
     height, width = frame.shape[:2]

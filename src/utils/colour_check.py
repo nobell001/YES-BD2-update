@@ -21,6 +21,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from src.utils import image_io
 from src.utils.image_utils import template_match_response
 
 ANCHOR_DIR = (
@@ -58,8 +59,8 @@ def _quartiles(pixels: np.ndarray) -> np.ndarray:
 def _anchors():
     loaded = []
     for name, label, box in ANCHORS:
-        patch = cv2.imread(str(ANCHOR_DIR / f"{name}.png"))
-        mask = cv2.imread(str(ANCHOR_DIR / f"{name}_mask.png"), cv2.IMREAD_GRAYSCALE)
+        patch = image_io.read(ANCHOR_DIR / f"{name}.png")
+        mask = image_io.read(ANCHOR_DIR / f"{name}_mask.png", cv2.IMREAD_GRAYSCALE)
         if patch is None or mask is None:
             continue
         loaded.append((label, box, patch, mask, _quartiles(patch[mask > 0])))

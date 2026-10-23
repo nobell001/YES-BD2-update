@@ -19,7 +19,23 @@ from src.scene.BD2Scene import BD2Scene
 from src.scene.ScreenPosition import ScreenPosition
 from src.tasks import failure_reason, problem_report
 from src.tasks.task_notifications import log_task_completion
-from src.utils import game_language, game_size, keep_awake
+from src.utils import (
+    field_battle,
+    frame_recorder,
+    game_language,
+    game_size,
+    image_io,
+    keep_awake,
+    known_popups,
+    ocr_reread,
+)
+from src.utils.frozen_screen import (
+    FROZEN_SCREEN_SECONDS,
+    INEFFECTIVE_PRESSES,
+    FrozenScreen,
+    FrozenWatch,
+    loading_sign,
+)
 from src.utils.game_day import DAILY_REFRESH_HOUR
 from src.utils.home_confirmation import (
     HOME_ANNOUNCEMENT_CLEAR_RELATIVE_POINT,
@@ -34,14 +50,6 @@ from src.utils.image_utils import (
     resize_template,
     template_match_response,
     to_gray,
-)
-from src.utils import field_battle, frame_recorder, known_popups, ocr_reread
-from src.utils.frozen_screen import (
-    FROZEN_SCREEN_SECONDS,
-    INEFFECTIVE_PRESSES,
-    FrozenScreen,
-    FrozenWatch,
-    loading_sign,
 )
 from src.utils.ocr_utils import normalize_ocr_text
 from src.utils.press_confirm import POLL_SECONDS as LOOK_AGAIN_POLL_SECONDS
@@ -940,14 +948,22 @@ class BaseBD2Task(BaseTask):
         self.log_info(f"{label}：画面被弹窗挡住，点击「{press.label}」关闭后再看。")
         return True
 
+    # Only 每周跑图 runs away from a battle (Leo 2026-10-23 「撞怪逃跑這個機制
+    # 只能在跑圖的時候」「其他都不要亂用」): elsewhere a battle is the task's
+    # own (活动每日战斗's auto battle got Esc, which ends the game's auto).
+    FIELD_BATTLE_ESCAPE = False
+
     def leave_field_battle(self, label: str, boxes=None) -> str:
         """A field battle on screen (src/utils/field_battle): run away from
-        it, or press 「离开」 on its result.  "none" (no battle here), "left"
-        (back on the field) or why it could not be left.
+        it, or press 「离开」 on its result.  "none" (no battle here, or a task
+        that never runs away), "left" (back on the field) or why it could not
+        be left.
 
         Leo 2026-10-22 「判定進戰鬥 就直接按esc 1秒按一下 最多按4下 看到有逃跑就
         不按」 (with auto battle on, the first Esc ends it, the next opens the
         menu)."""
+        if not getattr(self, "FIELD_BATTLE_ESCAPE", False):
+            return "none"
         if boxes is None:
             boxes = self._battle_boxes()
         button = field_battle.leave_button(boxes)
@@ -1713,7 +1729,7 @@ class BaseBD2Task(BaseTask):
             return cached
 
         path = TEMPLATE_DIR / RECENT_PVP_CARTRIDGE_TEMPLATE_FILE
-        raw = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+        raw = image_io.read(path, cv2.IMREAD_UNCHANGED)
         if raw is None:
             raise RuntimeError(f"最近卡带 PVP 模板不存在或无法读取：{path}")
         if raw.ndim != 3 or raw.shape[2] < 4:

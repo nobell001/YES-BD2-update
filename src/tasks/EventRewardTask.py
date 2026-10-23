@@ -26,6 +26,7 @@ from qfluentwidgets import FluentIcon
 from src.tasks.BaseBD2Task import TEMPLATE_DIR
 from src.tasks.claim_page import find_red_badges
 from src.tasks.RewardClaimTasks import _ClaimTaskBase
+from src.utils import image_io
 from src.utils.chinese import to_simplified
 from src.utils.image_utils import template_match_response
 from src.utils.ocr_utils import normalize_ocr_text
@@ -164,7 +165,7 @@ def find_badges(frame) -> list[int]:
 def diamond_template_ready() -> bool:
     global _diamond_template
     if _diamond_template is None:
-        _diamond_template = cv2.imread(str(DIAMOND_TEMPLATE))
+        _diamond_template = image_io.read(DIAMOND_TEMPLATE)
     return _diamond_template is not None
 
 
@@ -483,7 +484,7 @@ class EventRewardTask(_ClaimTaskBase):
     def _hand_points(self, frame) -> list[tuple[int, int]]:
         template = getattr(self, "_hand_template", None)
         if template is None:
-            template = cv2.imread(str(HAND_TEMPLATE))
+            template = image_io.read(HAND_TEMPLATE)
             self._hand_template = template
         if template is None:
             return []

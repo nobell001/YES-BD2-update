@@ -30,6 +30,7 @@ MAP_NOTICE_KEY = "_跑图技能间隔提示"
 
 
 class MapCollectionTask(MapAutomationTaskBase):
+    FIELD_BATTLE_ESCAPE = True  # the only task that runs from a battle
     """Weekly map collection card with its own UI and configuration."""
     recover_home_on_failure = True
     start_from_home = True

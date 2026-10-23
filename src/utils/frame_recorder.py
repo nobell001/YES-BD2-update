@@ -27,6 +27,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from src.utils import image_io
+
 ENV = "BD2_RECORD_FRAMES"
 MAX_FRAMES = 1500
 SAVE_MAX_SIZE = (1920, 1080)
@@ -70,7 +72,7 @@ def frame_name(frame) -> str | None:
     width, height = SAVE_MAX_SIZE
     if image.shape[1] > width or image.shape[0] > height:
         image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
-    cv2.imwrite(str(_state["dir"] / name), image, [cv2.IMWRITE_PNG_COMPRESSION, 3])
+    image_io.write(_state["dir"] / name, image, [cv2.IMWRITE_PNG_COMPRESSION, 3])
     return name
 
 

@@ -38,6 +38,7 @@ from src.tasks.DoomBookTask import (
     CartridgeFieldTask,
 )
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
+from src.utils import image_io
 from src.utils.image_utils import template_match_response
 from src.utils.ocr_utils import keyword_match_count, normalize_ocr_text
 from src.utils.stage_walk import MARKER_TARGET, NUDGE_SEQUENCE, plan_step
@@ -154,7 +155,7 @@ _marker_cache: list = []
 def find_castle_marker(frame_1080: np.ndarray) -> tuple[int, int] | None:
     """Centre of the altar's crossed-swords marker, or None."""
     if not _marker_cache:
-        marker = cv2.imread(str(MARKER_TEMPLATE), cv2.IMREAD_UNCHANGED)
+        marker = image_io.read(MARKER_TEMPLATE, cv2.IMREAD_UNCHANGED)
         if marker is None or marker.ndim != 3 or marker.shape[2] != 4:
             return None
         _marker_cache.append((cv2.cvtColor(marker[:, :, :3], cv2.COLOR_BGR2GRAY), marker[:, :, 3]))
@@ -186,7 +187,7 @@ _tick_cache: list = []
 def level_ticks(frame_1080: np.ndarray) -> int:
     """How many level rows carry a ✓ on the 救赎之塔 page."""
     if not _tick_cache:
-        tick = cv2.imread(str(LEVEL_TICK_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+        tick = image_io.read(LEVEL_TICK_TEMPLATE, cv2.IMREAD_GRAYSCALE)
         if tick is None:
             return 0
         _tick_cache.append(tick)

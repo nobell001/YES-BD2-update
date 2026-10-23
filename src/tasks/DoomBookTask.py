@@ -28,6 +28,7 @@ from qfluentwidgets import FluentIcon
 
 from src.tasks.RewardClaimTasks import _ClaimTaskBase
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
+from src.utils import image_io
 from src.utils.cartridge_quick_switch import (
     BATTLE_GAMEPLAY_CATEGORY_HIGHLIGHT_REGION,
     BATTLE_GAMEPLAY_CATEGORY_LABEL,
@@ -44,7 +45,13 @@ from src.utils.stage_walk import (
     plan_step,
     predict_after_step,
 )
-from src.utils.wait_limits import STUCK_SECONDS, StillTimer, is_loading_dark, load_wait, scene_at_press
+from src.utils.wait_limits import (
+    STUCK_SECONDS,
+    StillTimer,
+    is_loading_dark,
+    load_wait,
+    scene_at_press,
+)
 
 # Click-to-move: clicks on the marker, each followed by a wait for the
 # character to walk onto it and the 末日之书 page to open.
@@ -149,7 +156,7 @@ _new_record_icon_cache: list = []
 def new_record_icon_score(frame_1080: np.ndarray) -> float:
     """How well the 创造新纪录 emblem matches at its usual spot (0..1)."""
     if not _new_record_icon_cache:
-        icon = cv2.imread(str(NEW_RECORD_ICON_TEMPLATE), cv2.IMREAD_UNCHANGED)
+        icon = image_io.read(NEW_RECORD_ICON_TEMPLATE, cv2.IMREAD_UNCHANGED)
         if icon is None or icon.ndim != 3 or icon.shape[2] != 4:
             return 0.0
         _new_record_icon_cache.append(
@@ -187,7 +194,7 @@ def yellow_mask(patch: np.ndarray) -> np.ndarray:
 def playing_mark_slot(frame_1080: np.ndarray) -> int | None:
     """The quick-switch slot whose card carries the yellow ▶ (in use)."""
     if not _playing_mark_cache:
-        mark = cv2.imread(str(PLAYING_MARK_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+        mark = image_io.read(PLAYING_MARK_TEMPLATE, cv2.IMREAD_GRAYSCALE)
         if mark is None:
             return None
         _playing_mark_cache.append((mark > 127).astype(np.float32))
@@ -351,7 +358,7 @@ class CartridgeFieldTask(_ClaimTaskBase):
         cover, the same for every player.
         """
 
-        template = cv2.imread(str(self.card_template), cv2.IMREAD_GRAYSCALE)
+        template = image_io.read(self.card_template, cv2.IMREAD_GRAYSCALE)
         if template is None:
             return None
         previous = None
@@ -390,7 +397,7 @@ class CartridgeFieldTask(_ClaimTaskBase):
 
     def _move_mode(self) -> str:
         """镜中之战's 「舞台移动方式」: one setting for both tasks."""
-        from src.tasks.PVPTask import PVPTask, STAGE_MOVE_CLICK, STAGE_MOVE_OPTIONS
+        from src.tasks.PVPTask import STAGE_MOVE_CLICK, STAGE_MOVE_OPTIONS, PVPTask
 
         try:
             pvp = self.executor.get_task_by_class(PVPTask)

@@ -36,6 +36,7 @@ from src.tasks.claim_page import BACK_BUTTON_POINT
 from src.tasks.recovery import recover_to_home
 from src.tasks.RewardClaimTasks import _ClaimTaskBase
 from src.tasks.task_vision_mixin import REFERENCE_HEIGHT, REFERENCE_WIDTH
+from src.utils import field_battle, image_io
 from src.utils.colour_rules import switch_yellow_ratio
 from src.utils.free_switch import ensure_free_switch_on
 from src.utils.frozen_screen import FrozenScreen
@@ -531,7 +532,7 @@ class EventBattleTask(_ClaimTaskBase):
         calm = 0
         while monotonic() <= end_at:
             frame = self.capture_frame()
-            if self._in_battle(frame):
+            if self._in_battle(frame) or self._auto_battle_shown(frame):
                 calm = 0
                 self.info_set("当前阶段", "失败后等待战斗结束")
                 self.sleep(2.0)
@@ -1073,6 +1074,14 @@ class EventBattleTask(_ClaimTaskBase):
             or keyword_match_count(buttons, (STOP_AUTO_TEXT,)) >= 1
         )
 
+    def _auto_battle_shown(self, frame) -> bool:
+        """The game's own auto-battle line anywhere on screen (「自动战斗中」,
+        「结束自动战斗」): still fighting, even when the chain's own text is
+        not where the watch reads it (player 2026-10-23, v0.2.9: 「8 秒不在
+        战斗中」 while recovery's whole-screen read found the battle).
+        Nothing is pressed."""
+        return field_battle.auto_on(self._roi_boxes(frame, None, "活动战斗画面"))
+
     def _wait_in_battle(self, timeout: float) -> bool:
         end_at = monotonic() + timeout
         while monotonic() <= end_at:
@@ -1244,7 +1253,10 @@ class EventBattleTask(_ClaimTaskBase):
                 defeat_calm = 0
                 if self._dismiss_ap_shortage():
                     return max(seen, 1)
-                if monotonic() - busy_at > UNKNOWN_END_SECONDS:
+                if self._auto_battle_shown(frame):
+                    busy_at = monotonic()
+                    tapped = False
+                elif monotonic() - busy_at > UNKNOWN_END_SECONDS:
                     # Neither battle nor a result screen it knows.
                     if mode and self._wait_for_stage_page(mode, timeout=0.0, quiet=True):
                         return max(seen, planned)  # the chain came back by itself
@@ -1593,7 +1605,7 @@ def sword_icon_points(frame) -> list[tuple[float, float]]:
     """Client centres of the hub's white crossed-swords icons, left to right."""
     global _SWORD_TEMPLATE
     if _SWORD_TEMPLATE is None:
-        _SWORD_TEMPLATE = cv2.imread(str(SWORD_ICON_TEMPLATE), cv2.IMREAD_GRAYSCALE)
+        _SWORD_TEMPLATE = image_io.read(SWORD_ICON_TEMPLATE, cv2.IMREAD_GRAYSCALE)
     template = _SWORD_TEMPLATE
     if template is None or frame is None or getattr(frame, "ndim", 0) != 3:
         return []

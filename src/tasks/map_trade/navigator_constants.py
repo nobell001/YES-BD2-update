@@ -629,6 +629,22 @@ MERCHANT_NAV_MENU_OCR_INTERVAL = 0.5
 # list her and no 狩猎场).
 HUNTING_GROUND_NAV_ENTRY = "狩猎场"
 TOWN_NPC_NAV_ENTRY = "艾琳"
+# In a hunting ground the minimap has no ≡ button: the ground's own bar sits
+# beside it all the time, 「守山人休息处 | 极难 更改 / 自动狩猎 / 离开」 (Leo's
+# 第9章 picture, 2026-10-23), where the ≡ menu is read.  The player run read
+# it as a menu without 狩猎场.  自动狩猎 alone, or 更改 with 离开.
+HUNTING_GROUND_PANEL_WORD = "自动狩猎"
+HUNTING_GROUND_PANEL_PAIR = ("更改", "离开")
+# Hunting grounds the tool cannot walk to the circle in: the player must stand
+# on it.  第10章 伯爵家宝库 (live 1080p clone 2026-10-23): circle and 官邸大殿
+# exit icons overlap on its small area map, and beside the circle a click
+# starts no walk.  Leo chose to skip the card with this note (only ch10).
+HUNTING_GROUND_MUST_STAND_ON_CIRCLE = {
+    "Q_sp10": (
+        "第10章：人在狩猎场（伯爵家宝库）但没站在传送阵上。这张图的传送阵和出口叠在一起，"
+        "点地图走不过去。只有第10章需要这样：请先让角色站到传送阵上（看到手势），再重新跑图"
+    ),
+}
 MERCHANT_NAV_LANDMARK_TIMEOUT = 10.0
 SANDBOX_NAVIGATION_PIN_TEMPLATE = TemplateSpec(
     "箱庭小地图图钉",
@@ -658,6 +674,8 @@ SANDBOX_NAVIGATION_OPEN_TEMPLATES = (
     SANDBOX_NAVIGATION_RUN_TEMPLATE,
 )
 SANDBOX_NAVIGATION_PAGE_KEYWORDS = ("在战场中查看", "探索", "世界地图")
+# The area map's title starts with the map's kind: 「战斗 …」 or 「安全 …」.
+AREA_MAP_HEADER_TAGS = ("战斗", "安全")
 SANDBOX_TELEPORT_SKILL_FAILURE_GROUPS = (
     ("无法在", "魔法阵附近"),
     ("无法在", "该地点"),

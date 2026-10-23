@@ -7,6 +7,7 @@ import numpy as np
 from src.tasks.map_trade.card_status import CardStatusDetector
 from src.tasks.map_trade.models import COLLECTABLE_CARDS, MapPageMode, ScreenState
 from src.tasks.map_trade.navigator_constants import (
+    AREA_MAP_HEADER_TAGS,
     BARGAIN_CONFIRM_POINT,
     BARGAIN_POINT,
     CHAPTER_HOME_POINT,
@@ -299,7 +300,14 @@ class Navigator(StoryCardNavigationMixin, SandboxNavigationMixin, TradeNavigatio
                 mode = MapPageMode.DIRECT_TELEPORT
             elif generated and not direct and has_legend and has_teleport_structure:
                 mode = MapPageMode.GENERATE_TELEPORT
-        elif self._known_story_map_title_in_text(normalized_header):
+        elif self._known_story_map_title_in_text(normalized_header) or any(
+            tag in normalized_header for tag in AREA_MAP_HEADER_TAGS
+        ):
+            # A map outside the cards' own titles, such as a chapter's
+            # hunting ground (player 1080p 2026-10-23, 第9章 「战斗 守山人休息处」):
+            # its 战斗/安全 tag counts as well, the footer words and arrows
+            # below still decide.  The page was never confirmed, so its
+            # circle was not searched and the map was not closed.
             try:
                 footer_text = self.vision.simplify(
                     self.vision.ocr_text(

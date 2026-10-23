@@ -6,7 +6,7 @@ from typing import Callable
 import cv2
 import numpy as np
 
-from src.utils import image_utils, template_resolution
+from src.utils import image_io, image_utils, template_resolution
 from src.utils.vision_models import EMPTY_MATCH, MatchResult, TemplateSpec
 
 
@@ -45,7 +45,7 @@ def load_template(
         return cache[spec.name]
 
     path = template_dir / spec.file_name
-    raw = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+    raw = image_io.read(path, cv2.IMREAD_UNCHANGED)
     if raw is None:
         raise RuntimeError(f"任务模板不存在或无法读取：{path}")
     if spec.crop is not None:

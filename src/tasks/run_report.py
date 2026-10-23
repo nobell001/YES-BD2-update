@@ -23,7 +23,7 @@ from pathlib import Path
 from ok import Logger
 from ok.util.file import get_relative_path, read_json_file, write_json_file
 
-from src.utils import accounts
+from src.utils import accounts, image_io
 from src.utils.game_day import DAILY_REFRESH_HOUR, GAME_TZ
 
 logger = Logger.get_logger(__name__)
@@ -369,7 +369,7 @@ def save_picture(frame, kind: str) -> str | None:
         folder.mkdir(parents=True, exist_ok=True)
         stamp = datetime.fromtimestamp(time.time(), tz=GAME_TZ).strftime("%H%M%S")
         path = folder / f"{kind}-{stamp}-{int(time.time() * 1000) % 1000:03d}.png"
-        if not cv2.imwrite(str(path), frame):
+        if not image_io.write(path, frame):
             return None
         _prune_old_days(root)
     except Exception as exc:

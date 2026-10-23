@@ -89,9 +89,10 @@ def _handle_dialog(task, vision: Vision) -> str:
         for title in TITLE_SCREEN_TEXTS
     ):
         return "title"
-    if field_battle.in_battle(boxes):
+    if getattr(task, "FIELD_BATTLE_ESCAPE", False) and field_battle.in_battle(boxes):
         # Back, H and Esc do nothing in a battle; Esc even ends the auto
-        # battle (live 2K 2026-10-22, 跑图 第14章).
+        # battle (live 2K 2026-10-22, 跑图 第14章).  每周跑图 only (Leo
+        # 2026-10-23): other tasks recover as before v0.2.7.
         return "battle"
     press = known_popups.pick(boxes, allow_cancel=True)
     if press is None:
@@ -437,6 +438,7 @@ class FieldBattleEscapeTestTask(BaseBD2Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "野外战斗逃跑测试"
+        self.FIELD_BATTLE_ESCAPE = True
         self.description = "在战斗画面执行一次：按 Esc 找「逃跑」并逃跑（开发用）。"
         self.visible = False
 
