@@ -842,13 +842,14 @@ class PVPTask(BaseBD2Task):
                             if action_name in ("赛季奖励", FIEND_HUNT_REWARD_TITLE)
                             else PVP_RANK_PAGE_AFTER_CLICK_SECONDS
                         )
-                        self.operate_click(
+                        if self.press_dismiss(
                             max(0.0, min(1.0, point[0] / max(1, frame_width))),
                             max(0.0, min(1.0, point[1] / max(1, frame_height))),
-                            after_sleep=after_sleep,
-                        )
-                        handled.add(action_name)
-                        action_count += 1
+                            after_sleep,
+                            action_name,
+                        ):
+                            handled.add(action_name)
+                            action_count += 1
                         continue
                 # The hub artwork can remain visible behind these overlays. Never
                 # accept its template from a frame that contains a special page.

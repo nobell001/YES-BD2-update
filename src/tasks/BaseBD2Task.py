@@ -62,6 +62,13 @@ RECENT_CARTRIDGE_SPECIAL_PAGE_SECONDS = 3.0
 # now stays on the point this long before the first wheel and after the last.
 SCROLL_POINTER_SETTLE_SECONDS = 0.15
 RECENT_CARTRIDGE_SPECIAL_PAGE_MAX_ACTIONS = 3
+# A popup's 确认 pressed once is still read on the next frames while the page
+# fades out; pressed again, the press lands on whatever sits under it (live 4K
+# clone 2026-10-23: 恭喜晋级's 确认 pressed twice, the second press opened the
+# PVP field's 战场角色设置).  The same spot is pressed again only after this
+# long, when the page is still there on a frame taken after it.
+DISMISS_REPRESS_SECONDS = 3.0
+DISMISS_SAME_SPOT = 0.04  # share of the window width/height
 # Windows may refuse to raise the game while the user works elsewhere.
 FOREGROUND_ATTEMPTS = 3
 # A shortcut tap: long enough for the PC client to read it (WASD holds work live).
@@ -882,6 +889,25 @@ class BaseBD2Task(BaseTask):
         height, width = frame.shape[:2]
         return loading_sign(boxes, width, height)
 
+    def press_dismiss(self, x: float, y: float, after_sleep: float = 1.0, label: str = "") -> bool:
+        """Press a popup's closing spot (relative x, y).  False, without a
+        press, when a closing press hit the same spot moments ago: the popup
+        read now may be that one fading out (DISMISS_REPRESS_SECONDS)."""
+        now = time.monotonic()
+        last = getattr(self, "_last_dismiss", None)
+        if (
+            last is not None
+            and now - last[2] < DISMISS_REPRESS_SECONDS
+            and abs(x - last[0]) <= DISMISS_SAME_SPOT
+            and abs(y - last[1]) <= DISMISS_SAME_SPOT
+        ):
+            self.info_set("关闭弹窗", f"{label or '弹窗'}刚按过同一处，等它关完再看")
+            self.sleep(max(0.0, DISMISS_REPRESS_SECONDS - (now - last[2])))
+            return False
+        self.operate_click(x, y, after_sleep=after_sleep)
+        self._last_dismiss = (x, y, time.monotonic())
+        return True
+
     def close_known_popup(self, label: str = "", *, info_only: bool = False) -> bool:
         """Close a popup that covers the page with its harmless press
         (src/utils/known_popups; never 取消 mid-task, never a spend).  True
@@ -897,7 +923,7 @@ class BaseBD2Task(BaseTask):
             self.log_info(f"{label}：查看弹窗失败：{exc}")
             return False
         press = known_popups.pick(boxes)
-        if info_only and press is not None and press.label in (
+        if info_only and press is not None and not press.stray and press.label in (
             known_popups.CLOSE_TEXT,
             known_popups.CANCEL_TEXT,
         ):
@@ -909,8 +935,9 @@ class BaseBD2Task(BaseTask):
         if center is None:
             return False
         height, width = frame.shape[:2]
+        if not self.press_dismiss(center[0] / width, center[1] / height, 1.0, press.label):
+            return False  # 刚按过：调用方接着重看页面
         self.log_info(f"{label}：画面被弹窗挡住，点击「{press.label}」关闭后再看。")
-        self.operate_click(center[0] / width, center[1] / height, after_sleep=1.0)  # 不用确认：调用方接着重看页面
         return True
 
     def leave_field_battle(self, label: str, boxes=None) -> str:
@@ -1764,11 +1791,13 @@ class BaseBD2Task(BaseTask):
                     frame_width = max(1, int(self.width))
                     frame_height = max(1, int(self.height))
                     self.info_set("当前阶段", f"处理最近卡带{action_name}")
-                    self.operate_click(
+                    pressed = self.press_dismiss(
                         max(0.0, min(1.0, point[0] / frame_width)),
                         max(0.0, min(1.0, point[1] / frame_height)),
-                        after_sleep=0.5,
+                        0.5,
+                        action_name,
                     )
+                if point is not None and pressed:
                     handled.add(action_name)
                     action_count += 1
                     if action_name in (FIEND_HUNT_REWARD_TITLE, GOLDEN_ARENA_REWARD_TITLE):

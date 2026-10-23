@@ -15,7 +15,9 @@ does it once for every task; this module is that one place (Leo 2026-10-12,
 - 「确认」 only while an info-only title (获得道具, 奖励已发放至背包...) is on
   the same frame, never a purchase or spend confirm;
 - 「取消」 only when the caller allows it (the way home), never mid-task,
-  where it could cancel a dialog the task itself opened;
+  where it could cancel a dialog the task itself opened; except on a
+  settings panel no task ever opens (战场角色设置), which only a stray press
+  opens and whose 取消 changes nothing;
 - a tap on the info line of an overlay that has no button (赛季奖励);
 - Esc for the game's 公告 list, whose ✕ has no text;
 - a tap on the dark backdrop left of a paid pass's 签到 panel (no ✕, no
@@ -83,6 +85,11 @@ PASS_SIGNIN_WORD = "签到"
 # backdrop left of the panel; the panel starts just left of its text).
 PASS_SIGNIN_TAP_X_SHARE = 0.45
 PASS_SIGNIN_LABEL = "签到弹窗外的空白处"
+# Settings panels no task opens: a stray press opened it (live 4K clone
+# 2026-10-23: a second 确认 press on a fading 恭喜晋级 hit the PVP field's
+# 战场角色设置 button), and it hides the page behind it.  取消 keeps the
+# settings as they were.
+STRAY_PANEL_TITLES = ("战场角色设置",)
 
 
 @dataclass(frozen=True)
@@ -102,6 +109,8 @@ class PopupPress:
     box: object
     # A key instead of a click (the notice list's ✕ has no text to find).
     key: str = ""
+    # 取消 on a panel no task opens (STRAY_PANEL_TITLES): allowed mid-task.
+    stray: bool = False
 
 
 def _named(boxes) -> list[tuple[str, object]]:
@@ -162,6 +171,10 @@ def pick(boxes, *, allow_cancel: bool = False) -> PopupPress | None:
     box = _exact(named, OVERLAY_DISMISS_KEYWORDS[0])
     if box is not None:
         return PopupPress(OVERLAY_DISMISS_KEYWORDS[0], box)
+    if any(_exact(named, title) is not None for title in STRAY_PANEL_TITLES):
+        box = _exact(named, CANCEL_TEXT)
+        if box is not None:
+            return PopupPress(CANCEL_TEXT, box, stray=True)
     if allow_cancel:
         box = _exact(named, CANCEL_TEXT)
         if box is not None:

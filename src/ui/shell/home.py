@@ -1292,15 +1292,17 @@ class HomePage(Page):
                 total += duration
         return total if known else None
 
-    def _pause(self) -> None:
+    def _pause(self, source: str = "button") -> None:
         remote = None if data.busy() else clone_flow.remote_task()
         if remote is not None:
-            clone_flow.remote_control("resume" if remote.paused else "pause")
+            command = "resume" if remote.paused else "pause"
+            clone_flow.log_remote_press(command, source)
+            clone_flow.remote_control(command)
         else:
             actions.toggle_pause(data.current_task())
         self.refresh()
 
-    def _stop(self) -> None:
+    def _stop(self, source: str = "button") -> None:
         """The 停止 button and the hotkey.  The button turns into a greyed
         「正在停止…」 before the stop is sent; more presses do nothing until
         the run has ended (or the press got nowhere, see ``stopping``)."""
@@ -1311,6 +1313,7 @@ class HomePage(Page):
             self._show_stopping(True)
             self.stop_button.repaint()  # before the stop, which may take a moment
         if not data.busy() and clone_flow.remote_task() is not None:
+            clone_flow.log_remote_press("stop", source)
             clone_flow.remote_control("stop")
         else:
             actions.stop(data.current_task())

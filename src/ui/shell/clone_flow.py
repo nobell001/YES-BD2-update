@@ -948,6 +948,36 @@ def remote_control(command: str) -> None:
     clone_desktop.send_control(command)
 
 
+def log_remote_press(command: str, source) -> None:
+    """Which press sent a 暂停/停止 to the run in the clone (button or key)."""
+    logger.info(f"clone: {command} sent to the 桌面分身 ({source if isinstance(source, str) else 'button'})")
+
+
+def front_is_ours() -> bool:
+    """This tool's window or the 桌面分身 viewer is in front.
+
+    The run in the clone leaves the PC free for other apps, and the 暂停/停止
+    keys are global: pressed in another app they paused the run unseen (live
+    4K 2026-10-23, 活动每日战斗 sat paused 10 minutes).  While the run is in
+    the clone, the keys count only with the tool or the viewer in front."""
+    try:
+        import os
+
+        import psutil
+        import win32gui
+        import win32process
+
+        front = win32gui.GetForegroundWindow()
+        if not front:
+            return False
+        _thread, pid = win32process.GetWindowThreadProcessId(front)
+        if pid == os.getpid():
+            return True
+        return psutil.Process(pid).name().lower() == clone_desktop.VIEWER.name.lower()
+    except Exception:
+        return True  # cannot tell: the key works as before
+
+
 def log_in_this_run() -> None:
     """The tool opens the game itself in the clone, so it must also log in.
 

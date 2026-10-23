@@ -149,13 +149,16 @@ class Shell(QObject):
         hotkeys.start(self.hotkey_pressed.emit)
 
     def _on_hotkey(self, action: str) -> None:
-        from src.ui.shell import hotkeys
+        from src.ui.shell import clone_flow, hotkeys
 
+        if not data.busy() and clone_flow.remote_task() is not None and not clone_flow.front_is_ours():
+            logger.info(f"hotkey {action}: the run is in the 桌面分身 and another app is in front, ignored")
+            return
         home = self.pages["home"]
         if action == hotkeys.PAUSE:
-            home._pause()
+            home._pause(source="hotkey")
         elif action == hotkeys.STOP:
-            home._stop()
+            home._stop(source="hotkey")
 
     # ------------------------------------------------------------ navigation
 
