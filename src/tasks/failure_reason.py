@@ -24,6 +24,10 @@ NO_REASON = "原因没有记录到，请看摘要里的游戏画面"
 REASON_LIMIT = 60
 # Going home after the failure is not why it failed.
 _AFTER_FAILURE = ("恢复主页", "失败后")
+# The OCR's own note that a second look read the text says nothing about the
+# failure (player 2026-10-24: 「失败：OCR 快速狩猎主页抽抽乐 x1：第一次没读到，
+# 加边放大 1 倍后读到」 stood where 「未找到…选择金币航线」 belonged).
+_HOUSEKEEPING = re.compile(r"^OCR .*第一次没读到")
 _EMPTY_STATUS = {"", "-", "启动", "开始", "运行中"}
 _PUNCTUATION = "：:。.，, "
 
@@ -52,7 +56,7 @@ def _cause_line(task, since: float, status: str) -> str:
         problem_report.recent_lines(since, threading.get_ident())
     ):
         line = _strip_name(text, name).rstrip(_PUNCTUATION)
-        if not line or line.startswith(_AFTER_FAILURE):
+        if not line or line.startswith(_AFTER_FAILURE) or _HOUSEKEEPING.match(line):
             continue
         if plain and (line == plain or line.startswith(plain)):
             continue

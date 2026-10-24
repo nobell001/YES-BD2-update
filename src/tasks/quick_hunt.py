@@ -317,6 +317,21 @@ QUICK_HUNT_DOUBLE_TEMPLATE = TemplateSpec(
 )
 
 
+def _miss_reason(name: str, seen: str, frame) -> str:
+    """Why a press was not made, in the player's words (Leo 2026-10-24
+    「錯誤要寫原因 不要寫讀不到」; was 「未找到可点击 OCR 目标：选择金币航线」)."""
+    words = " ".join(str(seen or "").split())[:40]
+    reason = (
+        f"「{name}」没按：那一区读到的字是「{words}」，不是要按的字"
+        if words
+        else f"「{name}」没按：那一区一个字都没读到"
+    )
+    height, width = (getattr(frame, "shape", None) or (0, 0))[:2]
+    if 0 < height < 1080:
+        reason += f"（游戏画面只有 {width}×{height}，字太小可能认不出，调成 1920×1080 会比较稳）"
+    return reason
+
+
 class QuickHuntConfigMixin:
     include_quick_hunt_config = False
 
@@ -1124,7 +1139,10 @@ class QuickHuntFeatureMixin:
             sleep=self.sleep,
             poll=0.4,
         ):
-            self.log_info(f"快速狩猎：未找到可点击 OCR 目标：{button}")
+            self.log_info(
+                f"快速狩猎：{stage}页一直没看到可以按的「快速狩猎」按钮，没按"
+                f"（等了 {self._quick_hunt_ui_timeout():.0f} 秒）"
+            )
             return False
         outcome = self.press_and_confirm(
             f"快速狩猎：{stage}打开快速狩猎视窗",
@@ -1612,9 +1630,13 @@ class QuickHuntFeatureMixin:
         end_at = monotonic() + max(0.0, timeout)
         compiled = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
         vision = self._quick_vision()
+        frame = None
+        seen = ""
         while monotonic() <= end_at:
             frame = self.capture_frame()
-            for box in vision.ocr_boxes(frame, name, relative_roi=roi):
+            boxes = list(vision.ocr_boxes(frame, name, relative_roi=roi))
+            seen = " ".join(str(getattr(box, "name", "")) for box in boxes)
+            for box in boxes:
                 value = self._normalize_text(getattr(box, "name", ""))
                 if not any(pattern.search(value) for pattern in compiled):
                     continue
@@ -1626,7 +1648,7 @@ class QuickHuntFeatureMixin:
                 vision.click_client(point, frame.shape, after_sleep=0.8)
                 return True
             self.sleep(0.4)
-        self.log_info(f"快速狩猎：未找到可点击 OCR 目标：{name}")
+        self.log_info(f"快速狩猎：{_miss_reason(name, seen, frame)}")
         return False
 
     def _quick_hunt_ocr_text(

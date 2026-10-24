@@ -728,12 +728,12 @@ class TradeNavigationMixin:
             MINIMAP_CENTER_REFERENCE[1] / 1080,
             after_sleep=1.5,
         )
-        map_open = self._area_map_open(AREA_MAP_OPEN_SECONDS)
+        map_open = self._area_map_kind(AREA_MAP_OPEN_SECONDS)
         if not map_open:
             self._status("导航状态", f"点小地图没打开地图，改按 {AREA_MAP_KEY} 键")
             tap_key = getattr(self.task, "tap_key", None)
             if callable(tap_key) and tap_key(AREA_MAP_KEY, after_sleep=1.5):
-                map_open = self._area_map_open(AREA_MAP_OPEN_SECONDS)
+                map_open = self._area_map_kind(AREA_MAP_OPEN_SECONDS)
         icon_timeout = MAP_MERCHANT_ICON_TIMEOUT
         for spec in (MAP_MERCHANT_ICON_TEMPLATE, SQUARE_MAP_MERCHANT_ICON_TEMPLATE):
             if self.vision.click_template(spec, timeout=icon_timeout, after_sleep=0.8):
@@ -750,9 +750,13 @@ class TradeNavigationMixin:
             self._close_area_map_quietly()
         return False
 
-    def _area_map_open(self, seconds: float) -> str | None:
+    def _area_map_kind(self, seconds: float) -> str | None:
         """"square" for the square's map, "map" for another, None when
-        neither the map's title nor its footer read within ``seconds``."""
+        neither the map's title nor its footer read within ``seconds``.
+
+        Not named _area_map_open: the 跑图 check of that name came first in
+        Navigator's bases and took no ``seconds`` (v0.2.11: every walk over
+        the area map to the merchant stopped with a TypeError)."""
         end_at = monotonic() + seconds
         while True:
             frame = self.vision.capture()

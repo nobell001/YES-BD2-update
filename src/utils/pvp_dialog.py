@@ -55,6 +55,24 @@ def parse_free_cocktails(text: object) -> int | None:
     )
 
 
+def free_cocktails_problem(text: object) -> str:
+    """Why parse_free_cocktails gave nothing for ``text``, in the player's words."""
+    raw = " ".join(str(text or "").split())
+    if not raw:
+        return "右上角一个字都没读到"
+    match = re.search(r"(\d+)\s*[/／]\s*(\d+)", raw)
+    if not match:
+        return f"右上角读到「{raw[:30]}」，里面没有「数字/40」"
+    amount, top = match.group(1), match.group(2)
+    if len(amount) > 2:
+        # 273/40 (player v0.2.11 2026-10-24): left as is by Leo, said plainly.
+        return (
+            f"右上角读到 {amount}/{top}，免费鸡尾酒超过 99 个，"
+            "工具只认得 99 个以内，为免读错不开打"
+        )
+    return f"右上角读到 {amount}/{top}，后面的上限不是正常的数字"
+
+
 def adjust_step(current: int, target: int, big_step: int) -> str | None:
     """Button to press next: big_plus / big_minus / plus / minus (None: done)."""
     difference = target - current

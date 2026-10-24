@@ -71,6 +71,7 @@ from src.utils.pvp_dialog import (
     step_moves,
     steps_between,
     parse_battle_count,
+    free_cocktails_problem,
     parse_free_cocktails,
     parse_multiplier,
     parse_start_cost,
@@ -1679,16 +1680,20 @@ class PVPTask(BaseBD2Task):
             problems.append("仅使用免费鲜血鸡尾酒未开启")
         # Which number and what was read go into the message (player v0.2.11
         # 2026-10-24: 「读不到每场消耗、场数或免费鸡尾酒数」 could not say which).
+        # The reason, not just 「读不到」 (Leo 2026-10-24 「錯誤要寫原因」).
         unread = []
         if cost is None:
-            start_text = " | ".join(getattr(self, "_start_cost_texts", ()) or ())
-            unread.append(f"每场消耗（战斗开始按钮读到：{start_text or '-'}）")
+            start_text = " | ".join(t for t in getattr(self, "_start_cost_texts", ()) or () if t)
+            unread.append(
+                f"「战斗开始」按钮上没认出每场花几杯（读到：{start_text or '没有字'}）"
+            )
         if battles is None:
-            unread.append(f"场数（读到：{getattr(self, '_battle_count_text', '') or '-'}）")
+            count_text = getattr(self, "_battle_count_text", "") or ""
+            unread.append(f"没认出「自动战斗N次」的场数（读到：{count_text or '没有字'}）")
         if free is None:
-            unread.append(f"免费鸡尾酒数（右上角读到：{free_text or '-'}）")
+            unread.append(free_cocktails_problem(free_text))
         if unread:
-            problems.append("读不到" + "、".join(unread))
+            problems.extend(unread)
         else:
             if cost != multiplier:
                 problems.append(f"每场消耗 {cost} 不等于倍数 {multiplier}")

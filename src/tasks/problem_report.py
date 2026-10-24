@@ -372,6 +372,52 @@ def note_give_up(task, frame, now: float | None = None) -> None:
         }
 
 
+def note_skip(task, frame, now: float | None = None) -> None:
+    """A task skipped a part and went on (跑图 skips a card): keep that screen.
+
+    The run's record was taken at its end, so a skipped card showed a later
+    card's last screen and lines (player v0.2.11 2026-10-23: 第11章 回主城失败
+    under 第14章's frame).  Only the first skip of a run is kept; a give-up
+    noted later (note_give_up) still wins.
+    """
+    if _current is None or frame is None:
+        return
+    now = time.time() if now is None else now
+    try:
+        import cv2
+
+        height, width = frame.shape[:2]
+        if width > FRAME_WIDTH:
+            kept = cv2.resize(
+                frame, (FRAME_WIDTH, round(height * FRAME_WIDTH / width)),
+                interpolation=cv2.INTER_AREA,
+            )
+        else:
+            kept = frame.copy()
+    except Exception:
+        return  # a copy that fails must never break the run
+    with _lock:
+        current = _current
+        if current is None or current.get("thread") != threading.get_ident():
+            return
+        if current.get("skip") is not None:
+            return
+        current["skip"] = {
+            "at": now,
+            "task": str(getattr(task, "name", "") or ""),
+            "frame": kept,
+            "before": [(at, small) for at, small in _before if at <= now - BEFORE_SKIP],
+            "logs": _logs(current, now),
+        }
+
+
+def forget_skip() -> None:
+    """The skipped part is tried again: its own outcome is what counts."""
+    with _lock:
+        if _current is not None and _current.get("thread") == threading.get_ident():
+            _current.pop("skip", None)
+
+
 def note_leaving_step(task, frame, now: float | None = None) -> None:
     """The task starts going home from a screen that is not home: keep it.
 
@@ -723,17 +769,22 @@ def _stage(task) -> str:
 def _capture(task, how: str, note: str, current: dict) -> dict:
     now = time.time()
     executor = getattr(task, "executor", None)
+    name = str(getattr(task, "name", "") or "")
     give_up = current.get("give_up") if how == "fail" else None
-    if give_up is not None and give_up.get("task") != str(getattr(task, "name", "") or ""):
+    if give_up is not None and give_up.get("task") != name:
         give_up = None
+    if give_up is None and how == "fail":
+        skip = current.get("skip")
+        if skip is not None and skip.get("task") == name:
+            give_up = skip
     problem = {
         "at": give_up["at"] if give_up is not None else now,
         "how": how,
-        "task": str(getattr(task, "name", "") or ""),
+        "task": name,
         "stage": _stage(task),
         "note": scrub(note)[:NOTE_CHARS],
         "env": environment(executor),
-        "logs": _logs(current, now),
+        "logs": (give_up or {}).get("logs") or _logs(current, now),
     }
     frame = give_up["frame"] if give_up is not None else _last_frame(executor)
     if frame is not None:

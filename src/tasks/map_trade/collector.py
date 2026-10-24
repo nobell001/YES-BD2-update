@@ -619,6 +619,9 @@ class Collector(SkillExecutionMixin):
 
     def _forget_card_problems(self, card) -> None:
         """The retry's own outcome is what the report tells."""
+        from src.tasks import problem_report
+
+        problem_report.forget_skip()
         self._skipped_cards = [item for item in self._skipped_cards if item.card_id != card.card_id]
         self._skill_skips.pop(card.card_id, None)
         self._skip_reasons.pop(card.card_id, None)
@@ -651,6 +654,7 @@ class Collector(SkillExecutionMixin):
         self._skipped_cards.append(card)
         self._skip_reasons.setdefault(card.card_id, reason)
         self.task.log_warning(f"地图采集：{card.label}{reason}，先跳过，继续下一张。")
+        self._note_skip_screen()
         # A skipped card keeps the collection group too when a later card
         # follows (Leo 2026-10-15 「一張卡帶跑完都會把技能欄切成錯的 下張圖又
         # 切回來」: 2K, Q_cp7 skipped → group 3, Q_ep1 → group 2 again).  If
@@ -668,6 +672,21 @@ class Collector(SkillExecutionMixin):
             completed_submaps=completed_this_run,
             message=f"{card.label}跳过后回不到主页（{returned.message}），停止跑图",
         )
+
+    def _note_skip_screen(self) -> None:
+        """The 问题摘要 shows where the first skipped card stopped, not the
+        run's last screen (player 2026-10-23: 第11章 under 第14章's frame)."""
+        capture = getattr(self.task, "capture_frame", None)
+        if capture is None:
+            return
+        try:
+            from src.tasks import problem_report
+
+            problem_report.note_skip(self.task, capture())
+        except (TaskDisabledException, FinishedException):
+            raise
+        except Exception as exc:  # a lost picture must never stop the run
+            self.task.log_info(f"地图采集：跳过时的画面没留下（{exc}）。")
 
     def _recover_home_after_skip(self, card, why: str) -> bool:
         """The general way home (back arrow, H, and Esc one step at a time)
