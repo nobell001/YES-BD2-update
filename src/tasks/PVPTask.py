@@ -1557,6 +1557,7 @@ class PVPTask(BaseBD2Task):
     def _battle_count_value(self) -> int | None:
         text = self._ocr_text(self.capture_frame(), name="PVP 战斗次数", roi=PVP_COUNT_ROI)
         self.info_set("PVP 战斗次数 OCR", text or "-")
+        self._battle_count_text = text
         return parse_battle_count(text)
 
     def _set_battle_count(self, count: int) -> int | None:
@@ -1652,11 +1653,14 @@ class PVPTask(BaseBD2Task):
         def per_battle():
             return self._start_cost_on(self.capture_frame())
 
+        free_text = ""
+
         def free_pool():
-            text = self._ocr_text(
+            nonlocal free_text
+            free_text = self._ocr_text(
                 self.capture_frame(), name="PVP 免费鸡尾酒", roi=PVP_FREE_COCKTAIL_ROI
             )
-            return parse_free_cocktails(text)
+            return parse_free_cocktails(free_text)
 
         cost = self._read_until(per_battle)
         free = self._read_until(free_pool)
@@ -1673,8 +1677,18 @@ class PVPTask(BaseBD2Task):
         problems = []
         if not switch_on:
             problems.append("仅使用免费鲜血鸡尾酒未开启")
-        if cost is None or free is None or battles is None:
-            problems.append("读不到每场消耗、场数或免费鸡尾酒数")
+        # Which number and what was read go into the message (player v0.2.11
+        # 2026-10-24: 「读不到每场消耗、场数或免费鸡尾酒数」 could not say which).
+        unread = []
+        if cost is None:
+            start_text = " | ".join(getattr(self, "_start_cost_texts", ()) or ())
+            unread.append(f"每场消耗（战斗开始按钮读到：{start_text or '-'}）")
+        if battles is None:
+            unread.append(f"场数（读到：{getattr(self, '_battle_count_text', '') or '-'}）")
+        if free is None:
+            unread.append(f"免费鸡尾酒数（右上角读到：{free_text or '-'}）")
+        if unread:
+            problems.append("读不到" + "、".join(unread))
         else:
             if cost != multiplier:
                 problems.append(f"每场消耗 {cost} 不等于倍数 {multiplier}")
@@ -1702,6 +1716,7 @@ class PVPTask(BaseBD2Task):
         # A lone thin "1" after the cocktail icon is lost at 2K (live
         # 2026-09-29, 1x fallback): read the button enlarged as well.
         texts = []
+        self._start_cost_texts = texts
         for scale in (1.0, 2.0):
             text = self._ocr_text(
                 frame, name="PVP 战斗开始", roi=PVP_START_BUTTON_ROI, ocr_scale=scale

@@ -293,10 +293,11 @@ class CookingFlowMixin:
                     flow_success = False
                     break
         finally:
+            exited = True
             if self._cooking_opened:
                 exited = self._leave_cooking_to_q_sp6()
                 flow_success = flow_success and exited
-            self._restore_skill_group(stopped=_stopping())
+            self._restore_skill_group(stopped=_stopping(), on_field=exited)
             if unavailable:
                 self.task.log_info(
                     "料理：材料不足（图标变灰或按钮不可用），这次跳过："
@@ -387,13 +388,22 @@ class CookingFlowMixin:
             return None
         return selected_skill_group(capture())
 
-    def _restore_skill_group(self, *, stopped: bool = False) -> None:
+    def _restore_skill_group(self, *, stopped: bool = False, on_field: bool = True) -> None:
         """Back to the group the player had before cooking switched it."""
 
         if not getattr(self, "_group_switched", False):
             return
         self._group_switched = False
         before = getattr(self, "_group_before_cooking", None)
+        if not on_field:
+            # The group buttons' places are pressed only on the field: off
+            # it they may land on whatever page is still open.
+            self.task.log_warning(
+                "料理：没确认回到箱庭，技能组没有切回"
+                + (f"（原本是第{before}组）" if before is not None else "")
+                + "，请检查技能栏。"
+            )
+            return
         if stopped:
             # Stop (or the player's own mouse) means no more presses.
             if before is not None:
@@ -883,6 +893,28 @@ class CookingFlowMixin:
         remaining = max(COOKING_RECLICK_AFTER, end_at - monotonic())
         return self._wait_for_cooking_list(remaining) is not None
 
+    def _back_on_field(self, seconds: float) -> bool:
+        """The field next to the merchant within ``seconds`` (single probes, no warning)."""
+        end_at = monotonic() + seconds
+        while True:
+            if self.navigator.wait_for_q_sp6_sandbox(0.0):
+                return True
+            if monotonic() >= end_at:
+                return False
+            self.task.sleep(COOKING_POLL_INTERVAL)
+
+    def _list_still_shown(self):
+        """The frame when the cooking list is read on 2 frames, else None."""
+        frame = None
+        for look in range(COOKING_RECLICK_HITS):
+            if look:
+                self.task.sleep(COOKING_POLL_INTERVAL)
+            snapshot = self._cooking_list_snapshot()
+            if snapshot is None:
+                return None
+            frame = snapshot.frame
+        return frame
+
     def _detail_still_shown(self):
         """The frame when a cooking detail page is read on 2 frames, else None."""
         frame = None
@@ -921,6 +953,14 @@ class CookingFlowMixin:
         if list_snapshot is None:
             return False
         self._click_cooking_back(list_snapshot.frame, context="料理列表")
+        # A swallowed 返回 leaves the list up for the whole wait, as on the
+        # detail page (YES-BD2 #13); press it once more while the list shows
+        # (player v0.2.11 2026-10-24: 「退出后未确认回到商人旁的箱庭」).
+        if not self._back_on_field(COOKING_RECLICK_AFTER):
+            still = self._list_still_shown()
+            if still is not None:
+                self.task.log_info("料理：按返回后料理列表还在，再按一次返回。")
+                self._click_cooking_back(still, context="料理列表补按")
         if not self.navigator.wait_for_q_sp6_sandbox(COOKING_EXIT_TIMEOUT):
             self.task.log_warning("料理：退出后未确认回到商人旁的箱庭。")
             return False
