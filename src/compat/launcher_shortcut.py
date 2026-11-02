@@ -57,10 +57,53 @@ def is_launcher_shortcut_name(file_name: str, app_name: str) -> bool:
     return any(stem == form.format(app=app_name).casefold() for form in LAUNCHER_NAME_FORMS)
 
 
+def long_path(path: str) -> str:
+    """The long form of a short (8.3) name such as RUNNER~1:
+    a shortcut keeps the long form, so the two never read equal otherwise
+    (YES-BD2 Build v0.2.28 2026-11-02: the launcher in the runner's 8.3
+    temp folder, its shortcuts not removed).  Unchanged when not on Windows
+    or when the path does not exist."""
+    if os.name != "nt" or not path:
+        return path
+    try:
+        import ctypes
+
+        buffer = ctypes.create_unicode_buffer(32768)
+        size = ctypes.windll.kernel32.GetLongPathNameW(path, buffer, len(buffer))
+    except Exception:
+        return path
+    return buffer.value if 0 < size < len(buffer) else path
+
+
 def same_path(a: str, b: Path) -> bool:
-    return bool(a) and os.path.normcase(os.path.abspath(a)) == os.path.normcase(
-        os.path.abspath(str(b))
+    return bool(a) and os.path.normcase(os.path.abspath(long_path(a))) == os.path.normcase(
+        os.path.abspath(long_path(str(b)))
     )
+
+
+def _shell_link_target(link: Path) -> str:
+    """The .lnk target through IShellLinkW, which takes any file name."""
+    import pythoncom
+    from win32com.shell import shell as win_shell
+
+    shell_link = pythoncom.CoCreateInstance(
+        win_shell.CLSID_ShellLink, None, pythoncom.CLSCTX_INPROC_SERVER, win_shell.IID_IShellLink
+    )
+    shell_link.QueryInterface(pythoncom.IID_IPersistFile).Load(str(link))
+    return str(shell_link.GetPath(win_shell.SLGP_RAWPATH)[0] or "")
+
+
+def link_target(link: Path, shell) -> str:
+    """WScript.Shell only opens names in the system code page: on a 繁中
+    Windows 「yes-bd2 启动器.lnk」 reads as an empty shortcut (Leo 4K 11-02,
+    the 简体 duplicate stayed on the desktop).  IShellLinkW first."""
+    try:
+        target = _shell_link_target(link)
+        if target:
+            return target
+    except Exception:
+        pass
+    return str(shell.CreateShortcut(str(link)).TargetPath or "")
 
 
 def extra_launcher_shortcuts(desktop: Path, launcher: Path, app_name: str, shell) -> list[Path]:
@@ -68,13 +111,13 @@ def extra_launcher_shortcuts(desktop: Path, launcher: Path, app_name: str, shell
     main = desktop / f"{app_name}.lnk"
     if not main.is_file():
         return []
-    if not same_path(str(shell.CreateShortcut(str(main)).TargetPath or ""), launcher):
+    if not same_path(link_target(main, shell), launcher):
         return []
     extra = []
     for link in sorted(desktop.iterdir()):
         if not link.is_file() or not is_launcher_shortcut_name(link.name, app_name):
             continue
-        if same_path(str(shell.CreateShortcut(str(link)).TargetPath or ""), launcher):
+        if same_path(link_target(link, shell), launcher):
             extra.append(link)
     return extra
 
