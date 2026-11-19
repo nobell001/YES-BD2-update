@@ -29,7 +29,7 @@ from src.ui.quest_ui import install_quest_ui
 
 # This marker is replaced with the Git tag when PyAppify creates the update
 # repository.  Source checkouts always read the project version from pyproject.
-version = "v0.4.4"
+version = "v0.4.5"
 
 
 def runtime_version(project_file: Path | None = None) -> str:
