@@ -20,6 +20,11 @@ def _ensure_system32_in_path() -> None:
 
 _ensure_system32_in_path()
 
+# Before any OCR model is built: OpenVINO's AMX kernels crash some Xeon PCs.
+from src.compat.ocr_cpu_isa import install_no_amx_cap  # noqa: E402
+
+install_no_amx_cap()
+
 from src.compat.ocr_models import install_v6_recognizer  # noqa: E402
 
 install_v6_recognizer()

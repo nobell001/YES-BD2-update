@@ -1494,9 +1494,14 @@ class BaseBD2Task(BaseTask):
             # The run-away dialog already open (a press before this look).
             self.log_info(f"{label}：逃跑确认框开着，按「逃跑」。")
             return self._confirm_flee(label, boxes)
-        if not field_battle.in_battle(boxes):
+        if not field_battle.battle_shown(boxes):
             return "none"
-        self.log_info(f"{label}：撞到怪进了战斗，按 Esc 叫出选单逃跑。")
+        if field_battle.pause_menu(boxes):
+            # The menu already open (an Esc pressed for another reason met
+            # the battle, player summary v0.4.19 2026-11-27): its 逃跑 now.
+            self.log_info(f"{label}：战斗的暂停选单开着，直接按「逃跑」。")
+        else:
+            self.log_info(f"{label}：撞到怪进了战斗，按 Esc 叫出选单逃跑。")
         self.info_set("野外战斗", "逃跑")
         menu = boxes
         esc_sent = True
@@ -1537,6 +1542,15 @@ class BaseBD2Task(BaseTask):
             return f"{pressed}，都没看到「逃跑」（读到：{seen}）"
         self._click_battle_box(flee, after_sleep=1.5)  # 不用确认：_confirm_flee 没见确认框会再点逃跑
         return self._confirm_flee(label, self._battle_boxes())
+
+    def field_battle_on_screen(self) -> bool:
+        """每周跑图 only: a field battle shows in any of its states (fought,
+        its 暂停 menu or run-away dialog open, its result).  Asked before an
+        Esc meant for "another page": in a battle Esc opens the 暂停 menu
+        (player summary v0.4.19 2026-11-27, 第14章战斗区域2)."""
+        if not getattr(self, "FIELD_BATTLE_ESCAPE", False):
+            return False
+        return field_battle.battle_shown(self._battle_boxes())
 
     def _confirm_flee(self, label: str, boxes) -> str:
         """After 「逃跑」: press the dialog's 逃跑 and wait for the map.

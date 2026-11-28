@@ -106,10 +106,12 @@ def _handle_dialog(task, vision: Vision) -> str:
     boxes = vision.ocr_boxes(frame, "恢复主页弹窗")
     if title_screen.shown(boxes, frame.shape):
         return "title"
-    if getattr(task, "FIELD_BATTLE_ESCAPE", False) and field_battle.in_battle(boxes):
+    if getattr(task, "FIELD_BATTLE_ESCAPE", False) and field_battle.battle_shown(boxes):
         # Back, H and Esc do nothing in a battle; Esc even ends the auto
         # battle (live 2K 2026-10-22, 跑图 第14章).  每周跑图 only (Leo
-        # 2026-10-23): other tasks recover as before v0.2.7.
+        # 2026-10-23): other tasks recover as before v0.2.7.  Its 暂停 menu
+        # or run-away dialog open is the same battle (player summary
+        # v0.4.19 2026-11-27): run away, never 点击继续 back into it.
         return "battle"
     press = known_popups.pick(boxes, allow_cancel=True)
     channel_dialog = _channel_dialog(boxes)

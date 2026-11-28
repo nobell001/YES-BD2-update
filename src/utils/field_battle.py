@@ -51,6 +51,18 @@ BATTLE_TEXT = "battle"
 # v0.3.20 2026-11-17: 第14章 回主城 tried the circle, the minimap and ≡ on a
 # battle at TURN.1, and no step looked for the battle).
 BOTTOM_STRIP_RELATIVE_ROI = (0.0, 0.84, 1.0, 1.0)
+# The battle's 暂停 menu itself, already open (player summary v0.4.19
+# 2026-11-27 21:01, 第14章战斗区域2): a press made with the skill bar gone met
+# a battle, the Esc meant for "another page" opened this menu over it, and
+# for 20 s every look (``in_battle``: no TURN, no auto line; the bottom strip:
+# no battle word) took it for no battle.  Its 「逃跑」 with one of these
+# beside it is the menu: 暂停 (title), 重新挑战, 点击继续 (繁中 「繼續」 alone),
+# the 技能过场动画 settings (繁中 「技能詮釋動畫」).
+PAUSE_MENU_TEXTS = (
+    "暂停", "暫停", "重新挑战", "重新挑戰", "点击继续", "點擊繼續",
+    "技能过场动画", "技能過場動畫", "技能诠释动画", "技能詮釋動畫",
+)
+PAUSE_MENU_TEXTS_ALONE = ("继续", "繼續")
 # The battle's pause button (Ⅱ, top right): the same spot in field, fiend
 # hunt and event battles on 1920x1080 (1790, 53).  A mouse press reaches the
 # game behind other windows, Esc does not; it opens the same menu as Esc
@@ -87,12 +99,40 @@ def in_battle(boxes) -> bool:
     return bool(TURN_PATTERN.search(text)) and BATTLE_TEXT in text
 
 
+def pause_menu(boxes) -> bool:
+    """The battle's 暂停 menu is open: its 「逃跑」 and one more word of the
+    menu (two cues; the field never shows 逃跑)."""
+    if flee_button(boxes) is None:
+        return False
+    names = _names(boxes)
+    text = "".join(names)
+    if any(normalize_ocr_text(word) in text for word in PAUSE_MENU_TEXTS):
+        return True
+    alone = tuple(normalize_ocr_text(word) for word in PAUSE_MENU_TEXTS_ALONE)
+    return any(name in alone for name in names)
+
+
+def battle_shown(boxes) -> bool:
+    """A field battle on screen in any of its states: being fought
+    (``in_battle``), its 暂停 menu open, the run-away dialog open, or its
+    result (「离开」).  What a 跑图 step must leave before anything else."""
+    return (
+        in_battle(boxes)
+        or pause_menu(boxes)
+        or leave_button(boxes) is not None
+        or flee_confirm_button(boxes) is not None
+    )
+
+
 def bottom_strip_cue(boxes) -> bool:
     """Any one battle word read in the bottom strip (BOTTOM_STRIP_RELATIVE_ROI):
-    worth the full look (``in_battle`` / ``leave_button``) before a map step."""
+    worth the full look (``in_battle`` / ``leave_button``) before a map step.
+    The open 暂停 menu counts too: its 逃跑 / 重新挑战 / 点击继续 sit there."""
     names = _names(boxes)
     text = "".join(names)
     if BATTLE_TEXT in text or TURN_PATTERN.search(text):
+        return True
+    if pause_menu(boxes):
         return True
     if any(normalize_ocr_text(word) in text for word in AUTO_TEXTS):
         return True

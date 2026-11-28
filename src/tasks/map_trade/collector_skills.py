@@ -134,6 +134,9 @@ SEARCH_END_WAIT_INTERVAL = 0.5
 SLOT_ICON_SIZE = 70 / 1080
 # The stand-in detection for a washed-out icon pressed at its fixed slot.
 SLOT_REASON = "固定栏位：图标被背景干扰，以次数判断"
+# A press after which the bar was gone because a field battle began: the
+# collector's _leave_battle runs away and does the map again.
+BATTLE_AFTER_PRESS_MESSAGE = "按下去后撞到怪进了战斗，逃跑后重做这张图"
 
 
 def relative_roi_center(
@@ -567,16 +570,30 @@ class SkillExecutionMixin:
         texts = getattr(getattr(self, "_last_count_read", None), "texts", ()) or ()
         return any(re.search(r"\d", str(text)) for text in texts)
 
-    def _left_field_after_blind_press(self, action: SkillAction) -> bool:
+    def _left_field_after_blind_press(self, action: SkillAction) -> str:
         """A press made without its icon seen opened another page (live 4K
         2026-11-09: a potion skill in slot 4 opened 炼金术): the skill bar is
         gone on two looks.  Then Esc once, and the slot is not pressed blind
-        again this run (Leo 2026-11-09 「修完 不要再有同類錯誤」)."""
+        again this run (Leo 2026-11-09 「修完 不要再有同類錯誤」): "page".
+
+        "battle" when the bar is gone because a field battle began (player
+        summary v0.4.19 2026-11-27 21:00, 第14章战斗区域2): no Esc (in a
+        battle it opens the 暂停 menu, which no later look knew, and the run
+        sat on it until the still-screen guard), the slot stays allowed;
+        the caller hands the map to the run-away and its redo.  "" when
+        the bar is still there."""
         for look in range(2):
             if self._skill_bar_on_screen():
-                return False
+                return ""
             if look == 0:
                 self.task.sleep(PIPELINE_RECHECK_SECONDS)
+        battle = getattr(self.task, "field_battle_on_screen", None)
+        if callable(battle) and battle():
+            self.task.log_info(
+                f"地图采集：按{action.name}后技能栏不见了，是撞到怪进了战斗（不是别的页面），"
+                "不按 Esc，先逃跑再重做这张图。"
+            )
+            return "battle"
         bad = getattr(self, "_bad_slots", None)
         if bad is None:
             bad = self._bad_slots = set()
@@ -588,7 +605,7 @@ class SkillExecutionMixin:
         tap = getattr(self.task, "tap_escape", None)
         if tap is not None:
             tap(after_sleep=1.0)
-        return True
+        return "page"
 
     def _skill_bar_on_screen(self) -> bool:
         frame = self.vision.capture()
@@ -1019,11 +1036,14 @@ class SkillExecutionMixin:
         self._search_pressed_at = monotonic()
         self._dim_waited_at = None
         feedback = self._read_action_feedback(search_action)
-        if (
-            not clear
-            and feedback.outcome != "success"
-            and self._left_field_after_blind_press(search_action)
-        ):
+        left = (
+            self._left_field_after_blind_press(search_action)
+            if not clear and feedback.outcome != "success"
+            else ""
+        )
+        if left == "battle":
+            return SkillExecutionResult(False, message=BATTLE_AFTER_PRESS_MESSAGE)
+        if left:
             return SkillExecutionResult(
                 False,
                 message="技能栏第1格按下去打开了别的页面（那格不是探查），已按 Esc 退回，"
@@ -1475,7 +1495,7 @@ class SkillExecutionMixin:
         )
         clicked = []
         last_click_at = None
-        for action, frame, detection, before in armed:
+        for armed_at, (action, frame, detection, before) in enumerate(armed):
             if clicked:
                 last_click_at = self._settle_before_next_press(clicked, action, last_click_at)
             if action.name == ABSORB_ACTION.name:
@@ -1513,7 +1533,17 @@ class SkillExecutionMixin:
             self.progress.mark_action_clicked(card_id, map_role, action.name)
             self._note_click_point(action, detection.match.center, frame)
             feedback = self._read_action_feedback(action)
-            if detection.reason == SLOT_REASON and self._left_field_after_blind_press(action):
+            left = self._left_field_after_blind_press(action) if detection.reason == SLOT_REASON else ""
+            if left == "battle":
+                # Nothing more is pressed on a battle screen; every press of
+                # this map is done again after the run-away (the collector's
+                # _leave_battle, 压制 first).
+                for pressed in [entry[0] for entry in clicked + armed[armed_at:]]:
+                    self.progress.mark_action_void(
+                        card_id, map_role, pressed.name, "撞到怪进了战斗，逃跑后重做"
+                    )
+                return results + [SkillExecutionResult(False, message=BATTLE_AFTER_PRESS_MESSAGE)]
+            if left:
                 self.progress.mark_action_void(
                     card_id, map_role, action.name, "按下去打开了别的页面，已退回"
                 )
